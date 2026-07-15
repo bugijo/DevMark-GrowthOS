@@ -18,4 +18,3 @@ def test_seed_is_idempotent_and_uses_distinct_client_credentials() -> None:
         admin = session.scalar(select(User).where(User.email == "admin@devmark.local"))
         assert admin is not None
         assert client.password_hash != admin.password_hash
-

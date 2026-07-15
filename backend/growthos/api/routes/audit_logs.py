@@ -28,4 +28,3 @@ def list_audit_logs(
     elif business_id is not None:
         query = query.where(AuditLog.business_id == business_id)
     return list(session.scalars(query.order_by(AuditLog.created_at.desc()).limit(limit)).all())
-

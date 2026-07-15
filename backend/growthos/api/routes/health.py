@@ -16,4 +16,3 @@ def health(
 ) -> HealthRead:
     session.execute(text("SELECT 1"))
     return HealthRead(status="ok", database="ok", provider=settings.ai_provider)
-

@@ -33,4 +33,3 @@ ALLOWED_TRANSITIONS: dict[ContentStatus, frozenset[ContentStatus]] = {
 def validate_transition(current: ContentStatus, target: ContentStatus) -> None:
     if target not in ALLOWED_TRANSITIONS[current]:
         raise InvalidContentTransition(f"Transição inválida: {current} -> {target}")
-

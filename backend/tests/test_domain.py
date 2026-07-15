@@ -27,4 +27,3 @@ def test_mock_provider_is_deterministic_and_offline() -> None:
     )
     assert provider.generate(request) == provider.generate(request)
     assert provider.generate(request).provider_name == "mock"
-

@@ -90,4 +90,3 @@ def test_client_reviewer_cannot_create_another_reviewer(client: TestClient) -> N
         headers=csrf_headers(csrf),
     )
     assert response.status_code == 403
-

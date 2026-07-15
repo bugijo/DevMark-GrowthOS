@@ -35,9 +35,7 @@ class Membership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     user_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    role: Mapped[Role] = mapped_column(
-        Enum(Role, native_enum=False, length=40), nullable=False
-    )
+    role: Mapped[Role] = mapped_column(Enum(Role, native_enum=False, length=40), nullable=False)
     business_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE"), nullable=True
     )

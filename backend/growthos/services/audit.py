@@ -28,4 +28,3 @@ def add_audit_log(
     )
     session.add(entry)
     return entry
-

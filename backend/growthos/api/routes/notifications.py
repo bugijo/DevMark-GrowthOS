@@ -57,4 +57,3 @@ def mark_notification_read(
         )
         session.commit()
     return notification
-

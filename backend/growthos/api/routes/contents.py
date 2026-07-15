@@ -427,4 +427,3 @@ def request_changes(
     )
     session.commit()
     return _serialize(session, content)
-

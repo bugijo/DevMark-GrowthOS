@@ -38,4 +38,3 @@ class MockTextProvider:
             f"pensado para {audience}. Tom: {tone}. {cta}"
         )
         return TextGenerationResult(title, caption, audience, cta, self.name)
-

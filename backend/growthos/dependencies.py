@@ -54,10 +54,7 @@ def get_current_context(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão inválida ou revogada")
     user, membership, organization = row
     expected_business = str(membership.business_id) if membership.business_id else None
-    if (
-        claims.get("role") != membership.role.value
-        or claims.get("business") != expected_business
-    ):
+    if claims.get("role") != membership.role.value or claims.get("business") != expected_business:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão desatualizada")
     return AuthContext(user, membership, organization, claims)
 
@@ -73,8 +70,7 @@ def require_csrf(
     if not x_csrf_token or not cookie_token:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Token CSRF ausente")
     if not (
-        hmac.compare_digest(x_csrf_token, expected)
-        and hmac.compare_digest(cookie_token, expected)
+        hmac.compare_digest(x_csrf_token, expected) and hmac.compare_digest(cookie_token, expected)
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Token CSRF inválido")
     return context
@@ -99,4 +95,3 @@ def get_scoped_business(session: Session, context: AuthContext, business_id: UUI
     if limited_business is not None and limited_business != business.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente não encontrado")
     return business
-

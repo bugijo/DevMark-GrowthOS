@@ -69,9 +69,9 @@ def _prepare_content(client: TestClient) -> tuple[dict[str, object], dict[str, s
     assert content["current_version"]["provider_name"] == "mock"
     assert "Clínica Feliz" in content["current_version"]["title"]
     assert (
-        client.post(
-            f"/api/v1/contents/{content['id']}/submit-internal", headers=headers
-        ).json()["status"]
+        client.post(f"/api/v1/contents/{content['id']}/submit-internal", headers=headers).json()[
+            "status"
+        ]
         == "INTERNAL_REVIEW"
     )
     sent = client.post(f"/api/v1/contents/{content['id']}/send-to-client", headers=headers)
