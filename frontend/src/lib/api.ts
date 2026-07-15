@@ -4,6 +4,7 @@ import type {
   BrandProfile,
   Business,
   ContentItem,
+  ContentRevisionInput,
   ListEnvelope,
   LoginResponse,
   MeResponse,
@@ -243,6 +244,11 @@ export const api = {
       apiRequest<ContentItem>(`/contents/${id}/request-changes`, {
         method: "POST",
         body: JSON.stringify({ comment }),
+      }),
+    createRevision: (id: string, input: ContentRevisionInput) =>
+      apiRequest<ContentItem>(`/contents/${id}/revisions`, {
+        method: "POST",
+        body: JSON.stringify(input),
       }),
   },
   notifications: {

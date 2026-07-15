@@ -24,6 +24,7 @@ const ACTION_LABELS: Record<string, string> = {
   "content.sent_to_client": "Enviado para o cliente",
   "content.approved_by_client": "Aprovado pelo cliente",
   "content.changes_requested": "Alteração solicitada",
+  "content.revision_created": "Nova versão criada",
   "notification.read": "Notificação lida",
 };
 

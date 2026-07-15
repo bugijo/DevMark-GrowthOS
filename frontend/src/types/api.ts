@@ -107,9 +107,16 @@ export interface ContentItem {
   organization_id?: string;
   business_id: string;
   status: ContentStatus;
+  change_request_comment?: string | null;
   current_version: ContentVersion;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface ContentRevisionInput {
+  title: string;
+  caption: string;
+  cta: string;
 }
 
 export interface Notification {

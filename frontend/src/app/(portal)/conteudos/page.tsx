@@ -254,8 +254,7 @@ export default function ContentsPage() {
               content={content}
               businessName={businessById.get(content.business_id)}
             >
-              {canManage &&
-              ["DRAFT", "CHANGES_REQUESTED"].includes(content.status) ? (
+              {canManage && content.status === "DRAFT" ? (
                 <Button
                   variant="secondary"
                   busy={actionId === content.id}

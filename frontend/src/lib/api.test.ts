@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   ApiError,
+  api,
   apiRequest,
   clearStoredSession,
   extractItems,
@@ -55,6 +56,31 @@ describe("apiRequest", () => {
         status: 403,
       }),
     );
+  });
+
+  it("cria uma revisão real com os campos editados", async () => {
+    storeCsrfToken("csrf-456");
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ id: "content-1", status: "DRAFT" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await api.contents.createRevision("content-1", {
+      title: "Novo título",
+      caption: "Nova legenda",
+      cta: "Agende agora",
+    });
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/contents/content-1/revisions");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      title: "Novo título",
+      caption: "Nova legenda",
+      cta: "Agende agora",
+    });
   });
 });
 

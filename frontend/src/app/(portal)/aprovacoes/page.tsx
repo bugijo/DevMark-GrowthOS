@@ -3,13 +3,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ContentCard } from "@/components/content/content-card";
+import { RevisionForm } from "@/components/content/revision-form";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Textarea } from "@/components/ui/form-controls";
 import { PageHeader } from "@/components/ui/page";
 import { useAuth } from "@/contexts/auth-context";
 import { api, extractItems } from "@/lib/api";
-import type { Business, ContentItem } from "@/types/api";
+import type {
+  Business,
+  ContentItem,
+  ContentRevisionInput,
+} from "@/types/api";
 
 export default function ApprovalsPage() {
   const { activeOrganizationId, roles } = useAuth();
@@ -71,7 +76,7 @@ export default function ApprovalsPage() {
 
   async function act(
     content: ContentItem,
-    action: "approve" | "changes" | "send" | "resubmit",
+    action: "approve" | "changes" | "send",
   ) {
     const comment = comments[content.id]?.trim() ?? "";
     if (action === "changes" && !comment) {
@@ -87,10 +92,8 @@ export default function ApprovalsPage() {
       if (action === "approve") updated = await api.contents.approve(content.id);
       else if (action === "changes") {
         updated = await api.contents.requestChanges(content.id, comment);
-      } else if (action === "send") {
-        updated = await api.contents.sendToClient(content.id);
       } else {
-        updated = await api.contents.submitInternal(content.id);
+        updated = await api.contents.sendToClient(content.id);
       }
 
       setContents((current) =>
@@ -99,9 +102,8 @@ export default function ApprovalsPage() {
       setComments((current) => ({ ...current, [content.id]: "" }));
       const messages = {
         approve: "Conteúdo aprovado. A equipe foi notificada.",
-        changes: "Pedido de alteração enviado e nova versão registrada.",
+        changes: "Pedido de alteração registrado. A equipe foi notificada.",
         send: "Conteúdo enviado para o cliente revisar.",
-        resubmit: "Nova versão enviada para revisão interna.",
       };
       setSuccess(messages[action]);
     } catch (requestError) {
@@ -109,6 +111,32 @@ export default function ApprovalsPage() {
         requestError instanceof Error
           ? requestError.message
           : "Não foi possível registrar a decisão.",
+      );
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function createRevision(
+    content: ContentItem,
+    input: ContentRevisionInput,
+  ) {
+    setActionId(content.id);
+    setError(null);
+    setSuccess(null);
+    try {
+      const updated = await api.contents.createRevision(content.id, input);
+      setContents((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setSuccess(
+        "Novo rascunho criado. Revise-o na área Conteúdos antes de enviá-lo para revisão interna.",
+      );
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Não foi possível criar a nova versão.",
       );
     } finally {
       setActionId(null);
@@ -191,12 +219,12 @@ export default function ApprovalsPage() {
               ) : null}
 
               {isAgencyManager && content.status === "CHANGES_REQUESTED" ? (
-                <Button
+                <RevisionForm
+                  key={content.current_version.id}
+                  content={content}
                   busy={actionId === content.id}
-                  onClick={() => void act(content, "resubmit")}
-                >
-                  Enviar nova versão para revisão interna
-                </Button>
+                  onSubmit={(input) => createRevision(content, input)}
+                />
               ) : null}
 
               {isAgencyManager && content.status === "CLIENT_REVIEW" ? (
