@@ -178,7 +178,7 @@ Estes critérios são obrigatórios e não podem ser substituídos por porcentag
 | `CAV1-10` | O conteúdo passa por revisão interna. |
 | `CAV1-11` | O cliente é notificado. |
 | `CAV1-12` | O cliente aprova ou pede alteração. |
-| `CAV1-13` | A alteração cria nova versão. |
+| `CAV1-13` | A correção após o feedback cria nova versão. |
 | `CAV1-14` | O cliente aprova a nova versão. |
 | `CAV1-15` | O conteúdo aparece no calendário. |
 | `CAV1-16` | A publicação pode ser marcada manualmente como publicada. |

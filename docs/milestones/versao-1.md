@@ -6,16 +6,51 @@ Os milestones são gates sequenciais, não datas prometidas. Um milestone termin
 
 Estados: `PLANNED`, `IN_PROGRESS`, `DONE` e `BLOCKED`.
 
-| Milestone | Estado inicial | Resultado demonstrável | Depende de |
+| Milestone | Estado atual | Resultado demonstrável | Depende de |
 |---|---|---|---|
-| `M0` Documentação e decisões | `PLANNED` | Escopo, arquitetura e plano entendidos por outra pessoa | — |
-| `M1` Fundação executável | `PLANNED` | Monorepo sobe e valida código/testes em modo local | `M0` |
-| `M2` Identidade e isolamento | `PLANNED` | Login e organização funcionam sem vazamento entre tenants | `M1` |
-| `M3` Cliente e Brand Kit | `PLANNED` | Agência cadastra cliente e marca reais | `M2` |
-| `M4` Conteúdo mock versionado | `PLANNED` | Agência gera e edita conteúdo sem API paga | `M3` |
-| `M5` Fluxo vertical de aprovação | `PLANNED` | Cliente recebe, decide e a equipe é notificada com auditoria | `M4` |
+| `M0` Documentação e decisões | `DONE` | Escopo, arquitetura e plano entendidos por outra pessoa | — |
+| `M1` Fundação executável | `DONE` | Monorepo sobe e valida código/testes em modo local | `M0` |
+| `M2` Identidade e isolamento | `IN_PROGRESS` | Login, sessão, organização e RBAC básico funcionam; convite seguro e recuperação estão pendentes | `M1` |
+| `M3` Cliente e Brand Kit | `IN_PROGRESS` | Cadastro e Brand Kit básico funcionam; onboarding e convite do cliente ainda são provisórios | `M2` |
+| `M4` Conteúdo mock versionado | `IN_PROGRESS` | Conteúdo mock e versões do fluxo mínimo funcionam; editor e geração ampliada ainda faltam | `M3` |
+| `M5` Fluxo vertical de aprovação | `DONE` | Cliente recebe, decide e a equipe é notificada com auditoria | `M4` mínimo |
 | `M6` Escopo completo da clínica piloto | `PLANNED` | Estratégia, calendário, visual, e-mail, publicação manual e relatório funcionam | `M5` |
 | `M7` Hardening e release 1.0 | `PLANNED` | Os 25 critérios finais têm evidência e a release pode ser operada | `M6` |
+
+O trabalho foi priorizado por uma fatia vertical: os núcleos de `M2`, `M3` e `M4` necessários para `M5` foram implementados, mas esses milestones continuam abertos porque seus aceites mais amplos ainda não foram atendidos.
+
+## Evidências do primeiro ciclo
+
+O primeiro fluxo vertical foi executado com os dois usuários demo, PostgreSQL, API, frontend e provider mock. Foram verificados:
+
+- login, organização, cliente e Brand Kit básico;
+- conteúdo mock, revisão interna e envio ao cliente;
+- aprovação e pedido de alteração com nova versão;
+- notificações do cliente e da agência;
+- audit log e negação de acessos fora do escopo;
+- interface móvel e proxy de sessão/CSRF;
+- worker com lease, retry, backoff, timeout e handlers console/mock.
+
+Resultados automatizados:
+
+| Área | Evidência |
+|---|---:|
+| Backend | 28 testes aprovados |
+| Worker | 7 testes aprovados |
+| Frontend | 15 testes aprovados |
+| E2E | 3 cenários aprovados |
+
+Ruff, mypy, ESLint, TypeScript, builds, Compose e auditorias passaram. A CI está configurada para repetir esses gates. A versão 1.0 não está pronta: convite/recuperação, presets, estratégia, calendário, imagens/upload, e-mail real, publicação manual, relatórios e os demais aceites de `M6`/`M7` permanecem pendentes.
+
+Comandos oficiais:
+
+```bash
+make setup   # Docker-only: sobe, migra, semeia e aguarda healthchecks
+make install # requer Python 3.12 + python3.12-venv + Node.js 22/npm
+make lint
+make test
+make e2e     # Docker-only
+```
 
 ## Regra comum de saída
 
@@ -59,12 +94,7 @@ Além dos aceites específicos, cada milestone exige:
 **Validação:**
 
 ```bash
-test -f README.md
-test -f AGENTS.md
-test -f .env.example
-test -d docs/ADR
-find docs -maxdepth 2 -type f -name '*.md' | sort
-git diff --check
+make validate
 ```
 
 ## M1 — Fundação executável
@@ -87,11 +117,11 @@ git diff --check
 
 **Critérios de saída:**
 
-- `docker compose up --build -d` deixa serviços saudáveis em ambiente limpo;
+- `make setup` deixa serviços saudáveis em ambiente limpo;
 - migrações sobem desde banco vazio e seed pode rodar duas vezes;
 - frontend e `/docs` da API respondem;
 - worker processa um job de teste e registra sucesso/falha/retry;
-- CI e comandos locais de lint, tipos e teste passam sem internet externa;
+- CI e comandos locais de lint, tipos e teste passam sem provider externo ou API paga;
 - `.env.example` basta para iniciar e nenhum segredo está versionado.
 
 **Demonstração:** abrir frontend e OpenAPI, inserir um job fictício, mostrar execução pelo worker e consultar o registro persistido após reiniciar os contêineres.
@@ -99,16 +129,15 @@ git diff --check
 **Validação:**
 
 ```bash
-cp -n .env.example .env
-docker compose config
-docker compose up --build -d
-docker compose ps
-docker compose exec backend alembic upgrade head
-docker compose exec backend pytest
-docker compose exec frontend npm run lint
-docker compose exec frontend npm run typecheck
-docker compose exec frontend npm run test
+make setup
+make status
+make install
+make lint
+make test
+make e2e
 ```
+
+`make setup` e `make e2e` usam somente Docker. Os outros gates de desenvolvimento exigem Python 3.12 com `venv`, Node.js 22 e npm no host.
 
 ## M2 — Identidade e isolamento multiempresa
 
@@ -141,16 +170,17 @@ docker compose exec frontend npm run test
 **Validação:**
 
 ```bash
-docker compose exec backend pytest -m 'auth or tenancy or permissions'
-docker compose exec frontend npm run test
-docker compose logs --since=5m backend
+make install
+make lint
+make test
+make e2e
 ```
 
 ## M3 — Cliente e Brand Kit básico
 
 **Objetivo:** permitir que a agência represente a clínica piloto e sua identidade com dados reais da aplicação.
 
-**Entrada:** `M2` concluído; usuário interno e revisor de cliente disponíveis no seed.
+**Entrada:** núcleo funcional de `M2` entregue; usuário interno e revisor de cliente disponíveis no seed.
 
 **Itens do backlog:** `V1-DAT-005` na parte necessária, `V1-CLI-001`, `V1-CLI-002`, `V1-BRD-001`, `V1-UI-002`.
 
@@ -170,22 +200,24 @@ docker compose logs --since=5m backend
 - revisor vinculado vê somente sua empresa e não edita campos proibidos;
 - duplicidade e entradas inválidas retornam mensagem útil sem alteração parcial;
 - cadastro, alteração e vínculo são auditados;
-- CAV1-01 e CAV1-04 têm evidência; CAV1-02 e CAV1-03 permanecem demonstráveis pelo fluxo de convite/login.
+- CAV1-01, CAV1-03 e CAV1-04 têm evidência com os dados demo; CAV1-02 permanece pendente até existir convite seguro de uso único.
 
-**Demonstração:** pela interface, criar a “Clínica Veterinária Demo”, preencher identidade básica, sair e entrar como revisor para visualizar somente essa marca.
+**Demonstração:** pela interface, criar uma clínica fictícia e preencher sua identidade básica; usar o cliente demo já vinculado para comprovar a visualização limitada do revisor.
 
 **Validação:**
 
 ```bash
-docker compose exec backend pytest -m 'businesses or brand or tenancy'
-docker compose exec frontend npm run test
+make install
+make lint
+make test
+make e2e
 ```
 
 ## M4 — Conteúdo mock versionado
 
 **Objetivo:** produzir conteúdo persistido, editável e rastreável sem API paga.
 
-**Entrada:** `M3` concluído; cliente e Brand Kit válidos disponíveis.
+**Entrada:** núcleo funcional de `M3` entregue; cliente e Brand Kit válidos disponíveis.
 
 **Itens do backlog:** `V1-PRV-001`, `V1-PRV-002`, `V1-CNT-003`, `V1-CNT-004`, `V1-UI-003`, continuação de `V1-APR-004`.
 
@@ -212,16 +244,17 @@ docker compose exec frontend npm run test
 **Validação:**
 
 ```bash
-docker compose exec backend pytest -m 'providers or content or versions'
-docker compose exec worker pytest
-docker compose exec frontend npm run test
+make install
+make lint
+make test
+make e2e
 ```
 
 ## M5 — Primeiro fluxo vertical de aprovação
 
 **Objetivo:** fechar o menor ciclo de negócio completo entre agência e cliente.
 
-**Entrada:** `M4` concluído; usuário interno, cliente, marca e conteúdo versionado disponíveis.
+**Entrada:** núcleos funcionais de `M2` a `M4` entregues; usuário interno, cliente, marca e conteúdo versionado disponíveis.
 
 **Itens do backlog:** `V1-APR-001`, `V1-APR-002`, `V1-APR-003`, conclusão de `V1-APR-004`, `V1-NTF-001`, `V1-UI-004`, `V1-TST-001`.
 
@@ -250,10 +283,13 @@ docker compose exec frontend npm run test
 **Validação:**
 
 ```bash
-docker compose exec backend pytest -m 'approvals or notifications or audit'
-docker compose run --rm e2e --grep 'fluxo vertical'
-docker compose exec frontend npm run test
+make install
+make lint
+make test
+make e2e
 ```
+
+No primeiro ciclo, os 3 cenários Playwright passaram usando as credenciais demo e sem API paga, incluindo o fluxo completo pela interface.
 
 **Checkpoint obrigatório ao proprietário:** explicar em português simples o que já funciona, deixar claro que ainda não existe publicação real, ensinar o roteiro de teste e listar riscos antes de ampliar o escopo.
 
@@ -292,12 +328,10 @@ docker compose exec frontend npm run test
 **Validação:**
 
 ```bash
-docker compose exec backend pytest
-docker compose exec worker pytest
-docker compose exec frontend npm run lint
-docker compose exec frontend npm run typecheck
-docker compose exec frontend npm run test
-docker compose run --rm e2e
+make install
+make lint
+make test
+make e2e
 ```
 
 ## M7 — Hardening, operação e release 1.0
@@ -335,18 +369,13 @@ docker compose run --rm e2e
 **Validação final:**
 
 ```bash
-docker compose down -v
-cp .env.example .env
-docker compose build --pull
-docker compose up -d
-docker compose exec backend alembic upgrade head
-docker compose exec backend pytest
-docker compose exec worker pytest
-docker compose exec frontend npm run lint
-docker compose exec frontend npm run typecheck
-docker compose exec frontend npm run test
-docker compose run --rm e2e
-docker compose ps
+make reset
+make setup
+make install
+make lint
+make test
+make e2e
+make status
 git diff --check
 ```
 

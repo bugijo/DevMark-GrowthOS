@@ -128,7 +128,7 @@ A versão 1.0 só pode ser declarada pronta quando todos os itens abaixo tiverem
 10. **V1-10:** o conteúdo passa por revisão interna.
 11. **V1-11:** o cliente correto é notificado.
 12. **V1-12:** o cliente aprova ou pede alteração da versão atual.
-13. **V1-13:** o pedido de alteração cria nova versão e preserva a anterior.
+13. **V1-13:** a correção após o pedido de alteração cria nova versão e preserva a anterior.
 14. **V1-14:** o cliente aprova a nova versão.
 15. **V1-15:** o conteúdo aprovado aparece no calendário.
 16. **V1-16:** um usuário autorizado marca manualmente o conteúdo como publicado.
@@ -172,4 +172,3 @@ Uma etapa está concluída quando código, migrations, testes, documentação e 
 - testes com credenciais pessoais ou produção de clientes;
 - garantia de disponibilidade ou qualidade de um provider externo desativado;
 - autonomia de escrita sem aprovação humana.
-

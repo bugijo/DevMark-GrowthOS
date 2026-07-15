@@ -14,13 +14,18 @@ Leia antes de começar:
 Use Docker Compose como caminho principal:
 
 ```bash
-cp .env.example .env
-docker compose config
-docker compose up --build -d
-docker compose exec backend alembic upgrade head
+make setup
 ```
 
-O modo local deve usar providers mock. Nunca é necessário inserir uma chave paga para desenvolver ou executar testes.
+`make setup` usa apenas GNU Make, Docker e Docker Compose. Ele prepara `.env`, constrói a stack, aplica migrações, carrega dados fictícios e aguarda os healthchecks. Nunca é necessário inserir uma chave paga.
+
+Para desenvolver e executar os gates unitários no host:
+
+```bash
+make install
+```
+
+Esse comando requer Python 3.12 com `venv` — normalmente `python3.12-venv` em Debian/Ubuntu — além de Node.js 22 e npm. `make e2e` é Docker-only e não depende dessa instalação local.
 
 ## Escolher e implementar uma mudança
 
@@ -49,18 +54,24 @@ Tipos aceitos: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci` e `secur
 
 ## Qualidade mínima
 
-Execute os comandos aplicáveis antes de enviar:
+Depois de `make install`, execute:
 
 ```bash
-docker compose config
-docker compose exec backend pytest
-docker compose exec frontend npm run lint
-docker compose exec frontend npm run typecheck
-docker compose exec frontend npm run test
-docker compose run --rm e2e
+make lint
+make test
 ```
 
-Uma mudança não está pronta quando o teste foi ignorado por falta de configuração. Corrija o ambiente ou registre claramente o bloqueio. A suíte padrão não acessa rede externa nem API paga.
+Para validar o fluxo vertical real em contêineres:
+
+```bash
+make e2e
+```
+
+As imagens de produção do backend e frontend são enxutas e não carregam pytest, Ruff, mypy, ESLint ou Vitest. Por isso, não tente executar essas ferramentas com `docker compose exec` dentro das imagens. Os alvos do Makefile reproduzem o fluxo correto usado pela CI.
+
+Uma mudança não está pronta quando um teste foi ignorado por falta de configuração. Corrija o ambiente ou registre claramente o bloqueio. A suíte usa provider mock e não acessa API paga.
+
+Linha de base verificada no primeiro ciclo: 28 testes de backend, 7 de worker, 15 de frontend e 3 cenários E2E. Novas mudanças não podem reduzir silenciosamente essa cobertura funcional.
 
 ## Banco e migrações
 
@@ -69,6 +80,7 @@ Uma mudança não está pronta quando o teste foi ignorado por falta de configur
 - Seeds são idempotentes e contêm somente dados fictícios.
 - Evite operações destrutivas; quando inevitáveis, documente backup, impacto e recuperação.
 - Verifique índices e vínculo à organização em toda nova entidade multiempresa.
+- Use `make migrate` e `make seed` contra a stack local; nunca execute o seed demo em produção.
 
 ## Testes esperados
 
@@ -102,6 +114,7 @@ Checklist:
 - [ ] Papéis e transições validados.
 - [ ] Audit log criado quando necessário.
 - [ ] Lint, tipos e testes passam.
+- [ ] `make e2e` passa quando o fluxo vertical foi afetado.
 - [ ] Nenhum segredo ou dado real foi incluído.
 - [ ] Documentação e changelog foram atualizados.
 - [ ] Estados vazios, erros e mobile foram considerados.

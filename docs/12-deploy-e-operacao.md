@@ -44,6 +44,8 @@ Deve reproduzir a configuração de produção com dados fictícios ou anonimiza
 ### Produção
 
 - TLS obrigatório no ponto de entrada;
+- `APP_ENV=production`, `SESSION_COOKIE_SECURE=true` e `SEED_DEMO_DATA=false` obrigatórios;
+- segredo de autenticação aleatório, com pelo menos 32 caracteres e sem valor local/demo;
 - segredos fornecidos fora da imagem;
 - banco e armazenamento com backup;
 - domínio, CORS, cookies e origens restritos;
@@ -51,6 +53,12 @@ Deve reproduzir a configuração de produção com dados fictícios ou anonimiza
 - réplicas de aplicação stateless quando necessário;
 - observabilidade, alertas e retenção configurados;
 - provider real ativado somente após avaliação e autorização.
+
+O backend valida esses guardrails ao iniciar e encerra com erro seguro se a
+configuração de produção reutilizar segredo local, cookie inseguro, seed demo ou um
+provider de IA ainda não suportado. O provider `mock` continua permitido — e é o
+único provider de IA habilitado neste ciclo — inclusive em produção. A mensagem de
+erro identifica a variável inválida sem imprimir seu valor.
 
 ## Configuração
 
@@ -92,7 +100,9 @@ O `README.md` é a referência para portas e comandos exatos. Alterações nesse
 - A aplicação deve falhar de forma clara quando o schema for incompatível.
 - Mudanças destrutivas usam estratégia expandir/migrar/contrair, com backup e plano de rollback.
 - Seed é idempotente ou detecta execução anterior e usa apenas dados fictícios.
-- Conta demo não deve existir em produção por padrão.
+- Seed e conta demo são bloqueados em produção, inclusive quando o comando de seed é
+  chamado diretamente. Em desenvolvimento, senhas e e-mails das duas identidades
+  demo precisam ser distintos e as senhas devem ter ao menos 12 caracteres.
 
 ## Health checks e prontidão
 

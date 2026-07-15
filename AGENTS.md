@@ -11,6 +11,12 @@ Este arquivo orienta pessoas e agentes de programação em todo o repositório. 
 - O sistema precisa funcionar integralmente com providers mock e sem API paga.
 - Não crie apenas telas demonstrativas: toda tela entregue deve usar API, persistência e autorização reais.
 
+### Estado atual
+
+O primeiro ciclo vertical está executável: login, organização, cliente, Brand Kit básico, conteúdo mock, revisão, decisão do cliente, notificações e auditoria. Não trate isso como versão 1.0 concluída.
+
+Permanecem pendentes, entre outros: convite seguro, recuperação de senha, presets, estratégia, calendário, imagens/upload, e-mail real, preferências de notificação, publicação manual, relatórios, Centro de Integrações e hardening final. O cadastro direto de revisor existente é provisório e não substitui convite de uso único.
+
 ## 2. Arquitetura
 
 Use o monorepo com responsabilidades claras:
@@ -139,20 +145,24 @@ Todo bug corrigido deve ganhar um teste que falhava antes. Não use API paga nem
 Antes de concluir uma mudança, execute o conjunto proporcional ao risco e, antes de integrar:
 
 ```bash
-docker compose config
-docker compose exec backend pytest
-docker compose exec frontend npm run lint
-docker compose exec frontend npm run typecheck
-docker compose exec frontend npm run test
-docker compose run --rm e2e
+make install
+make lint
+make test
+make e2e
 ```
 
-Se um comando ainda não existir durante o scaffold, crie-o no milestone responsável e documente temporariamente a lacuna; não declare a etapa pronta.
+`make install`, `make lint` e `make test` usam o host e exigem Python 3.12 com `venv`, Node.js 22 e npm. Em Debian/Ubuntu, instale `python3.12-venv` quando necessário. `make setup` e `make e2e` usam somente Docker.
+
+As imagens de aplicação são imagens de execução, não ambientes de desenvolvimento. Não instale nem execute pytest, Ruff, mypy, ESLint ou Vitest dentro dos contêineres de produção; use os alvos do Makefile e a CI.
+
+Linha de base do primeiro ciclo: backend 28 testes, worker 7, frontend 15 e E2E 3. Ruff, mypy, ESLint, TypeScript, builds e auditorias passaram. Preserve ou amplie essa evidência.
 
 ## 11. Migrações, seed e operação local
 
-- Suba a stack com `cp .env.example .env && docker compose up --build -d`.
-- Aplique migrações com `docker compose exec backend alembic upgrade head`.
+- Suba e aguarde a stack com `make setup`; esse fluxo usa Docker, aplica migrações e carrega o seed fictício quando habilitado.
+- Use `make status`, `make logs` e `make down` para operação cotidiana.
+- Use `make migrate` e `make seed` quando precisar executá-los explicitamente.
+- Use `make reset` somente com intenção clara de apagar os volumes locais.
 - Seeds são idempotentes, fictícios e limitados ao ambiente local/teste.
 - Não execute seed ou reset destrutivo automaticamente em produção.
 - Healthchecks devem distinguir processo ativo de dependências prontas.

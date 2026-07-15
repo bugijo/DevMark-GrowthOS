@@ -1,150 +1,215 @@
 # DevMark GrowthOS
 
-Central operacional multiempresa da DevMark IA para planejar, produzir, revisar e acompanhar marketing com apoio de inteligência artificial. O produto é coordenado pelo **Growth Agent** e deve ser simples o bastante para equipes e clientes sem conhecimento técnico.
+Central operacional multiempresa da DevMark IA para criar, revisar e aprovar conteúdo com apoio de inteligência artificial e controle humano.
 
-> Status: fundação da versão 1.0 em construção. O primeiro objetivo executável é provar o fluxo completo entre agência e cliente com providers mock, sem depender de API paga.
+> **Status:** primeiro ciclo executável concluído. O fluxo vertical mínimo funciona de ponta a ponta com provider mock, banco real, frontend, backend, worker, notificações e audit log. Isso ainda **não** significa que a versão 1.0 esteja pronta.
 
 ## Repositório e limites
 
 Este repositório é exclusivo do **DevMark GrowthOS**. O site institucional da DevMark IA vive no repositório separado `bugijo/DevMark-ia` e não deve ser alterado, movido ou incorporado aqui.
 
-Na versão 1.0, nenhuma ação externa sensível é automática. Estão explicitamente fora do escopo inicial:
+Continuam fora da versão 1.0:
 
-- publicação direta no Instagram ou Facebook;
+- publicação automática no Instagram ou Facebook;
 - Meta Ads e Google Ads reais;
 - alteração ou gasto automático de orçamento;
 - WhatsApp oficial;
 - geração automática de vídeo;
 - cobrança, white label, marketplace e autonomia total.
 
-## Primeiro fluxo vertical
+## O que funciona agora
 
-O primeiro incremento utilizável deve permitir:
+- stack local com frontend, backend, worker, PostgreSQL e MinIO por Docker Compose;
+- login e logout com sessão em cookie `HttpOnly`, proteção CSRF e limite de tentativas;
+- organização, papéis básicos e isolamento de dados no backend;
+- cadastro de cliente e Brand Kit básico;
+- criação provisória de revisor cliente no ambiente atual;
+- provider de texto mock determinístico, sem chave ou API paga;
+- criação de conteúdo e histórico de versões;
+- fluxo `DRAFT → INTERNAL_REVIEW → CLIENT_REVIEW → APPROVED`;
+- pedido de alteração com feedback, edição real e preservação da versão anterior;
+- notificações internas para cliente e equipe;
+- audit log das etapas relevantes;
+- portal responsivo em português, incluindo aprovação em viewport móvel;
+- worker PostgreSQL com claim seguro, retries, backoff, timeout e handlers mock/console;
+- CI para lint, tipos, testes, builds, Compose e E2E obrigatório;
+- dados fictícios e idempotentes para demonstração local.
 
-1. entrar com e-mail e senha;
-2. acessar uma organização autorizada;
-3. cadastrar um cliente;
-4. preencher seu Brand Kit básico;
-5. criar conteúdo com o provider mock;
-6. enviar o conteúdo para revisão interna e depois para o cliente;
-7. o cliente aprovar ou pedir alteração;
-8. gerar uma notificação interna;
-9. registrar todas as ações relevantes no audit log.
+## O que ainda falta para a versão 1.0
 
-Esse fluxo deve usar backend, banco e regras reais. Telas sem integração não contam como entrega.
+O primeiro ciclo prova a fundação e a aprovação, mas o escopo obrigatório ainda possui lacunas:
+
+- convite seguro, de uso único, e recuperação de senha;
+- gestão completa de memberships, papéis e onboarding;
+- serviços, públicos e objetivos como módulos completos;
+- presets visuais;
+- estratégia e calendário editorial;
+- geração de ideias, roteiros e variações além do fluxo mock mínimo;
+- imagens por template/híbrido, upload seguro e biblioteca de mídia;
+- configuração administrativa de providers e Hermes opcional;
+- entrega real de e-mail, preferências, lembretes e resumos; hoje há somente console/mock;
+- registro manual de publicação;
+- relatórios básicos e Centro de Integrações;
+- controles operacionais completos de LGPD, backup/restauração e hardening final;
+- fechamento dos 25 critérios de aceite da versão 1.0.
+
+Consulte o [backlog](docs/backlog/versao-1.md) e os [milestones](docs/milestones/versao-1.md) para a sequência restante.
 
 ## Tecnologias
 
-- **Frontend:** Next.js, TypeScript e Tailwind CSS, com interface em português do Brasil, acessível e mobile first.
-- **Backend:** FastAPI, Python, Pydantic, SQLAlchemy e Alembic, com API REST e OpenAPI.
-- **Banco:** PostgreSQL, com vínculo explícito à organização e migrações versionadas.
-- **Worker:** processo Python com tabela de jobs no PostgreSQL, retries, timeout e logs; fila dedicada fica preparada para uma versão posterior.
-- **Arquivos:** armazenamento compatível com S3; MinIO no desenvolvimento local.
-- **IA e imagens:** contratos de provider e adaptadores substituíveis; provider mock ativo por padrão e Hermes opcional.
-- **Execução:** Docker Compose para frontend, backend, worker, banco e armazenamento local.
-- **Qualidade:** lint, checagem de tipos, testes unitários, de integração e ponta a ponta.
+- **Frontend:** Next.js, React, TypeScript e Tailwind CSS, mobile first.
+- **Backend:** FastAPI, Python, Pydantic, SQLAlchemy e Alembic.
+- **Banco:** PostgreSQL com migrações e vínculo explícito à organização.
+- **Worker:** Python e tabela de jobs PostgreSQL com `FOR UPDATE SKIP LOCKED`.
+- **Arquivos:** contrato S3 compatível e MinIO local; o upload de produto ainda será implementado.
+- **Providers:** abstrações substituíveis, com mock como padrão e sem integração paga.
+- **Qualidade:** Ruff, mypy, ESLint, TypeScript, Vitest, pytest e Playwright.
 
 ## Estrutura
 
 ```text
 DevMark-GrowthOS/
 ├── frontend/          # painel da agência e portal do cliente
-├── backend/           # API, domínio, serviços e adaptadores
-├── worker/            # execução de jobs assíncronos
-├── shared/            # contratos e tipos compartilhados, quando aplicável
-├── infra/             # Docker e configuração operacional
+├── backend/           # API, domínio, persistência e migrações
+├── worker/            # processamento assíncrono
+├── shared/            # contratos compartilhados versionados
+├── infra/             # espaço para infraestrutura adicional
 ├── docs/              # produto, arquitetura, segurança e decisões
-├── scripts/           # automações locais reproduzíveis
-├── tests/             # integração e testes ponta a ponta
-├── .github/           # integração contínua
+├── scripts/           # automações reproduzíveis
+├── tests/e2e/         # fluxo vertical Playwright
+├── .github/           # CI e template de pull request
 ├── docker-compose.yml
-└── .env.example
+└── Makefile
 ```
 
-O backend deve separar regras de domínio, casos de uso e infraestrutura. O frontend nunca é a única barreira de autorização. Toda consulta multiempresa precisa ser limitada pela organização do usuário no backend.
+O frontend nunca é a única barreira de autorização. Toda consulta multiempresa precisa ser limitada e autorizada no backend.
 
 ## Pré-requisitos
 
-Forma recomendada:
+Para subir e testar o produto por Docker:
 
 - Git;
+- GNU Make;
 - Docker Engine 24 ou superior;
 - Docker Compose v2.
 
-Para executar serviços fora de contêineres, use também Node.js 22, npm 10 e Python 3.12. As versões efetivas devem permanecer fixadas nos arquivos do projeto.
+`make setup` e `make e2e` usam Docker e não exigem Python ou Node instalados no host.
 
-## Execução local
+Para executar lint e testes unitários diretamente no host, também são necessários:
 
-O contrato de execução local da fundação é:
+- Python 3.12 com suporte a `venv` — em Debian/Ubuntu, normalmente o pacote `python3.12-venv`;
+- Node.js 22 e npm 10.
+
+## Subir o sistema
+
+Na raiz do repositório:
 
 ```bash
-cp .env.example .env
-docker compose config
-docker compose up --build -d
-docker compose ps
+make setup
 ```
 
-Depois que os serviços estiverem saudáveis:
+Esse comando cria `.env` a partir de `.env.example` quando necessário, valida o Compose, constrói e inicia os serviços, aplica as migrações e carrega o seed fictício.
 
-- frontend: `http://localhost:3000`;
+Verifique o estado:
+
+```bash
+make status
+```
+
+Endereços locais:
+
+- aplicação: `http://localhost:3000`;
 - API: `http://localhost:8000`;
-- documentação OpenAPI: `http://localhost:8000/docs`;
+- OpenAPI: `http://localhost:8000/docs`;
+- API health: `http://localhost:8000/api/v1/health`;
+- frontend health: `http://localhost:3000/api/health`;
 - console do MinIO: `http://localhost:9001`.
 
-Para acompanhar a aplicação:
+Para acompanhar logs ou encerrar:
 
 ```bash
-docker compose logs -f backend worker frontend
+make logs
+make down
 ```
 
-Para encerrar sem apagar os dados locais:
+`make reset` apaga deliberadamente os volumes locais. Use somente quando quiser perder os dados de desenvolvimento.
+
+## Credenciais de demonstração
+
+As credenciais abaixo são públicas, fictícias e exclusivas do ambiente local:
+
+| Papel | E-mail | Senha |
+|---|---|---|
+| Agência | `admin@devmark.local` | `local-demo-only-change-before-use` |
+| Cliente revisor | `client@clinicafeliz.local` | `local-demo-client-only-change-before-use` |
+
+Nunca reutilize essas senhas em homologação, produção ou conta real.
+
+## Roteiro de teste manual
+
+1. Execute `make setup` e abra `http://localhost:3000`.
+2. Entre como agência com `admin@devmark.local`.
+3. Confira a organização e o cliente fictício **Clínica Veterinária Demo**. O cadastro de novos clientes e a edição do Brand Kit também estão disponíveis.
+4. No cliente demo, crie um conteúdo com o provider mock.
+5. Envie o conteúdo para revisão interna e depois para o cliente.
+6. Saia e entre como `client@clinicafeliz.local`.
+7. Abra a pendência e aprove ou peça alteração.
+8. Entre novamente como agência e confira a decisão em Notificações e Logs.
+
+O cliente demo já possui revisor vinculado. Para testar rapidamente a aprovação, use esse cliente; o fluxo atual de criação de revisor é provisório e será substituído por convite seguro.
+
+## Qualidade e testes
+
+Para instalar ferramentas locais de desenvolvimento:
 
 ```bash
-docker compose down
+make install
 ```
 
-Use `docker compose down -v` somente quando quiser remover deliberadamente os volumes de desenvolvimento.
+Esse comando cria `.venv`, instala backend/worker e executa `npm ci`. Ele requer Python 3.12 com `venv`, Node.js 22 e npm.
 
-## Migrações, qualidade e testes
-
-Com a stack em execução, o contrato esperado é:
+Depois:
 
 ```bash
-docker compose exec backend alembic upgrade head
-docker compose exec backend pytest
-docker compose exec frontend npm run lint
-docker compose exec frontend npm run typecheck
-docker compose exec frontend npm run test
-docker compose run --rm e2e
+make lint
+make test
 ```
 
-Durante a fundação, algum comando pode ficar indisponível até o respectivo serviço ser criado. O milestone só pode ser encerrado depois de o comando correspondente existir e passar.
+O E2E usa somente Docker e pode ser executado independentemente da instalação local:
 
-## Dados de demonstração e providers
+```bash
+make e2e
+```
 
-O ambiente local usa `AI_PROVIDER=mock`, `IMAGE_PROVIDER=mock` e entrega de e-mail em modo de console. Isso permite testar o produto sem chave externa e sem enviar mensagens reais. Dados de demonstração são fictícios e nunca devem conter informação clínica, pessoal ou comercial real.
+Resultados verificados no primeiro ciclo:
 
-Providers remotos e Hermes são opcionais. Adicioná-los exige um adaptador, configuração por ambiente, isolamento por organização, tratamento de falhas e testes de contrato. Chaves e tokens nunca entram no Git.
+| Área | Resultado |
+|---|---:|
+| Backend | 28 testes aprovados |
+| Worker | 7 testes aprovados |
+| Frontend | 15 testes aprovados |
+| E2E | 3 cenários aprovados |
 
-## Segurança essencial
+Ruff, mypy, ESLint, checagem TypeScript, builds Docker/Next.js e auditorias de dependências executadas passaram.
 
-- toda entidade de negócio multiempresa possui `organization_id` ou vínculo equivalente verificável;
+## Providers e segurança
+
+O ambiente local força texto/imagem em modo mock, Hermes desligado e e-mail em console. Nenhuma publicação, mensagem ou gasto externo é realizado.
+
 - autorização e isolamento são validados no backend;
-- mudanças de permissão, aprovações, versões e ações relevantes entram no audit log;
-- conteúdo veterinário ou de saúde exige revisão profissional antes da aprovação final;
-- uploads são validados por tipo e tamanho;
-- segredos ficam apenas em variáveis de ambiente ou cofre apropriado;
-- dados de um cliente nunca alimentam sugestões para outro sem autorização explícita.
+- senhas usam biblioteca mantida e não são armazenadas em claro;
+- sessão, CSRF e escopo da organização são verificados nas mutações;
+- o portal não recebe rascunhos, revisão interna ou notas internas da marca;
+- configuração de produção insegura e seed demo em produção falham no início;
+- jobs carregam organização e usam lease transacional;
+- segredos ficam fora do Git;
+- dados demo não contêm informação clínica real;
+- conteúdo veterinário ou de saúde continua sujeito a revisão profissional.
 
-Consulte [AGENTS.md](AGENTS.md) antes de alterar código e [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir uma contribuição.
+Providers remotos, uploads e canais reais só podem ser adicionados com adaptador, autorização, isolamento, logs seguros e testes.
 
 ## Documentação
 
-A documentação principal fica em `docs/`, incluindo visão, escopo, roadmap, arquitetura, modelo de dados, fluxos, segurança, testes, operação, riscos e decisões arquiteturais.
+A documentação principal fica em `docs/`, incluindo visão, escopo, roadmap, arquitetura, modelo de dados, fluxos, segurança, testes, operação, riscos e ADRs.
 
-Planejamento executável:
-
-- [Backlog da versão 1.0](docs/backlog/versao-1.md)
-- [Milestones da versão 1.0](docs/milestones/versao-1.md)
-
-O produto segue versionamento semântico. Mudanças relevantes são registradas em [CHANGELOG.md](CHANGELOG.md).
+Leia [AGENTS.md](AGENTS.md) antes de alterar código, [CONTRIBUTING.md](CONTRIBUTING.md) antes de contribuir e [CHANGELOG.md](CHANGELOG.md) para mudanças verificadas.
