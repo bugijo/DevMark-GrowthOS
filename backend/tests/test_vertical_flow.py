@@ -77,6 +77,11 @@ def _prepare_content(client: TestClient) -> tuple[dict[str, object], dict[str, s
     sent = client.post(f"/api/v1/contents/{content['id']}/send-to-client", headers=headers)
     assert sent.status_code == 200, sent.text
     assert sent.json()["status"] == "CLIENT_REVIEW"
+    repeated_send = client.post(
+        f"/api/v1/contents/{content['id']}/send-to-client",
+        headers=headers,
+    )
+    assert repeated_send.status_code == 409
     return content, reviewer_payload
 
 
@@ -114,7 +119,9 @@ def test_vertical_flow_approval_notifications_and_audit(client: TestClient) -> N
     assert any(item["type"] == "CONTENT_DECISION" for item in admin_notifications)
 
 
-def test_request_changes_creates_new_version(client: TestClient) -> None:
+def test_request_changes_requires_real_agency_revision_before_resubmission(
+    client: TestClient,
+) -> None:
     content, reviewer = _prepare_content(client)
     reviewer_client = TestClient(client.app)
     login_response = reviewer_client.post(
@@ -129,5 +136,58 @@ def test_request_changes_creates_new_version(client: TestClient) -> None:
     )
     assert changed.status_code == 200, changed.text
     assert changed.json()["status"] == "CHANGES_REQUESTED"
-    assert changed.json()["current_version"]["version_number"] == 2
-    assert changed.json()["current_version"]["id"] != content["current_version"]["id"]
+    assert changed.json()["change_request_comment"] == "Ajustar a chamada final"
+    assert changed.json()["current_version"]["version_number"] == 1
+    assert changed.json()["current_version"]["id"] == content["current_version"]["id"]
+
+    admin_csrf = client.get("/api/v1/auth/me").json()["csrf_token"]
+    unchanged_payload = {
+        "title": content["current_version"]["title"],
+        "caption": content["current_version"]["caption"],
+        "cta": content["current_version"]["cta"],
+    }
+    unchanged = client.post(
+        f"/api/v1/contents/{content['id']}/revisions",
+        json=unchanged_payload,
+        headers=csrf_headers(admin_csrf),
+    )
+    assert unchanged.status_code == 409
+
+    revision_payload = {
+        **unchanged_payload,
+        "cta": "Agende uma conversa com a equipe.",
+    }
+    revised = client.post(
+        f"/api/v1/contents/{content['id']}/revisions",
+        json=revision_payload,
+        headers=csrf_headers(admin_csrf),
+    )
+    assert revised.status_code == 200, revised.text
+    assert revised.json()["status"] == "DRAFT"
+    assert revised.json()["change_request_comment"] is None
+    assert revised.json()["current_version"]["version_number"] == 2
+    assert revised.json()["current_version"]["id"] != content["current_version"]["id"]
+    assert revised.json()["current_version"]["cta"] == revision_payload["cta"]
+    assert reviewer_client.get(f"/api/v1/contents/{content['id']}").status_code == 404
+
+    submitted = client.post(
+        f"/api/v1/contents/{content['id']}/submit-internal",
+        headers=csrf_headers(admin_csrf),
+    )
+    assert submitted.status_code == 200
+    sent = client.post(
+        f"/api/v1/contents/{content['id']}/send-to-client",
+        headers=csrf_headers(admin_csrf),
+    )
+    assert sent.status_code == 200
+    approved = reviewer_client.post(
+        f"/api/v1/contents/{content['id']}/approve",
+        json={"comment": "Nova versão aprovada"},
+        headers=csrf_headers(csrf),
+    )
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "APPROVED"
+    assert approved.json()["current_version"]["version_number"] == 2
+
+    actions = {entry["action"] for entry in client.get("/api/v1/audit-logs").json()}
+    assert "content.revision_created" in actions

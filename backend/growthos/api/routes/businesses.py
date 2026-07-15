@@ -30,6 +30,17 @@ from growthos.services.audit import add_audit_log
 router = APIRouter()
 
 _AGENCY_WRITERS = (Role.SUPER_ADMIN, Role.AGENCY_ADMIN)
+_BRAND_NOTES_INTERNAL_ONLY = frozenset({Role.CLIENT_OWNER, Role.CLIENT_REVIEWER, Role.VIEWER})
+
+
+def _serialize_brand_profile(
+    profile: BrandProfile,
+    context: AuthContext,
+) -> BrandProfileRead:
+    result = BrandProfileRead.model_validate(profile)
+    if context.membership.role in _BRAND_NOTES_INTERNAL_ONLY:
+        return result.model_copy(update={"internal_notes": ""})
+    return result
 
 
 @router.get("", response_model=list[BusinessRead])
@@ -198,7 +209,7 @@ def get_brand_profile(
     business_id: UUID,
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
-) -> BrandProfile:
+) -> BrandProfileRead:
     business = get_scoped_business(session, context, business_id)
     profile = session.scalar(
         select(BrandProfile).where(
@@ -208,7 +219,7 @@ def get_brand_profile(
     )
     if profile is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Brand Kit ainda não cadastrado")
-    return profile
+    return _serialize_brand_profile(profile, context)
 
 
 @router.put("/{business_id}/brand-profile", response_model=BrandProfileRead)

@@ -63,6 +63,13 @@ class ContentVersion(UUIDPrimaryKeyMixin, Base):
 
 class Approval(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "approvals"
+    __table_args__ = (
+        UniqueConstraint(
+            "content_version_id",
+            "stage",
+            name="uq_approval_version_stage",
+        ),
+    )
 
     organization_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), index=True

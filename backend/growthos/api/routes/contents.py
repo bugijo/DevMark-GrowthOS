@@ -27,6 +27,7 @@ from growthos.schemas import (
     ChangesRequest,
     ContentGenerateRequest,
     ContentRead,
+    ContentRevisionCreate,
     ContentVersionRead,
     DecisionRequest,
 )
@@ -37,15 +38,45 @@ router = APIRouter()
 
 _AGENCY_WRITERS = (Role.SUPER_ADMIN, Role.AGENCY_ADMIN)
 _CLIENT_REVIEWERS = (Role.CLIENT_OWNER, Role.CLIENT_REVIEWER)
+_BUSINESS_PORTAL_ROLES = frozenset({Role.CLIENT_OWNER, Role.CLIENT_REVIEWER, Role.VIEWER})
+# Estes estados comprovam que o item atravessou a liberação para o portal. FAILED e
+# ARCHIVED ficam de fora porque também podem ser alcançados antes da revisão do cliente.
+_CLIENT_VISIBLE_STATUSES = (
+    ContentStatus.CLIENT_REVIEW,
+    ContentStatus.CHANGES_REQUESTED,
+    ContentStatus.APPROVED,
+    ContentStatus.SCHEDULED,
+    ContentStatus.PUBLISHED,
+)
 
 
-def _get_content(session: Session, context: AuthContext, content_id: UUID) -> ContentItem:
+def _is_business_portal_context(context: AuthContext) -> bool:
+    return context.membership.role in _BUSINESS_PORTAL_ROLES
+
+
+def _get_content(
+    session: Session,
+    context: AuthContext,
+    content_id: UUID,
+    *,
+    for_update: bool = False,
+) -> ContentItem:
     query = select(ContentItem).where(
         ContentItem.id == content_id,
         ContentItem.organization_id == context.organization.id,
     )
-    if context.membership.business_id is not None:
-        query = query.where(ContentItem.business_id == context.membership.business_id)
+    limited_business = context.membership.business_id
+    if _is_business_portal_context(context):
+        if limited_business is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Conteúdo não encontrado")
+        query = query.where(
+            ContentItem.business_id == limited_business,
+            ContentItem.status.in_(_CLIENT_VISIBLE_STATUSES),
+        )
+    elif limited_business is not None:
+        query = query.where(ContentItem.business_id == limited_business)
+    if for_update:
+        query = query.with_for_update()
     content = session.scalar(query)
     if content is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conteúdo não encontrado")
@@ -70,11 +101,25 @@ def _get_current_version(session: Session, content: ContentItem) -> ContentVersi
 
 def _serialize(session: Session, content: ContentItem) -> ContentRead:
     version = _get_current_version(session, content)
+    change_request_comment: str | None = None
+    if content.status == ContentStatus.CHANGES_REQUESTED:
+        change_request_comment = session.scalar(
+            select(Approval.decision_comment)
+            .where(
+                Approval.organization_id == content.organization_id,
+                Approval.business_id == content.business_id,
+                Approval.content_item_id == content.id,
+                Approval.status == ApprovalStatus.CHANGES_REQUESTED,
+            )
+            .order_by(Approval.decided_at.desc())
+            .limit(1)
+        )
     return ContentRead(
         id=content.id,
         organization_id=content.organization_id,
         business_id=content.business_id,
         status=content.status,
+        change_request_comment=change_request_comment,
         current_version=ContentVersionRead.model_validate(version),
         created_at=content.created_at,
         updated_at=content.updated_at,
@@ -216,7 +261,16 @@ def list_contents(
 ) -> list[ContentRead]:
     query = select(ContentItem).where(ContentItem.organization_id == context.organization.id)
     limited_business = context.membership.business_id
-    if limited_business is not None:
+    if _is_business_portal_context(context):
+        if limited_business is None:
+            return []
+        if business_id is not None and business_id != limited_business:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente não encontrado")
+        query = query.where(
+            ContentItem.business_id == limited_business,
+            ContentItem.status.in_(_CLIENT_VISIBLE_STATUSES),
+        )
+    elif limited_business is not None:
         if business_id is not None and business_id != limited_business:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente não encontrado")
         query = query.where(ContentItem.business_id == limited_business)
@@ -243,7 +297,7 @@ def submit_internal(
     session: Session = Depends(get_session),
 ) -> ContentRead:
     require_role(context, *_AGENCY_WRITERS)
-    content = _get_content(session, context, content_id)
+    content = _get_content(session, context, content_id, for_update=True)
     previous = _transition(content, ContentStatus.INTERNAL_REVIEW)
     version = _get_current_version(session, content)
     add_audit_log(
@@ -267,7 +321,7 @@ def send_to_client(
     session: Session = Depends(get_session),
 ) -> ContentRead:
     require_role(context, *_AGENCY_WRITERS)
-    content = _get_content(session, context, content_id)
+    content = _get_content(session, context, content_id, for_update=True)
     version = _get_current_version(session, content)
     reviewers = session.scalars(
         select(Membership).where(
@@ -333,7 +387,7 @@ def approve_content(
     session: Session = Depends(get_session),
 ) -> ContentRead:
     require_role(context, *_CLIENT_REVIEWERS)
-    content = _get_content(session, context, content_id)
+    content = _get_content(session, context, content_id, for_update=True)
     if context.membership.business_id != content.business_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Aprovação fora do cliente permitido")
     version = _get_current_version(session, content)
@@ -373,7 +427,7 @@ def request_changes(
     session: Session = Depends(get_session),
 ) -> ContentRead:
     require_role(context, *_CLIENT_REVIEWERS)
-    content = _get_content(session, context, content_id)
+    content = _get_content(session, context, content_id, for_update=True)
     if context.membership.business_id != content.business_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Revisão fora do cliente permitido")
     current = _get_current_version(session, content)
@@ -385,24 +439,6 @@ def request_changes(
     from growthos.models.base import utcnow
 
     approval.decided_at = utcnow()
-    new_version = ContentVersion(
-        organization_id=content.organization_id,
-        business_id=content.business_id,
-        content_item_id=content.id,
-        version_number=current.version_number + 1,
-        title=current.title,
-        caption=current.caption,
-        channel=current.channel,
-        format=current.format,
-        objective=current.objective,
-        audience=current.audience,
-        cta=current.cta,
-        provider_name="manual_revision",
-        created_by_user_id=context.user.id,
-    )
-    session.add(new_version)
-    session.flush()
-    content.current_version_id = new_version.id
     _notify_agency(
         session,
         content,
@@ -421,8 +457,70 @@ def request_changes(
             "from": previous.value,
             "to": content.status.value,
             "reviewed_version_id": str(current.id),
-            "new_version_id": str(new_version.id),
             "comment": payload.comment.strip(),
+        },
+    )
+    session.commit()
+    return _serialize(session, content)
+
+
+@router.post("/{content_id}/revisions", response_model=ContentRead)
+def create_revision(
+    content_id: UUID,
+    payload: ContentRevisionCreate,
+    context: AuthContext = Depends(require_csrf),
+    session: Session = Depends(get_session),
+) -> ContentRead:
+    require_role(context, *_AGENCY_WRITERS)
+    content = _get_content(session, context, content_id, for_update=True)
+    current = _get_current_version(session, content)
+    title = payload.title.strip()
+    caption = payload.caption.strip()
+    cta = payload.cta.strip()
+    if not title or not caption:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Título e legenda não podem ficar vazios",
+        )
+    if (title, caption, cta) == (current.title, current.caption, current.cta):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Altere ao menos um campo antes de criar uma nova versão",
+        )
+
+    previous = _transition(content, ContentStatus.DRAFT)
+    new_version = ContentVersion(
+        organization_id=content.organization_id,
+        business_id=content.business_id,
+        content_item_id=content.id,
+        version_number=current.version_number + 1,
+        title=title,
+        caption=caption,
+        channel=current.channel,
+        format=current.format,
+        objective=current.objective,
+        audience=current.audience,
+        cta=cta,
+        provider_name="manual_revision",
+        created_by_user_id=context.user.id,
+    )
+    session.add(new_version)
+    session.flush()
+    content.current_version_id = new_version.id
+    add_audit_log(
+        session,
+        organization_id=context.organization.id,
+        business_id=content.business_id,
+        actor_user_id=context.user.id,
+        action="content.revision_created",
+        resource_type="content_item",
+        resource_id=content.id,
+        details={
+            "from": previous.value,
+            "to": content.status.value,
+            "previous_version_id": str(current.id),
+            "new_version_id": str(new_version.id),
+            "version": new_version.version_number,
         },
     )
     session.commit()

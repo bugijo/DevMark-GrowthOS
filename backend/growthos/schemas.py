@@ -138,6 +138,7 @@ class ContentRead(BaseModel):
     organization_id: UUID
     business_id: UUID
     status: ContentStatus
+    change_request_comment: str | None = None
     current_version: ContentVersionRead
     created_at: datetime
     updated_at: datetime
@@ -149,6 +150,12 @@ class DecisionRequest(BaseModel):
 
 class ChangesRequest(BaseModel):
     comment: str = Field(min_length=1, max_length=2000)
+
+
+class ContentRevisionCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    caption: str = Field(min_length=1, max_length=10_000)
+    cta: str = Field(default="", max_length=300)
 
 
 class ApprovalRead(BaseModel):

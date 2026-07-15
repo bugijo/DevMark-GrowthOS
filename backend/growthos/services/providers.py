@@ -25,6 +25,8 @@ class MockTextProvider:
     """Provider local determinístico: não usa rede, relógio ou aleatoriedade."""
 
     name = "mock"
+    title_max_length = 300
+    cta_max_length = 300
 
     def generate(self, request: TextGenerationRequest) -> TextGenerationResult:
         brand = request.brand_name.strip() or "Sua marca"
@@ -32,9 +34,15 @@ class MockTextProvider:
         audience = request.audience.strip() or "público da marca"
         tone = request.tone_of_voice.strip() or "claro e acolhedor"
         cta = request.cta.strip() or "Fale com nossa equipe para saber mais."
-        title = f"{brand}: {objective}"
+        title = f"{brand}: {objective}"[: self.title_max_length]
         caption = (
             f"{brand} apresenta um conteúdo sobre {objective.lower()}, "
             f"pensado para {audience}. Tom: {tone}. {cta}"
         )
-        return TextGenerationResult(title, caption, audience, cta, self.name)
+        return TextGenerationResult(
+            title,
+            caption,
+            audience,
+            cta[: self.cta_max_length],
+            self.name,
+        )
