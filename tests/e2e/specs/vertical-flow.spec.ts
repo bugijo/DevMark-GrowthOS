@@ -27,8 +27,10 @@ async function login(email: string, password: string): Promise<{
   context: APIRequestContext;
   csrf: string;
 }> {
-  const context = await request.newContext({ baseURL: API_URL });
-  const response = await context.post("/auth/login", { data: { email, password } });
+  const context = await request.newContext({
+    baseURL: `${API_URL.replace(/\/$/, "")}/`,
+  });
+  const response = await context.post("auth/login", { data: { email, password } });
   expect(response.ok(), `login ${email}${await bodyOnFailure(response)}`).toBeTruthy();
   const payload = (await response.json()) as LoginResponse;
   expect(payload.csrf_token).toBeTruthy();
@@ -43,17 +45,17 @@ test("fluxo vertical mock gera, envia e aprova com notificação e auditoria", a
   const admin = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
   const client = await login(CLIENT_EMAIL, CLIENT_PASSWORD);
   try {
-    const organizationResponse = await admin.context.get("/organizations/current");
+    const organizationResponse = await admin.context.get("organizations/current");
     expect(organizationResponse.ok()).toBeTruthy();
 
-    const businessesResponse = await admin.context.get("/businesses");
+    const businessesResponse = await admin.context.get("businesses");
     expect(businessesResponse.ok()).toBeTruthy();
     const businesses = (await businessesResponse.json()) as Business[];
     const business = businesses.find((item) => item.name === "Clínica Veterinária Demo");
     expect(business, "o seed precisa criar a clínica fictícia").toBeTruthy();
 
     const brandResponse = await admin.context.put(
-      `/businesses/${business!.id}/brand-profile`,
+      `businesses/${business!.id}/brand-profile`,
       {
         headers: csrfHeaders(admin.csrf),
         data: {
@@ -78,7 +80,7 @@ test("fluxo vertical mock gera, envia e aprova com notificação e auditoria", a
     );
     expect(brandResponse.ok(), await bodyOnFailure(brandResponse)).toBeTruthy();
 
-    const generateResponse = await admin.context.post("/contents/generate", {
+    const generateResponse = await admin.context.post("contents/generate", {
       headers: csrfHeaders(admin.csrf),
       data: {
         business_id: business!.id,
@@ -93,20 +95,20 @@ test("fluxo vertical mock gera, envia e aprova com notificação e auditoria", a
     expect(generated.current_version.provider_name).toBe("mock");
 
     const internalResponse = await admin.context.post(
-      `/contents/${generated.id}/submit-internal`,
+      `contents/${generated.id}/submit-internal`,
       { headers: csrfHeaders(admin.csrf) },
     );
     expect(internalResponse.ok(), await bodyOnFailure(internalResponse)).toBeTruthy();
     expect(((await internalResponse.json()) as Content).status).toBe("INTERNAL_REVIEW");
 
     const sendResponse = await admin.context.post(
-      `/contents/${generated.id}/send-to-client`,
+      `contents/${generated.id}/send-to-client`,
       { headers: csrfHeaders(admin.csrf) },
     );
     expect(sendResponse.ok(), await bodyOnFailure(sendResponse)).toBeTruthy();
     expect(((await sendResponse.json()) as Content).status).toBe("CLIENT_REVIEW");
 
-    const clientNotificationsResponse = await client.context.get("/notifications");
+    const clientNotificationsResponse = await client.context.get("notifications");
     expect(clientNotificationsResponse.ok()).toBeTruthy();
     const clientNotifications = (await clientNotificationsResponse.json()) as Notification[];
     expect(
@@ -116,14 +118,14 @@ test("fluxo vertical mock gera, envia e aprova com notificação e auditoria", a
       ),
     ).toBeTruthy();
 
-    const approveResponse = await client.context.post(`/contents/${generated.id}/approve`, {
+    const approveResponse = await client.context.post(`contents/${generated.id}/approve`, {
       headers: csrfHeaders(client.csrf),
       data: { comment: "Aprovado no cenário automatizado." },
     });
     expect(approveResponse.ok(), await bodyOnFailure(approveResponse)).toBeTruthy();
     expect(((await approveResponse.json()) as Content).status).toBe("APPROVED");
 
-    const agencyNotificationsResponse = await admin.context.get("/notifications");
+    const agencyNotificationsResponse = await admin.context.get("notifications");
     expect(agencyNotificationsResponse.ok()).toBeTruthy();
     const agencyNotifications = (await agencyNotificationsResponse.json()) as Notification[];
     expect(
@@ -133,7 +135,7 @@ test("fluxo vertical mock gera, envia e aprova com notificação e auditoria", a
     ).toBeTruthy();
 
     const auditResponse = await admin.context.get(
-      `/audit-logs?business_id=${business!.id}&limit=200`,
+      `audit-logs?business_id=${business!.id}&limit=200`,
     );
     expect(auditResponse.ok()).toBeTruthy();
     const auditLogs = (await auditResponse.json()) as AuditLog[];
