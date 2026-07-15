@@ -1,0 +1,14 @@
+**
+!backend/
+!backend/**
+!worker/
+!worker/**
+!shared/
+!shared/**
+backend/.mypy_cache
+backend/.pytest_cache
+backend/.ruff_cache
+backend/.test-deps
+backend/.venv
+backend/**/__pycache__
+worker/**/__pycache__
