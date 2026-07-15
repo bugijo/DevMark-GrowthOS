@@ -71,7 +71,7 @@ Forma recomendada:
 - Docker Engine 24 ou superior;
 - Docker Compose v2.
 
-Para executar serviços fora de contêineres, use também Node.js 22, pnpm 9 e Python 3.12. As versões efetivas devem permanecer fixadas nos arquivos do projeto.
+Para executar serviços fora de contêineres, use também Node.js 22, npm 10 e Python 3.12. As versões efetivas devem permanecer fixadas nos arquivos do projeto.
 
 ## Execução local
 
@@ -112,9 +112,9 @@ Com a stack em execução, o contrato esperado é:
 ```bash
 docker compose exec backend alembic upgrade head
 docker compose exec backend pytest
-docker compose exec frontend pnpm lint
-docker compose exec frontend pnpm typecheck
-docker compose exec frontend pnpm test
+docker compose exec frontend npm run lint
+docker compose exec frontend npm run typecheck
+docker compose exec frontend npm run test
 docker compose run --rm e2e
 ```
 

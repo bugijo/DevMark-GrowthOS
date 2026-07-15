@@ -54,9 +54,9 @@ Execute os comandos aplicáveis antes de enviar:
 ```bash
 docker compose config
 docker compose exec backend pytest
-docker compose exec frontend pnpm lint
-docker compose exec frontend pnpm typecheck
-docker compose exec frontend pnpm test
+docker compose exec frontend npm run lint
+docker compose exec frontend npm run typecheck
+docker compose exec frontend npm run test
 docker compose run --rm e2e
 ```
 

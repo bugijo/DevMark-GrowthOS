@@ -105,9 +105,9 @@ docker compose up --build -d
 docker compose ps
 docker compose exec backend alembic upgrade head
 docker compose exec backend pytest
-docker compose exec frontend pnpm lint
-docker compose exec frontend pnpm typecheck
-docker compose exec frontend pnpm test
+docker compose exec frontend npm run lint
+docker compose exec frontend npm run typecheck
+docker compose exec frontend npm run test
 ```
 
 ## M2 — Identidade e isolamento multiempresa
@@ -142,7 +142,7 @@ docker compose exec frontend pnpm test
 
 ```bash
 docker compose exec backend pytest -m 'auth or tenancy or permissions'
-docker compose exec frontend pnpm test -- --runInBand
+docker compose exec frontend npm run test
 docker compose logs --since=5m backend
 ```
 
@@ -178,7 +178,7 @@ docker compose logs --since=5m backend
 
 ```bash
 docker compose exec backend pytest -m 'businesses or brand or tenancy'
-docker compose exec frontend pnpm test
+docker compose exec frontend npm run test
 ```
 
 ## M4 — Conteúdo mock versionado
@@ -214,7 +214,7 @@ docker compose exec frontend pnpm test
 ```bash
 docker compose exec backend pytest -m 'providers or content or versions'
 docker compose exec worker pytest
-docker compose exec frontend pnpm test
+docker compose exec frontend npm run test
 ```
 
 ## M5 — Primeiro fluxo vertical de aprovação
@@ -252,7 +252,7 @@ docker compose exec frontend pnpm test
 ```bash
 docker compose exec backend pytest -m 'approvals or notifications or audit'
 docker compose run --rm e2e --grep 'fluxo vertical'
-docker compose exec frontend pnpm test
+docker compose exec frontend npm run test
 ```
 
 **Checkpoint obrigatório ao proprietário:** explicar em português simples o que já funciona, deixar claro que ainda não existe publicação real, ensinar o roteiro de teste e listar riscos antes de ampliar o escopo.
@@ -294,9 +294,9 @@ docker compose exec frontend pnpm test
 ```bash
 docker compose exec backend pytest
 docker compose exec worker pytest
-docker compose exec frontend pnpm lint
-docker compose exec frontend pnpm typecheck
-docker compose exec frontend pnpm test
+docker compose exec frontend npm run lint
+docker compose exec frontend npm run typecheck
+docker compose exec frontend npm run test
 docker compose run --rm e2e
 ```
 
@@ -342,9 +342,9 @@ docker compose up -d
 docker compose exec backend alembic upgrade head
 docker compose exec backend pytest
 docker compose exec worker pytest
-docker compose exec frontend pnpm lint
-docker compose exec frontend pnpm typecheck
-docker compose exec frontend pnpm test
+docker compose exec frontend npm run lint
+docker compose exec frontend npm run typecheck
+docker compose exec frontend npm run test
 docker compose run --rm e2e
 docker compose ps
 git diff --check
