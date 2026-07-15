@@ -33,6 +33,7 @@ def _get_or_create_user(session: Session, email: str, name: str, password: str) 
 
 def seed_demo(session: Session) -> dict[str, UUID]:
     settings = get_settings()
+    settings.ensure_demo_seed_allowed()
     slug = _slugify(settings.demo_organization_name)
     organization = session.scalar(select(Organization).where(Organization.slug == slug))
     if organization is None:

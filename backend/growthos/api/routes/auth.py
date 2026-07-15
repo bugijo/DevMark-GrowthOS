@@ -1,6 +1,6 @@
 from typing import Literal, cast
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from growthos.config import Settings, get_settings
 from growthos.database import get_session
 from growthos.dependencies import AuthContext, get_current_context, require_csrf
 from growthos.models import Membership, Organization, User
+from growthos.rate_limit import login_rate_limiter
 from growthos.schemas import AuthResponse, LoginRequest
 from growthos.security import create_session_token, normalize_email, verify_password
 from growthos.services.audit import add_audit_log
@@ -27,19 +28,39 @@ def _response(context: AuthContext, csrf_token: str) -> AuthResponse:
 @router.post("/login", response_model=AuthResponse)
 def login(
     payload: LoginRequest,
+    request: Request,
     response: Response,
     session: Session = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> AuthResponse:
-    user = session.scalar(select(User).where(User.email == normalize_email(payload.email)))
-    if (
-        user is None
-        or not user.is_active
-        or not verify_password(payload.password, user.password_hash)
-    ):
-        if user is None:
-            verify_password(payload.password, None)
+    normalized_email = normalize_email(payload.email)
+    client_ip = request.client.host if request.client is not None else "unknown"
+    rate_limit_key = f"{client_ip}\x00{normalized_email}"
+    retry_after = login_rate_limiter.retry_after(
+        rate_limit_key,
+        attempts=settings.login_rate_limit_attempts,
+        window_seconds=settings.login_rate_limit_window_seconds,
+    )
+    if retry_after is not None:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Muitas tentativas de login. Tente novamente em instantes.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    user = session.scalar(select(User).where(User.email == normalized_email))
+    password_valid = verify_password(
+        payload.password,
+        user.password_hash if user is not None else None,
+    )
+    if user is None or not user.is_active or not password_valid:
+        login_rate_limiter.register_failure(
+            rate_limit_key,
+            window_seconds=settings.login_rate_limit_window_seconds,
+        )
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "E-mail ou senha inválidos")
+
+    login_rate_limiter.clear(rate_limit_key)
 
     row = session.execute(
         select(Membership, Organization)

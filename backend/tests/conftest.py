@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 os.environ["DATABASE_URL"] = "sqlite+pysqlite://"
 os.environ["AUTH_SECRET_KEY"] = "tests-only-secret-key-that-is-longer-than-32-characters"
 os.environ["SESSION_COOKIE_SECURE"] = "false"
+os.environ["LOGIN_RATE_LIMIT_ATTEMPTS"] = "2"
+os.environ["LOGIN_RATE_LIMIT_WINDOW_SECONDS"] = "60"
 os.environ["AI_PROVIDER"] = "mock"
 os.environ["DEMO_CLIENT_EMAIL"] = "client@clinicafeliz.local"
 os.environ["DEMO_CLIENT_PASSWORD"] = "client-password-123"
@@ -18,6 +20,7 @@ from growthos.database import configure_database, get_session_factory
 from growthos.domain.enums import Role
 from growthos.main import app
 from growthos.models import Base, Business, Membership, Organization, User
+from growthos.rate_limit import reset_login_rate_limiter
 from growthos.security import hash_password
 
 get_settings.cache_clear()
@@ -37,7 +40,9 @@ class Identity:
 def clean_database() -> Generator[None, None, None]:
     engine = configure_database("sqlite+pysqlite://")
     Base.metadata.create_all(engine)
+    reset_login_rate_limiter()
     yield
+    reset_login_rate_limiter()
     Base.metadata.drop_all(engine)
 
 
