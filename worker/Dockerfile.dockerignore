@@ -11,4 +11,6 @@ backend/.ruff_cache
 backend/.test-deps
 backend/.venv
 backend/**/__pycache__
+backend/tests
 worker/**/__pycache__
+worker/tests

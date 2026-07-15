@@ -62,7 +62,13 @@ jobs:
             backend/pyproject.toml
             worker/pyproject.toml
       - name: Instala backend e worker
-        run: python -m pip install -e './backend[dev]' -e './worker[dev]'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e './backend[dev]' -e './worker[dev]'
+      - name: Auditoria de dependências Python
+        run: |
+          python -m pip install pip-audit
+          pip-audit --local --skip-editable
       - name: Ruff
         run: |
           ruff check backend worker
@@ -104,17 +110,22 @@ jobs:
       - name: Testes
         working-directory: frontend
         run: npm test
+      - name: Auditoria de dependências do frontend
+        working-directory: frontend
+        run: npm audit --audit-level=high
       - name: Build
         working-directory: frontend
         run: npm run build
+      - name: Valida suíte E2E
+        working-directory: tests/e2e
+        run: |
+          npm ci
+          npm audit --audit-level=high
+          npm run typecheck
 
   e2e:
     name: Fluxo vertical E2E
     needs: [compose, backend-worker, frontend]
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.ref == 'refs/heads/main' ||
-      contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

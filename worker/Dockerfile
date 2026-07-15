@@ -14,7 +14,7 @@ COPY worker /workspace/worker
 COPY shared /workspace/shared
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir -e /workspace/backend -e '/workspace/worker[dev]'
+    && python -m pip install --no-cache-dir -e /workspace/backend -e /workspace/worker
 
 USER growthos
 
