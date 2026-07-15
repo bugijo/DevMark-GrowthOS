@@ -1,4 +1,11 @@
-import { APIRequestContext, APIResponse, expect, request, test } from "@playwright/test";
+import {
+  APIRequestContext,
+  APIResponse,
+  expect,
+  Page,
+  request,
+  test,
+} from "@playwright/test";
 
 const API_URL = process.env.API_URL ?? "http://127.0.0.1:8000/api/v1";
 const ADMIN_EMAIL = process.env.DEMO_ADMIN_EMAIL ?? "admin@devmark.local";
@@ -39,6 +46,36 @@ async function login(email: string, password: string): Promise<{
 
 function csrfHeaders(csrf: string): Record<string, string> {
   return { "X-CSRF-Token": csrf };
+}
+
+async function loginThroughUi(page: Page, email: string, password: string) {
+  await page.goto("/login");
+  await expect(page.getByRole("heading", { name: "Entre na sua conta" })).toBeVisible();
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha").fill(password);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { name: "Visão geral" })).toBeVisible();
+}
+
+async function logoutThroughUi(page: Page) {
+  await page.getByRole("button", { name: "Sair", exact: true }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { name: "Entre na sua conta" })).toBeVisible();
+}
+
+async function markExistingNotificationsAsRead(page: Page) {
+  await page.getByRole("link", { name: "Notificações", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Notificações" })).toBeVisible();
+  await expect(page.getByText("Carregando notificações…", { exact: true })).toBeHidden();
+
+  const unreadButtons = page.getByRole("button", { name: "Marcar como lida" });
+  let unreadCount = await unreadButtons.count();
+  while (unreadCount > 0) {
+    await unreadButtons.first().click();
+    unreadCount -= 1;
+    await expect(unreadButtons).toHaveCount(unreadCount);
+  }
 }
 
 test("fluxo vertical mock gera, envia e aprova com notificação e auditoria", async () => {
@@ -168,4 +205,94 @@ test("login funciona em viewport móvel sem rolagem horizontal", async ({ page }
     () => document.documentElement.scrollWidth > window.innerWidth + 1,
   );
   expect(overflow).toBeFalsy();
+});
+
+test("fluxo vertical completo funciona pela interface da agência e do cliente", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const objective = `Fluxo UI E2E ${crypto.randomUUID()}: orientar sobre consulta preventiva`;
+
+  await loginThroughUi(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await markExistingNotificationsAsRead(page);
+
+  await page.getByRole("link", { name: "Conteúdos", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Conteúdos" })).toBeVisible();
+  await expect(page.getByText("Carregando conteúdos…", { exact: true })).toBeHidden();
+  await page.getByLabel(/^Empresa/).selectOption({ label: "Clínica Veterinária Demo" });
+  await page.getByLabel("Objetivo do conteúdo").fill(objective);
+
+  const generatedResponsePromise = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname.endsWith("/api/v1/contents/generate"),
+  );
+  await page.getByRole("button", { name: "Gerar rascunho" }).click();
+  const generatedResponse = await generatedResponsePromise;
+  expect(
+    generatedResponse.ok(),
+    generatedResponse.ok() ? "" : await generatedResponse.text(),
+  ).toBeTruthy();
+  const generated = (await generatedResponse.json()) as Content;
+
+  const agencyCard = page
+    .locator("article")
+    .filter({ has: page.getByText(objective, { exact: true }) });
+  await expect(agencyCard).toHaveCount(1);
+  await expect(agencyCard.getByText("Rascunho", { exact: true })).toBeVisible();
+  await agencyCard
+    .getByRole("button", { name: "Enviar para revisão interna" })
+    .click();
+  await expect(agencyCard.getByText("Revisão interna", { exact: true })).toBeVisible();
+  await agencyCard.getByRole("button", { name: "Enviar ao cliente" }).click();
+  await expect(agencyCard.getByText("Aguardando cliente", { exact: true })).toBeVisible();
+
+  await logoutThroughUi(page);
+  await loginThroughUi(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+  await page.getByRole("link", { name: "Aprovações", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Aprovações" })).toBeVisible();
+  await expect(page.getByText("Carregando aprovações…", { exact: true })).toBeHidden();
+
+  const clientCard = page
+    .locator("article")
+    .filter({ has: page.getByText(objective, { exact: true }) });
+  await expect(clientCard).toHaveCount(1);
+  await clientCard.getByRole("button", { name: "Aprovar esta versão" }).click();
+  await expect(
+    page.getByText("Conteúdo aprovado. A equipe foi notificada.", { exact: true }),
+  ).toBeVisible();
+
+  await logoutThroughUi(page);
+  await loginThroughUi(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await page.getByRole("link", { name: "Notificações", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Notificações" })).toBeVisible();
+  await expect(page.getByText("Carregando notificações…", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: /^Não lidas \(/ }).click();
+
+  const decisionNotification = page.getByRole("listitem").filter({
+    has: page.getByRole("heading", { name: "Conteúdo aprovado", exact: true }),
+  });
+  await expect(decisionNotification).toHaveCount(1);
+  await expect(decisionNotification.getByText("Nova", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Registros", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Registros de atividade" }),
+  ).toBeVisible();
+  await expect(page.getByText("Carregando registros…", { exact: true })).toBeHidden();
+
+  for (const actionLabel of [
+    "Conteúdo gerado",
+    "Enviado para revisão interna",
+    "Enviado para o cliente",
+    "Aprovado pelo cliente",
+  ]) {
+    const auditEvent = page
+      .getByRole("listitem")
+      .filter({ hasText: generated.id })
+      .filter({
+        has: page.getByRole("heading", { name: actionLabel, exact: true }),
+      });
+    await expect(auditEvent, `registro de auditoria ausente: ${actionLabel}`).toHaveCount(1);
+  }
 });
