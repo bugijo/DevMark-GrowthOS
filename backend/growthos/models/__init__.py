@@ -11,6 +11,7 @@ from growthos.models.catalog import (
 )
 from growthos.models.content import Approval, ContentItem, ContentVersion
 from growthos.models.identity import Membership, Organization, User
+from growthos.models.onboarding import BusinessOnboarding
 from growthos.models.operations import AuditLog, Job, Notification
 from growthos.models.planning import CalendarEntry, ContentPlan, ContentStrategy, StrategyVersion
 
@@ -21,6 +22,7 @@ __all__ = [
     "Base",
     "BrandProfile",
     "Business",
+    "BusinessOnboarding",
     "CalendarEntry",
     "ContentItem",
     "ContentPlan",

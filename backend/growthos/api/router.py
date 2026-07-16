@@ -11,6 +11,7 @@ from growthos.api.routes import (
     media,
     members,
     notifications,
+    onboarding,
     organizations,
     planning,
     reports,
@@ -29,4 +30,5 @@ api_router.include_router(planning.router, tags=["planning"])
 api_router.include_router(reports.router, tags=["reports"])
 api_router.include_router(contents.router, prefix="/contents", tags=["contents"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+api_router.include_router(onboarding.router, tags=["onboarding"])
 api_router.include_router(audit_logs.router, prefix="/audit-logs", tags=["audit"])

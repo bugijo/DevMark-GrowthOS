@@ -74,6 +74,7 @@ def create_business(
         organization_id=context.organization.id,
         name=payload.name.strip(),
         segment=payload.segment.strip(),
+        timezone=payload.timezone,
     )
     session.add(business)
     try:
@@ -180,6 +181,8 @@ def update_business(
         business.name = changes["name"].strip()
     if "segment" in changes:
         business.segment = changes["segment"].strip()
+    if "timezone" in changes:
+        business.timezone = changes["timezone"].strip()
     add_audit_log(
         session,
         organization_id=context.organization.id,

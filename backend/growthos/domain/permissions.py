@@ -28,6 +28,8 @@ class Capability(StrEnum):
     BRAND_VIEW = "brand.view"
     BRAND_MANAGE = "brand.manage"
     BRAND_VISUAL_MANAGE = "brand.manage_visual"
+    ONBOARDING_VIEW = "onboarding.view"
+    ONBOARDING_MANAGE = "onboarding.manage"
     SERVICE_MANAGE = "service.manage"
     AUDIENCE_MANAGE = "audience.manage"
     OBJECTIVE_MANAGE = "objective.manage"
@@ -74,6 +76,7 @@ READ_ONLY_CAPABILITIES: Final[frozenset[Capability]] = frozenset(
         Capability.MEMBERSHIP_VIEW,
         Capability.BUSINESS_VIEW,
         Capability.BRAND_VIEW,
+        Capability.ONBOARDING_VIEW,
         Capability.STRATEGY_VIEW,
         Capability.CALENDAR_VIEW,
         Capability.PRESET_VIEW,
@@ -109,6 +112,8 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.BRAND_VIEW,
             Capability.BRAND_MANAGE,
             Capability.BRAND_VISUAL_MANAGE,
+            Capability.ONBOARDING_VIEW,
+            Capability.ONBOARDING_MANAGE,
             Capability.SERVICE_MANAGE,
             Capability.AUDIENCE_MANAGE,
             Capability.OBJECTIVE_MANAGE,
@@ -147,6 +152,8 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.BUSINESS_MANAGE,
             Capability.BRAND_VIEW,
             Capability.BRAND_MANAGE,
+            Capability.ONBOARDING_VIEW,
+            Capability.ONBOARDING_MANAGE,
             Capability.SERVICE_MANAGE,
             Capability.AUDIENCE_MANAGE,
             Capability.OBJECTIVE_MANAGE,

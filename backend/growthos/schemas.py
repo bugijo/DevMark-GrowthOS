@@ -67,11 +67,13 @@ class AuthResponse(BaseModel):
 class BusinessCreate(BaseModel):
     name: str = Field(min_length=2, max_length=200)
     segment: str = Field(default="", max_length=120)
+    timezone: str = Field(default="America/Sao_Paulo", min_length=1, max_length=64)
 
 
 class BusinessUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=200)
     segment: str | None = Field(default=None, max_length=120)
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class BusinessRead(BaseModel):
@@ -80,6 +82,9 @@ class BusinessRead(BaseModel):
     organization_id: UUID
     name: str
     segment: str
+    timezone: str
+    onboarding_status: str
+    onboarding_completed_at: datetime | None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -103,6 +108,10 @@ class BrandProfileUpsert(BaseModel):
     segment: str = Field(default="", max_length=120)
     audience: str = ""
     primary_colors: list[str] = Field(default_factory=list)
+    secondary_colors: list[str] = Field(default_factory=list)
+    fonts: list[str] = Field(default_factory=list)
+    logo_media_asset_ids: list[str] = Field(default_factory=list)
+    visual_reference_media_asset_ids: list[str] = Field(default_factory=list)
     tone_of_voice: str = ""
     preferred_words: list[str] = Field(default_factory=list)
     forbidden_words: list[str] = Field(default_factory=list)
@@ -112,6 +121,11 @@ class BrandProfileUpsert(BaseModel):
     contacts: dict[str, Any] | str | None = None
     links: list[str] = Field(default_factory=list)
     calls_to_action: list[str] = Field(default_factory=list)
+    allowed_rules: list[str] = Field(default_factory=list)
+    forbidden_rules: list[str] = Field(default_factory=list)
+    required_terms: list[str] = Field(default_factory=list)
+    legal_rules: list[str] = Field(default_factory=list)
+    image_restrictions: list[str] = Field(default_factory=list)
     internal_notes: str = ""
 
 
@@ -120,6 +134,7 @@ class BrandProfileRead(BrandProfileUpsert):
     id: UUID
     organization_id: UUID
     business_id: UUID
+    version: int
     created_at: datetime
     updated_at: datetime
 
