@@ -11,6 +11,7 @@ from growthos.models import CalendarEntry, ContentItem, Membership, User
 from growthos.schemas import ContentRead, ManualPublicationCreate
 from growthos.services.audit import add_audit_log
 from growthos.services.content.common import transition
+from growthos.services.content.professional_reviews import ensure_professional_approval
 from growthos.services.content.read_models import (
     get_content,
     get_current_version,
@@ -99,6 +100,7 @@ def record_manual_publication(
             status.HTTP_409_CONFLICT,
             "Somente conteúdo aprovado ou agendado pode ser registrado como publicado",
         )
+    ensure_professional_approval(session, content, get_current_version(session, content))
     calendar_entry: CalendarEntry | None = None
     if content.calendar_entry_id is not None:
         calendar_entry = session.scalar(

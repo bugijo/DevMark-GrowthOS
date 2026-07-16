@@ -25,6 +25,7 @@ from growthos.models.base import utcnow
 from growthos.schemas import ContentRead, DecisionRequest
 from growthos.services.audit import add_audit_log
 from growthos.services.content.common import transition
+from growthos.services.content.professional_reviews import ensure_professional_approval
 from growthos.services.content.read_models import (
     get_content,
     get_current_version,
@@ -239,6 +240,7 @@ def approve_content_component(
     if context.membership.business_id != content.business_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Aprovação fora do cliente permitido")
     version = get_current_version(session, content)
+    ensure_professional_approval(session, content, version)
     if component == ApprovalComponent.IMAGE:
         media_id = session.scalar(
             select(ContentVersionMedia.media_asset_id).where(

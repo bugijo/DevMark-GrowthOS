@@ -71,6 +71,7 @@ def _serialize_member(user: User, membership: Membership) -> OrganizationMembers
         role=membership.role,
         business_id=membership.business_id,
         status=MembershipStatus.ACTIVE if membership.is_active else MembershipStatus.SUSPENDED,
+        professional_review_granted=membership.professional_review_granted,
         invited_by_user_id=None,
         joined_at=membership.created_at,
         created_at=membership.created_at,
@@ -170,10 +171,37 @@ def update_member(
         if payload.status is not None
         else membership.is_active
     )
+    grant_was_requested = "professional_review_granted" in payload.model_fields_set
+    if grant_was_requested and not has_capability(
+        context.membership.role,
+        Capability.PROFESSIONAL_REVIEW_GRANT_MANAGE,
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Você não pode conceder revisão profissional",
+        )
+    requested_grant = (
+        bool(payload.professional_review_granted)
+        if grant_was_requested
+        else membership.professional_review_granted
+    )
+    if requested_grant and (
+        not next_active or not has_capability(next_role, Capability.CONTENT_REVIEW_PROFESSIONAL)
+    ):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "A concessão exige pessoa ativa e papel elegível para revisão profissional",
+        )
+    next_professional_review_granted = (
+        requested_grant
+        if next_active and has_capability(next_role, Capability.CONTENT_REVIEW_PROFESSIONAL)
+        else False
+    )
     if membership.user_id == context.user.id and (
         not next_active
         or next_role != membership.role
         or next_business_id != membership.business_id
+        or next_professional_review_granted != membership.professional_review_granted
     ):
         raise HTTPException(status.HTTP_409_CONFLICT, "Você não pode alterar o próprio acesso")
     if membership.role == Role.AGENCY_ADMIN and (not next_active or next_role != Role.AGENCY_ADMIN):
@@ -193,6 +221,7 @@ def update_member(
         "role": membership.role.value,
         "business_id": str(membership.business_id) if membership.business_id else None,
         "active": membership.is_active,
+        "professional_review_granted": membership.professional_review_granted,
     }
     fields: list[str] = []
     if membership.role != next_role:
@@ -204,12 +233,17 @@ def update_member(
     if membership.is_active != next_active:
         membership.is_active = next_active
         fields.append("status")
+    grant_changed = membership.professional_review_granted != next_professional_review_granted
+    if grant_changed:
+        membership.professional_review_granted = next_professional_review_granted
+        fields.append("professional_review_granted")
     if fields:
         user.session_version += 1
     after = {
         "role": membership.role.value,
         "business_id": str(membership.business_id) if membership.business_id else None,
         "active": membership.is_active,
+        "professional_review_granted": membership.professional_review_granted,
     }
     add_audit_log(
         session,
@@ -221,6 +255,20 @@ def update_member(
         resource_id=membership.id,
         details={"fields": fields, "before": before, "after": after},
     )
+    if grant_changed:
+        add_audit_log(
+            session,
+            organization_id=context.organization.id,
+            business_id=membership.business_id,
+            actor_user_id=context.user.id,
+            action="membership.professional_review_grant_changed",
+            resource_type="membership",
+            resource_id=membership.id,
+            details={
+                "granted": membership.professional_review_granted,
+                "role": membership.role.value,
+            },
+        )
     session.commit()
     return _serialize_member(user, membership)
 

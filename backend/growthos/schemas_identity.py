@@ -115,6 +115,7 @@ class OrganizationMembershipRead(BaseModel):
     role: Role
     business_id: UUID | None
     status: MembershipStatus
+    professional_review_granted: bool
     invited_by_user_id: UUID | None
     joined_at: datetime | None
     created_at: datetime
@@ -125,6 +126,7 @@ class OrganizationMembershipUpdate(IdentityRequest):
     role: Role | None = None
     business_id: UUID | None = None
     status: MembershipStatus | None = None
+    professional_review_granted: bool | None = None
 
     @model_validator(mode="after")
     def validate_update(self) -> Self:
@@ -133,6 +135,8 @@ class OrganizationMembershipUpdate(IdentityRequest):
             raise ValueError("informe ao menos uma alteração")
         if self.role == Role.SUPER_ADMIN:
             raise ValueError("SUPER_ADMIN não pode ser concedido nesta operação")
+        if "professional_review_granted" in provided and self.professional_review_granted is None:
+            raise ValueError("a concessão profissional deve ser verdadeira ou falsa")
         if (
             self.role in BUSINESS_SCOPED_ROLES
             and "business_id" in provided

@@ -1,7 +1,19 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Index, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from growthos.domain.enums import ApprovalComponent, ApprovalStage, ApprovalStatus, ContentStatus
@@ -79,6 +91,17 @@ class ContentVersion(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "content_versions"
     __table_args__ = (
         UniqueConstraint("content_item_id", "version_number", name="uq_content_version_number"),
+        UniqueConstraint(
+            "id",
+            "organization_id",
+            "business_id",
+            "content_item_id",
+            name="uq_content_version_tenant_identity",
+        ),
+        CheckConstraint(
+            "sensitivity_score >= 0 AND sensitivity_score <= 100",
+            name="ck_content_version_sensitivity_score",
+        ),
     )
 
     organization_id: Mapped[UUID] = mapped_column(
@@ -120,6 +143,19 @@ class ContentVersion(UUIDPrimaryKeyMixin, Base):
         JSON, default=dict, nullable=False
     )
     provider_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    is_sensitive: Mapped[bool] = mapped_column(default=False, nullable=False)
+    sensitivity_categories: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    sensitivity_codes: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    sensitivity_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    sensitivity_provider: Mapped[str] = mapped_column(
+        String(80), default="legacy_unassessed", nullable=False
+    )
+    sensitivity_provider_version: Mapped[str] = mapped_column(
+        String(80), default="legacy-v1", nullable=False
+    )
+    sensitivity_assessed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False
+    )
     created_by_user_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )

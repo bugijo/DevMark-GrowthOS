@@ -37,6 +37,12 @@ class Membership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "memberships"
     __table_args__ = (
         UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
+        UniqueConstraint(
+            "id",
+            "organization_id",
+            "user_id",
+            name="uq_membership_tenant_user_identity",
+        ),
         CheckConstraint(
             "is_active = false OR "
             "role NOT IN ('CLIENT_OWNER', 'CLIENT_REVIEWER', 'VIEWER') OR "
@@ -56,3 +62,6 @@ class Membership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Uuid(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE"), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    professional_review_granted: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )

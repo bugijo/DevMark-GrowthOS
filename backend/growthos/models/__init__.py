@@ -21,6 +21,7 @@ from growthos.models.notification_preferences import (
 from growthos.models.onboarding import BusinessOnboarding
 from growthos.models.operations import AuditLog, Job, Notification
 from growthos.models.planning import CalendarEntry, ContentPlan, ContentStrategy, StrategyVersion
+from growthos.models.professional_review import ProfessionalContentReview
 
 __all__ = [
     "Approval",
@@ -49,6 +50,7 @@ __all__ = [
     "Organization",
     "OrganizationInvite",
     "PasswordResetToken",
+    "ProfessionalContentReview",
     "Service",
     "StrategyVersion",
     "User",

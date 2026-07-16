@@ -18,6 +18,7 @@ from growthos.domain.enums import (
     ContentStatus,
     NotificationCategory,
     NotificationImportance,
+    ProfessionalReviewDecision,
     Role,
 )
 
@@ -52,6 +53,7 @@ class MembershipRead(BaseModel):
     organization_id: UUID
     role: Role
     business_id: UUID | None
+    professional_review_granted: bool
 
 
 class LoginRequest(BaseModel):
@@ -181,6 +183,13 @@ class ContentVersionRead(BaseModel):
     visual_preset_snapshot: dict[str, Any]
     media_asset_ids: list[UUID] = Field(default_factory=list)
     provider_name: str
+    is_sensitive: bool
+    sensitivity_categories: list[str]
+    sensitivity_codes: list[str]
+    sensitivity_score: int
+    sensitivity_provider: str
+    sensitivity_provider_version: str
+    sensitivity_assessed_at: datetime
     created_at: datetime
 
 
@@ -196,6 +205,28 @@ class ApprovalRead(BaseModel):
     decided_by_user_id: UUID | None
     decision_comment: str | None
     decided_at: datetime | None
+
+
+class ProfessionalReviewCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    decision: ProfessionalReviewDecision
+    justification: str = Field(min_length=3, max_length=4000)
+
+
+class ProfessionalReviewRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    organization_id: UUID
+    business_id: UUID
+    content_item_id: UUID
+    content_version_id: UUID
+    reviewer_user_id: UUID
+    reviewer_membership_id: UUID
+    decision: ProfessionalReviewDecision
+    justification: str
+    created_at: datetime
 
 
 class ContentRead(BaseModel):
@@ -216,6 +247,7 @@ class ContentRead(BaseModel):
     change_request_comment: str | None = None
     current_version: ContentVersionRead
     approvals: list[ApprovalRead] = Field(default_factory=list)
+    professional_reviews: list[ProfessionalReviewRead] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

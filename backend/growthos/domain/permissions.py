@@ -58,6 +58,8 @@ class Capability(StrEnum):
     CONTENT_SEND_CLIENT = "content.send_client"
     CONTENT_DECIDE_CLIENT = "content.decide_client"
     CONTENT_COMMENT = "content.comment"
+    CONTENT_REVIEW_PROFESSIONAL = "content.review_professional"
+    PROFESSIONAL_REVIEW_GRANT_MANAGE = "content.review_professional_grant_manage"
 
     NOTIFICATION_VIEW_OWN = "notification.view_own"
     NOTIFICATION_UPDATE_OWN = "notification.update_own"
@@ -137,6 +139,8 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_REVIEW_INTERNAL,
             Capability.CONTENT_SEND_CLIENT,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
+            Capability.PROFESSIONAL_REVIEW_GRANT_MANAGE,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
@@ -174,6 +178,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_REVIEW_INTERNAL,
             Capability.CONTENT_SEND_CLIENT,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
@@ -205,6 +210,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_EDIT_TEXT,
             Capability.CONTENT_SUBMIT_INTERNAL,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
@@ -231,6 +237,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_EDIT_VISUAL,
             Capability.CONTENT_SUBMIT_INTERNAL,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
@@ -254,6 +261,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_VIEW,
             Capability.CONTENT_DECIDE_CLIENT,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
@@ -274,6 +282,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_VIEW,
             Capability.CONTENT_DECIDE_CLIENT,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
