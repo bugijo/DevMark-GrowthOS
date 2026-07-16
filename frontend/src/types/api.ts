@@ -8,6 +8,9 @@ export type Role =
   | "CLIENT_REVIEWER"
   | "VIEWER";
 
+export type MembershipStatus = "ACTIVE" | "SUSPENDED" | "REVOKED";
+export type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+
 export interface User {
   id: string;
   email: string;
@@ -35,6 +38,68 @@ export interface Membership {
   is_active?: boolean;
 }
 
+export interface OrganizationMembership {
+  id: string;
+  organization_id: string;
+  user: User;
+  role: Role;
+  business_id: string | null;
+  status: MembershipStatus;
+  invited_by_user_id: string | null;
+  joined_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizationInvite {
+  id: string;
+  organization_id: string;
+  business_id: string | null;
+  email: string;
+  role: Role;
+  status: InviteStatus;
+  expires_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  invited_by_user_id: string;
+  created_at: string;
+}
+
+export interface OrganizationInviteInput {
+  name: string;
+  email: string;
+  role: Role;
+  business_id: string | null;
+}
+
+export interface OrganizationMembershipUpdate {
+  role?: Role;
+  business_id?: string | null;
+  status?: MembershipStatus;
+}
+
+export interface InvitationInspection {
+  organization: Organization;
+  business_id: string | null;
+  business_name: string | null;
+  masked_email: string;
+  role: Role;
+  expires_at: string;
+  requires_account_setup: boolean;
+}
+
+export interface InvitationAcceptance {
+  user: User;
+  membership: Membership;
+  organization: Organization;
+  accepted_at: string;
+  login_required: boolean;
+}
+
+export interface SecurityMessage {
+  message: string;
+}
+
 export interface LoginResponse {
   user: User;
   membership: Membership;
@@ -49,6 +114,7 @@ export interface Business {
   organization_id?: string;
   name: string;
   segment: string;
+  is_active?: boolean;
   created_at?: string;
   updated_at?: string;
 }

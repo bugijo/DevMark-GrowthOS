@@ -82,6 +82,30 @@ describe("apiRequest", () => {
       cta: "Agende agora",
     });
   });
+
+  it("envia token de convite apenas no corpo do endpoint público", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          organization: { id: "org-1", name: "Organização" },
+          role: "CLIENT_REVIEWER",
+          masked_email: "p***@example.com",
+          expires_at: "2026-07-16T12:00:00Z",
+          requires_account_setup: false,
+          business_id: null,
+          business_name: null,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    await api.auth.inspectInvitation("fragment-token-value");
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/auth/invitations/inspect");
+    expect(String(url)).not.toContain("fragment-token-value");
+    expect(JSON.parse(String(init?.body))).toEqual({ token: "fragment-token-value" });
+  });
 });
 
 describe("extractItems", () => {

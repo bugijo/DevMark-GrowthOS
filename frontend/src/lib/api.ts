@@ -5,12 +5,19 @@ import type {
   Business,
   ContentItem,
   ContentRevisionInput,
+  InvitationAcceptance,
+  InvitationInspection,
   ListEnvelope,
   LoginResponse,
   MeResponse,
   Membership,
+  OrganizationInvite,
+  OrganizationInviteInput,
+  OrganizationMembership,
+  OrganizationMembershipUpdate,
   Notification,
   Organization,
+  SecurityMessage,
   User,
 } from "@/types/api";
 
@@ -177,6 +184,29 @@ export const api = {
       }),
     me: () => apiRequest<MeResponse>("/auth/me"),
     logout: () => apiRequest<void>("/auth/logout", { method: "POST" }),
+    requestPasswordRecovery: (email: string) =>
+      apiRequest<SecurityMessage>("/auth/password-recovery", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+    resetPassword: (token: string, newPassword: string) =>
+      apiRequest<SecurityMessage>("/auth/password-reset", {
+        method: "POST",
+        body: JSON.stringify({ token, new_password: newPassword }),
+      }),
+    inspectInvitation: (token: string) =>
+      apiRequest<InvitationInspection>("/auth/invitations/inspect", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      }),
+    acceptInvitation: (
+      token: string,
+      account?: { name: string; password: string },
+    ) =>
+      apiRequest<InvitationAcceptance>("/auth/invitations/accept", {
+        method: "POST",
+        body: JSON.stringify({ token, ...account }),
+      }),
   },
   organizations: {
     current: () => apiRequest<Organization>("/organizations/current"),
@@ -214,6 +244,24 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(input),
       }),
+  },
+  members: {
+    list: () => apiRequest<OrganizationMembership[]>("/members"),
+    update: (id: string, input: OrganizationMembershipUpdate) =>
+      apiRequest<OrganizationMembership>(`/members/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    invitations: {
+      list: () => apiRequest<OrganizationInvite[]>("/members/invitations"),
+      create: (input: OrganizationInviteInput) =>
+        apiRequest<OrganizationInvite>("/members/invitations", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      revoke: (id: string) =>
+        apiRequest<void>(`/members/invitations/${id}`, { method: "DELETE" }),
+    },
   },
   contents: {
     list: (businessId?: string) =>
