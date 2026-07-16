@@ -35,6 +35,39 @@ class PostgresJobRepository:
             cursor.execute(query, (timeout_seconds,))
             return int(cursor.rowcount)
 
+    def cleanup_terminal(
+        self,
+        *,
+        succeeded_retention_days: int,
+        failed_retention_days: int,
+        batch_size: int,
+    ) -> int:
+        query = """
+            WITH candidates AS (
+                SELECT id
+                  FROM jobs
+                 WHERE (
+                           status = 'SUCCEEDED'
+                       AND updated_at < NOW() - (%s * INTERVAL '1 day')
+                 ) OR (
+                           status IN ('FAILED', 'CANCELLED')
+                       AND updated_at < NOW() - (%s * INTERVAL '1 day')
+                 )
+                 ORDER BY updated_at ASC
+                 FOR UPDATE SKIP LOCKED
+                 LIMIT %s
+            )
+            DELETE FROM jobs AS job
+             USING candidates
+             WHERE job.id = candidates.id
+        """
+        with self._connect() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                query,
+                (succeeded_retention_days, failed_retention_days, batch_size),
+            )
+            return int(cursor.rowcount)
+
     def claim(self, *, worker_id: str, batch_size: int, timeout_seconds: int) -> list[ClaimedJob]:
         query = """
             WITH candidates AS (

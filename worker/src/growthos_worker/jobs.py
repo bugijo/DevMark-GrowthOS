@@ -18,6 +18,14 @@ class ClaimedJob:
 class JobRepository(Protocol):
     def expire_exhausted(self, *, timeout_seconds: int) -> int: ...
 
+    def cleanup_terminal(
+        self,
+        *,
+        succeeded_retention_days: int,
+        failed_retention_days: int,
+        batch_size: int,
+    ) -> int: ...
+
     def claim(
         self, *, worker_id: str, batch_size: int, timeout_seconds: int
     ) -> list[ClaimedJob]: ...

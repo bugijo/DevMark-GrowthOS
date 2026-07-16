@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import signal
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +44,12 @@ def _touch_heartbeat(path: Path) -> None:
     path.touch()
 
 
-def build_service(settings: WorkerSettings) -> WorkerService:
+def build_service(
+    settings: WorkerSettings,
+    *,
+    on_progress: Callable[[], None] | None = None,
+    should_stop: Callable[[], bool] | None = None,
+) -> WorkerService:
     logger = configure_logging(__import__("os").getenv("LOG_LEVEL", "INFO"))
 
     def connect() -> Any:
@@ -69,6 +75,12 @@ def build_service(settings: WorkerSettings) -> WorkerService:
         retry_base_seconds=settings.retry_base_seconds,
         retry_max_seconds=settings.retry_max_seconds,
         logger=logger,
+        cleanup_interval_seconds=settings.cleanup_interval_seconds,
+        cleanup_batch_size=settings.cleanup_batch_size,
+        succeeded_retention_days=settings.succeeded_retention_days,
+        failed_retention_days=settings.failed_retention_days,
+        on_progress=on_progress,
+        should_stop=should_stop,
     )
 
 
@@ -78,7 +90,6 @@ def main() -> None:
     args = parser.parse_args()
     settings = WorkerSettings.from_env()
     _validate_backend_contract()
-    service = build_service(settings)
     stop = threading.Event()
 
     def request_stop(_signum: int, _frame: Any) -> None:
@@ -87,6 +98,11 @@ def main() -> None:
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGINT, request_stop)
     _touch_heartbeat(settings.heartbeat_file)
+    service = build_service(
+        settings,
+        on_progress=lambda: _touch_heartbeat(settings.heartbeat_file),
+        should_stop=stop.is_set,
+    )
     while not stop.is_set():
         service.run_once()
         _touch_heartbeat(settings.heartbeat_file)
