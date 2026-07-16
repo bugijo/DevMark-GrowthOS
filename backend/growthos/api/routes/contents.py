@@ -50,11 +50,19 @@ def generate_content(
 @router.get("", response_model=list[ContentRead])
 def list_contents(
     business_id: UUID | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=10_000),
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> list[ContentRead]:
     require_capability(context, Capability.CONTENT_VIEW)
-    return content_reads.list_contents(session, context, business_id)
+    return content_reads.list_contents(
+        session,
+        context,
+        business_id,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{content_id}", response_model=ContentRead)

@@ -171,6 +171,9 @@ def list_contents(
     session: Session,
     context: AuthContext,
     business_id: UUID | None,
+    *,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[ContentRead]:
     query = (
         select(ContentItem)
@@ -198,5 +201,9 @@ def list_contents(
     elif business_id is not None:
         get_scoped_business(session, context, business_id)
         query = query.where(ContentItem.business_id == business_id)
-    contents = session.scalars(query.order_by(ContentItem.created_at.desc())).all()
+    contents = session.scalars(
+        query.order_by(ContentItem.created_at.desc(), ContentItem.id.desc())
+        .limit(limit)
+        .offset(offset)
+    ).all()
     return [serialize_content(session, content, context) for content in contents]
