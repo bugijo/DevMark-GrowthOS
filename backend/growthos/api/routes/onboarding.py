@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from growthos.database import get_session
@@ -11,9 +12,12 @@ from growthos.dependencies import (
     require_capability,
     require_csrf,
 )
+from growthos.domain.enums import Role
 from growthos.domain.permissions import Capability
+from growthos.models import Membership, User
 from growthos.schemas_onboarding import (
     BusinessOnboardingRead,
+    OnboardingApproverRead,
     OnboardingCompleteRequest,
     OnboardingStepPayload,
 )
@@ -29,6 +33,44 @@ from growthos.services.onboarding import (
 )
 
 router = APIRouter()
+
+
+@router.get(
+    "/businesses/{business_id}/onboarding/approvers",
+    response_model=list[OnboardingApproverRead],
+)
+def list_business_onboarding_approvers(
+    business_id: UUID,
+    context: AuthContext = Depends(get_current_context),
+    session: Session = Depends(get_session),
+) -> list[OnboardingApproverRead]:
+    """Expõe somente aprovadores ativos do cliente para o assistente."""
+
+    require_capability(context, Capability.ONBOARDING_VIEW)
+    business = get_scoped_business(session, context, business_id)
+    rows = session.execute(
+        select(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .where(
+            Membership.organization_id == context.organization.id,
+            Membership.business_id == business.id,
+            Membership.role.in_((Role.CLIENT_OWNER, Role.CLIENT_REVIEWER)),
+            Membership.is_active.is_(True),
+            User.is_active.is_(True),
+        )
+        .order_by(User.name, User.email, Membership.id)
+    ).all()
+    return [
+        OnboardingApproverRead(
+            membership_id=membership.id,
+            user_id=user.id,
+            business_id=business.id,
+            name=user.name,
+            email=user.email,
+            role=membership.role,
+        )
+        for membership, user in rows
+    ]
 
 
 @router.post(

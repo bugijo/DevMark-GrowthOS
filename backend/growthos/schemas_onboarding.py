@@ -12,6 +12,7 @@ from pydantic import (
     model_validator,
 )
 
+from growthos.domain.enums import Role
 from growthos.schemas_catalog import VisualPresetCreate
 
 ShortText = Annotated[
@@ -294,3 +295,12 @@ class BusinessOnboardingRead(OnboardingInput):
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class OnboardingApproverRead(OnboardingInput):
+    membership_id: UUID
+    user_id: UUID
+    business_id: UUID
+    name: str
+    email: str
+    role: Role
