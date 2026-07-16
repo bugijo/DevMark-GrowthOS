@@ -70,10 +70,20 @@ class Settings(BaseSettings):
     demo_client_email: str = "client@clinicafeliz.local"
     demo_client_password: str = "local-demo-client-only-change-before-use"
 
-    @field_validator("app_env", "ai_provider", mode="before")
+    antimalware_provider: str = "mock"
+    antimalware_fail_closed: bool = True
+
+    @field_validator("app_env", "ai_provider", "antimalware_provider", mode="before")
     @classmethod
     def normalize_mode(cls, value: object) -> object:
         return value.strip().casefold() if isinstance(value, str) else value
+
+    @field_validator("antimalware_provider")
+    @classmethod
+    def validate_antimalware_provider(cls, value: str) -> str:
+        if value not in {"mock", "disabled"}:
+            raise ValueError("ANTIMALWARE_PROVIDER deve ser mock ou disabled")
+        return value
 
     @field_validator("session_cookie_same_site", mode="before")
     @classmethod
@@ -108,6 +118,10 @@ class Settings(BaseSettings):
                 problems.append("SESSION_COOKIE_SECURE deve ser true")
             if self.ai_provider != "mock":
                 problems.append("AI_PROVIDER deve ser mock nesta versão")
+            if self.antimalware_provider == "disabled":
+                problems.append("ANTIMALWARE_PROVIDER não pode ser disabled")
+            if not self.antimalware_fail_closed:
+                problems.append("ANTIMALWARE_FAIL_CLOSED deve ser true")
             if self.seed_demo_data:
                 problems.append("SEED_DEMO_DATA deve ser false")
             if not self.cors_origins or any("*" in origin for origin in self.cors_origins):

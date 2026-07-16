@@ -1,10 +1,18 @@
 import io
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
+from sqlalchemy import select
 
+from growthos.database import get_session_factory
 from growthos.domain.enums import Role
+from growthos.models import AuditLog, MediaAsset
+from growthos.services.antimalware import (
+    AntimalwareUnavailable,
+    get_antimalware_provider,
+)
 from growthos.services.storage import MemoryStorageProvider, get_storage_provider
 from tests.conftest import create_identity, csrf_headers, login
 
@@ -97,6 +105,99 @@ def test_upload_rejects_spoofed_or_executable_content(
     )
     assert response.status_code == 422
     assert memory_storage.objects == {}
+
+
+def test_antimalware_mock_quarantines_a_valid_image_with_test_signature(
+    client: TestClient,
+    memory_storage: MemoryStorageProvider,
+) -> None:
+    admin = create_identity(
+        slug="media-quarantine",
+        email="media-quarantine@example.com",
+        role=Role.AGENCY_ADMIN,
+    )
+    headers = csrf_headers(login(client, admin))
+    business = _create_business(client, headers, "Clínica Quarentena")
+    signed_test_file = _png_bytes() + b"GROWTHOS-MALWARE-MOCK"
+
+    response = client.post(
+        f"/api/v1/businesses/{business['id']}/media",
+        files={"file": ("teste-seguranca.png", signed_test_file, "image/png")},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    assert "verificação de segurança" in response.json()["detail"]
+    assert len(memory_storage.objects) == 1
+    quarantine_key = next(iter(memory_storage.objects))
+    assert "/quarantine/" in quarantine_key
+    assert memory_storage.objects[quarantine_key][1] == "application/octet-stream"
+
+    with get_session_factory()() as session:
+        asset = session.scalar(
+            select(MediaAsset).where(
+                MediaAsset.organization_id == admin.organization_id,
+                MediaAsset.business_id == UUID(business["id"]),
+                MediaAsset.processing_status == "REJECTED",
+            )
+        )
+        assert asset is not None
+        assert asset.metadata_safe["antimalware"]["verdict"] == "MALICIOUS"
+        assert session.scalar(
+            select(AuditLog).where(
+                AuditLog.organization_id == admin.organization_id,
+                AuditLog.action == "media.quarantined",
+                AuditLog.resource_id == asset.id,
+            )
+        )
+        asset_id = asset.id
+
+    listed = client.get(f"/api/v1/businesses/{business['id']}/media")
+    assert listed.status_code == 200
+    assert listed.json() == []
+    assert client.get(f"/api/v1/media/{asset_id}/download-url").status_code == 404
+
+
+def test_antimalware_failure_is_quarantined_and_fails_closed(
+    client: TestClient,
+    memory_storage: MemoryStorageProvider,
+) -> None:
+    class UnavailableScanner:
+        name = "mock-unavailable"
+
+        def scan(self, *_args: object, **_kwargs: object) -> object:
+            raise AntimalwareUnavailable("private scanner detail")
+
+    client.app.dependency_overrides[get_antimalware_provider] = lambda: UnavailableScanner()
+    try:
+        admin = create_identity(
+            slug="media-scan-failure",
+            email="media-scan-failure@example.com",
+            role=Role.AGENCY_ADMIN,
+        )
+        headers = csrf_headers(login(client, admin))
+        business = _create_business(client, headers, "Clínica Scanner Indisponível")
+        response = client.post(
+            f"/api/v1/businesses/{business['id']}/media",
+            files={"file": ("imagem.png", _png_bytes(), "image/png")},
+            headers=headers,
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_antimalware_provider, None)
+
+    assert response.status_code == 503
+    assert "private scanner detail" not in response.text
+    assert len(memory_storage.objects) == 1
+    with get_session_factory()() as session:
+        asset = session.scalar(
+            select(MediaAsset).where(
+                MediaAsset.organization_id == admin.organization_id,
+                MediaAsset.business_id == UUID(business["id"]),
+                MediaAsset.processing_status == "FAILED",
+            )
+        )
+        assert asset is not None
+        assert asset.metadata_safe["antimalware"]["reason_code"] == "SCANNER_UNAVAILABLE"
 
 
 def test_media_url_is_isolated_between_organizations(
