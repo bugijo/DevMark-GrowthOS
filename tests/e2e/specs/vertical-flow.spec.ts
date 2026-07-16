@@ -289,7 +289,7 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
   await page.getByRole("link", { name: "Conteúdos", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Conteúdos" })).toBeVisible();
   await expect(page.getByText("Carregando conteúdos…", { exact: true })).toBeHidden();
-  await page.getByLabel(/^Empresa/).selectOption({ label: "Clínica Veterinária Demo" });
+  await page.getByLabel(/^Cliente/).selectOption({ label: "Clínica Veterinária Demo" });
   await page.getByLabel("Imagem principal").selectOption(setupMedia!.id);
   await page.getByLabel("Objetivo do conteúdo").fill(objective);
 
@@ -315,7 +315,9 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
     .getByRole("button", { name: "Enviar para revisão interna" })
     .click();
   await expect(agencyCard.getByText("Revisão interna", { exact: true })).toBeVisible();
-  await agencyCard.getByRole("button", { name: "Enviar ao cliente" }).click();
+  await agencyCard
+    .getByRole("button", { name: "Enviar texto e imagem ao cliente", exact: true })
+    .click();
   await expect(agencyCard.getByText("Aguardando cliente", { exact: true })).toBeVisible();
 
   await logoutThroughUi(page);

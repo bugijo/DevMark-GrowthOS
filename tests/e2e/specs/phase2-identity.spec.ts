@@ -218,12 +218,12 @@ test("convite e recuperação usam Mailpit, fragmento e tokens de uso único", a
     await expect(
       page.getByRole("heading", { name: "Entrar para a organização" }),
     ).toBeVisible();
-    await expect(page.getByLabel("Seu nome")).toBeVisible();
+    await expect(page.getByLabel("Seu nome", { exact: true })).toBeVisible();
     await expectNoHorizontalOverflow(page);
-    await page.getByLabel("Seu nome").fill(`Pessoa E2E ${suffix}`);
-    await page.getByLabel("Crie uma senha").fill(invitedPassword);
-    await page.getByLabel("Confirme a senha").fill(invitedPassword);
-    await page.getByRole("button", { name: "Aceitar convite" }).click();
+    await page.getByLabel("Seu nome", { exact: true }).fill(`Pessoa E2E ${suffix}`);
+    await page.getByLabel("Crie uma senha", { exact: true }).fill(invitedPassword);
+    await page.getByLabel("Confirme a senha", { exact: true }).fill(invitedPassword);
+    await page.getByRole("button", { name: "Aceitar convite", exact: true }).click();
     await expect(page.getByText("Convite aceito. Seu acesso já está ativo.")).toBeVisible();
 
     const usedInvitation = await security.post("auth/invitations/inspect", {
@@ -259,9 +259,9 @@ test("convite e recuperação usam Mailpit, fragmento e tokens de uso único", a
     await openFragmentRoute(page, "/redefinir-senha", resetToken);
     await expect(page.getByRole("heading", { name: "Criar nova senha" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
-    await page.getByLabel("Nova senha").fill(resetPassword);
-    await page.getByLabel("Confirme a nova senha").fill(resetPassword);
-    await page.getByRole("button", { name: "Salvar nova senha" }).click();
+    await page.getByLabel("Nova senha", { exact: true }).fill(resetPassword);
+    await page.getByLabel("Confirme a nova senha", { exact: true }).fill(resetPassword);
+    await page.getByRole("button", { name: "Salvar nova senha", exact: true }).click();
     await expect(page.getByText("Senha redefinida com sucesso.")).toBeVisible();
 
     const reusedReset = await security.post("auth/password-reset", {
