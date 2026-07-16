@@ -62,6 +62,7 @@ type Content = {
   approvals: Approval[];
   current_version: {
     id: string;
+    title: string;
     provider_name: string;
     service_id: string | null;
     audience_segment_id: string | null;
@@ -114,6 +115,30 @@ async function login(email: string, password: string): Promise<{
   return { context, csrf: payload.csrf_token };
 }
 
+async function loginThroughUi(
+  page: import("@playwright/test").Page,
+  email: string,
+  password: string,
+): Promise<void> {
+  await page.goto("/login");
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha").fill(password);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+}
+
+async function expectNoHorizontalOverflow(
+  page: import("@playwright/test").Page,
+): Promise<void> {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
+    )
+    .toBe(true);
+}
+
 function csrfHeaders(csrf: string): Record<string, string> {
   return { "X-CSRF-Token": csrf };
 }
@@ -135,7 +160,9 @@ function approvalStatuses(content: Content): Record<string, string> {
   );
 }
 
-test("fase 2 vincula estratégia, calendário, visual e conteúdo até relatório", async () => {
+test("fase 2 vincula estratégia, calendário, visual e conteúdo até relatório", async ({
+  page,
+}) => {
   test.setTimeout(120_000);
   const suffix = crypto.randomUUID();
   const startsAt = shiftedUtcDate(-1);
@@ -246,6 +273,18 @@ test("fase 2 vincula estratégia, calendário, visual e conteúdo até relatóri
     const media = (await mediaResponse.json()) as MediaAsset;
     expect(media.mime_type).toBe("image/png");
     expect(media.processing_status).toBe("READY");
+
+    const signedMediaResponse = await admin.context.get(
+      `media/${media.id}/download-url`,
+    );
+    await expectStatus(signedMediaResponse, 200, "emitir URL assinada da mídia");
+    const signedMedia = (await signedMediaResponse.json()) as {
+      url: string;
+      expires_at: string;
+    };
+    expect(new URL(signedMedia.url).protocol).toMatch(/^https?:$/);
+    expect(signedMedia.url).not.toContain(`fase-2-${suffix}`);
+    expect(new Date(signedMedia.expires_at).getTime()).toBeGreaterThan(Date.now());
 
     const presetResponse = await admin.context.post(
       `businesses/${businessId}/visual-presets`,
@@ -435,6 +474,24 @@ test("fase 2 vincula estratégia, calendário, visual e conteúdo até relatóri
     expect(sentContent.status).toBe("CLIENT_REVIEW");
     expect(approvalStatuses(sentContent)).toEqual({ IMAGE: "PENDING", TEXT: "PENDING" });
 
+    await page.setViewportSize({ width: 360, height: 800 });
+    await loginThroughUi(page, CLIENT_EMAIL, CLIENT_PASSWORD);
+    await page.goto("/aprovacoes");
+    const approvalCard = page.locator("article").filter({
+      has: page.getByRole("heading", {
+        name: sentContent.current_version.title,
+        exact: true,
+      }),
+    });
+    await expect(approvalCard).toBeVisible();
+    await approvalCard
+      .getByRole("button", { name: "Abrir imagem para revisar" })
+      .click();
+    await expect(
+      approvalCard.getByRole("img", { name: /Imagem em aprovação/ }),
+    ).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+
     const textDecision = await reviewer.context.post(
       `contents/${content.id}/decisions/TEXT/approve`,
       {
@@ -538,6 +595,7 @@ test("fase 2 vincula estratégia, calendário, visual e conteúdo até relatóri
       "audience_segment.created",
       "marketing_objective.created",
       "media.uploaded",
+      "media.signed_url_issued",
       "visual_preset.created",
       "visual_prompt.generated",
       "strategy.created",
@@ -565,5 +623,28 @@ test("fase 2 vincula estratégia, calendário, visual e conteúdo até relatóri
   } finally {
     await admin.context.dispose();
     await reviewer.context.dispose();
+  }
+});
+
+test("áreas operacionais da fase 2 permanecem utilizáveis em 360px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await loginThroughUi(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+
+  for (const [path, heading] of [
+    ["/marca", "Marca e presets visuais"],
+    ["/planejamento", "Planejamento editorial"],
+    ["/midia", "Biblioteca de mídia"],
+    ["/conteudos", "Conteúdos"],
+    ["/aprovacoes", "Aprovações"],
+    ["/relatorios", "Relatório do período"],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+    await expect(
+      page.getByText(/Carregando .*…/, { exact: false }).first(),
+    ).toBeHidden();
+    await expectNoHorizontalOverflow(page);
   }
 });
