@@ -10,6 +10,7 @@ from growthos.domain.enums import (
     ApprovalStage,
     ApprovalStatus,
     ContentStatus,
+    NotificationCategory,
     Role,
 )
 from growthos.models import (
@@ -85,6 +86,7 @@ def _notify_agency(
     *,
     actor_user_id: UUID,
     email_key: str,
+    category: NotificationCategory,
 ) -> None:
     recipients = session.execute(
         select(User, Membership)
@@ -120,6 +122,7 @@ def _notify_agency(
             message=message,
             resource_type="content_item",
             resource_id=content.id,
+            category=category,
         )
         enqueue_notification_email(
             session,
@@ -275,6 +278,7 @@ def approve_content_component(
         email_key=(
             f"content-decision:{content.id}:{version.id}:approved:{component.value.lower()}"
         ),
+        category=NotificationCategory.CONTENT_APPROVED,
     )
     add_audit_log(
         session,
@@ -340,6 +344,7 @@ def request_component_changes(
         f"O cliente pediu uma alteração em {component.value.lower()}.",
         actor_user_id=context.user.id,
         email_key=(f"content-decision:{content.id}:{current.id}:changes:{component.value.lower()}"),
+        category=NotificationCategory.CONTENT_CHANGES_REQUESTED,
     )
     add_audit_log(
         session,

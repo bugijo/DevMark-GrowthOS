@@ -8,7 +8,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from growthos.domain.enums import Role
+from growthos.domain.enums import (
+    NotificationCategory,
+    NotificationDeliveryMode,
+    Role,
+)
 from growthos.models import (
     AudienceSegment,
     BrandProfile,
@@ -22,6 +26,10 @@ from growthos.models import (
     VisualPreset,
 )
 from growthos.models.base import utcnow
+from growthos.schemas_notifications import (
+    NotificationCategoryPreferenceInput,
+    NotificationPreferenceUpdate,
+)
 from growthos.schemas_onboarding import (
     ApproversStep,
     AudiencesStep,
@@ -43,6 +51,7 @@ from growthos.schemas_onboarding import (
     VisualReferencesStep,
 )
 from growthos.services.audit import add_audit_log
+from growthos.services.notification_preferences import upsert_notification_preference
 
 _CLIENT_APPROVER_ROLES = (Role.CLIENT_OWNER, Role.CLIENT_REVIEWER)
 _ALL_STEPS = tuple(range(1, 16))
@@ -379,9 +388,28 @@ def _apply_step(
             payload.membership_ids,
         )
     elif isinstance(payload, NotificationSettingsStep):
-        # A preferência individual será materializada na fatia de notificações.
-        # Aqui o onboarding preserva somente o rascunho estritamente validado.
-        pass
+        disabled = {NotificationCategory(value) for value in payload.disabled_categories}
+        upsert_notification_preference(
+            session,
+            organization_id=organization_id,
+            user_id=actor_user_id,
+            actor_user_id=actor_user_id,
+            business_id=business.id,
+            payload=NotificationPreferenceUpdate(
+                email_enabled=payload.email_enabled,
+                timezone=payload.timezone,
+                digest_time=payload.digest_time,
+                weekly_day=payload.weekly_day,
+                categories=[
+                    NotificationCategoryPreferenceInput(
+                        category=category,
+                        delivery_mode=NotificationDeliveryMode(payload.mode),
+                        is_enabled=category not in disabled,
+                    )
+                    for category in NotificationCategory
+                ],
+            ),
+        )
     elif isinstance(payload, InitialPresetStep):
         preset_id = _resolve_initial_preset(
             session,

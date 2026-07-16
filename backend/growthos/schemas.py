@@ -16,6 +16,8 @@ from growthos.domain.enums import (
     ApprovalStage,
     ApprovalStatus,
     ContentStatus,
+    NotificationCategory,
+    NotificationImportance,
     Role,
 )
 
@@ -269,6 +271,8 @@ class NotificationRead(BaseModel):
     organization_id: UUID
     business_id: UUID | None
     type: str
+    category: NotificationCategory
+    importance: NotificationImportance
     title: str
     message: str
     resource_type: str | None

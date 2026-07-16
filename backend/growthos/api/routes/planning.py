@@ -15,7 +15,7 @@ from growthos.dependencies import (
     require_capability,
     require_csrf,
 )
-from growthos.domain.enums import Role
+from growthos.domain.enums import NotificationCategory, Role
 from growthos.domain.permissions import Capability
 from growthos.models import (
     AudienceSegment,
@@ -383,6 +383,7 @@ def send_strategy_to_client(
             message="A estratégia mensal está pronta para sua revisão.",
             resource_type="content_strategy",
             resource_id=strategy.id,
+            category=NotificationCategory.STRATEGY_AWAITING_APPROVAL,
         )
         enqueue_notification_email(
             session,
@@ -452,6 +453,11 @@ def decide_strategy(
             ),
             resource_type="content_strategy",
             resource_id=strategy.id,
+            category=(
+                NotificationCategory.CONTENT_APPROVED
+                if payload.decision == "APPROVE"
+                else NotificationCategory.CONTENT_CHANGES_REQUESTED
+            ),
         )
     add_audit_log(
         session,

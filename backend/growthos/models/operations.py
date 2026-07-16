@@ -5,12 +5,20 @@ from uuid import UUID
 from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Index, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from growthos.domain.enums import JobStatus
+from growthos.domain.enums import JobStatus, NotificationCategory, NotificationImportance
 from growthos.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, utcnow
 
 
 class Notification(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        UniqueConstraint(
+            "id",
+            "organization_id",
+            "recipient_user_id",
+            name="uq_notification_tenant_recipient",
+        ),
+    )
 
     organization_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), index=True
@@ -22,6 +30,16 @@ class Notification(UUIDPrimaryKeyMixin, Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     type: Mapped[str] = mapped_column(String(80), nullable=False)
+    category: Mapped[NotificationCategory] = mapped_column(
+        Enum(NotificationCategory, native_enum=False, length=80),
+        default=NotificationCategory.REPORT_AVAILABLE,
+        nullable=False,
+    )
+    importance: Mapped[NotificationImportance] = mapped_column(
+        Enum(NotificationImportance, native_enum=False, length=16),
+        default=NotificationImportance.NORMAL,
+        nullable=False,
+    )
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     resource_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
