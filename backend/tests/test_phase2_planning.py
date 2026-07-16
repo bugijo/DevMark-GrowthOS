@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from growthos.database import get_session_factory
 from growthos.domain.enums import Role
-from growthos.models import BrandProfile, ContentPlan, Job
+from growthos.models import AuditLog, BrandProfile, ContentPlan, Job, Notification
 from tests.conftest import add_user_to_identity, create_identity, csrf_headers, login
 
 
@@ -94,6 +94,37 @@ def test_strategy_approval_plan_and_monthly_weekly_calendar(client: TestClient) 
     )
     assert sent.status_code == 200, sent.text
     assert sent.json()["status"] == "CLIENT_REVIEW"
+    with get_session_factory()() as session:
+        notification_audit = session.scalar(
+            select(AuditLog).where(
+                AuditLog.organization_id == reviewer.organization_id,
+                AuditLog.business_id == reviewer.business_id,
+                AuditLog.action == "notification.created",
+                AuditLog.resource_type == "notification",
+            )
+        )
+        assert notification_audit is not None
+        assert notification_audit.actor_user_id is not None
+        assert notification_audit.actor_user_id != reviewer.user_id
+        assert set(notification_audit.details) == {
+            "notification_type",
+            "target_resource_id",
+            "target_resource_type",
+        }
+        assert notification_audit.details["notification_type"] == "STRATEGY_REVIEW"
+        assert notification_audit.details["target_resource_type"] == "content_strategy"
+        assert notification_audit.details["target_resource_id"] == strategy_id
+        notification = session.get(
+            Notification,
+            notification_audit.resource_id,
+        )
+        assert notification is not None
+        assert notification.organization_id == reviewer.organization_id
+        assert notification.business_id == reviewer.business_id
+        assert notification.resource_id == UUID(strategy_id)
+        serialized_details = str(notification_audit.details).casefold()
+        assert "planning-reviewer@example.com" not in serialized_details
+        assert "estratégia mensal" not in serialized_details
 
     reviewer_client = TestClient(client.app)
     reviewer_csrf = login(reviewer_client, reviewer)
@@ -143,6 +174,7 @@ def test_strategy_approval_plan_and_monthly_weekly_calendar(client: TestClient) 
         "strategy.created",
         "strategy.sent_to_client",
         "strategy.approved_by_client",
+        "notification.created",
         "content_plan.created",
         "calendar.generated_mock",
     } <= actions

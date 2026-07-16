@@ -1,7 +1,7 @@
 import os
 from collections.abc import Generator
 from dataclasses import dataclass
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,7 +20,7 @@ from growthos.config import get_settings
 from growthos.database import configure_database, get_session_factory
 from growthos.domain.enums import Role
 from growthos.main import app
-from growthos.models import Base, Business, Membership, Organization, User
+from growthos.models import Base, Business, MediaAsset, Membership, Organization, User
 from growthos.rate_limit import reset_login_rate_limiter
 from growthos.security import hash_password
 
@@ -126,6 +126,38 @@ def add_user_to_identity(
             email,
             password,
         )
+
+
+def create_ready_media(
+    identity: Identity,
+    *,
+    business_id: UUID | None = None,
+    display_name: str = "imagem-teste.png",
+) -> UUID:
+    scoped_business_id = business_id or identity.business_id
+    if scoped_business_id is None:
+        raise ValueError("A mídia de teste exige uma empresa")
+    with get_session_factory()() as session:
+        media = MediaAsset(
+            organization_id=identity.organization_id,
+            business_id=scoped_business_id,
+            kind="IMAGE",
+            storage_provider="memory",
+            object_key=(f"{identity.organization_id}/{scoped_business_id}/tests/{uuid4()}.png"),
+            display_name=display_name,
+            mime_type="image/png",
+            byte_size=68,
+            checksum_sha256="0" * 64,
+            width=1,
+            height=1,
+            origin="UPLOAD",
+            processing_status="READY",
+            metadata_safe={},
+            created_by_user_id=identity.user_id,
+        )
+        session.add(media)
+        session.commit()
+        return media.id
 
 
 def login(client: TestClient, identity: Identity) -> str:

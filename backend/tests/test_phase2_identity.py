@@ -6,7 +6,7 @@ from sqlalchemy import select
 from growthos.config import get_settings
 from growthos.database import get_session_factory
 from growthos.domain.enums import Role
-from growthos.models import Job, Membership, PasswordResetToken, User
+from growthos.models import AuditLog, Job, Membership, PasswordResetToken, User
 from growthos.services.tokens import TokenPurpose, derive_token
 from tests.conftest import add_user_to_identity, create_identity, csrf_headers, login
 
@@ -80,9 +80,33 @@ def test_secure_invitation_is_single_use_and_job_contains_no_token(client: TestC
         assert job is not None
         assert job.payload == {"invite_id": invite["id"]}
         assert token not in str(job.payload)
+        notification_audit = session.scalar(
+            select(AuditLog).where(
+                AuditLog.organization_id == admin.organization_id,
+                AuditLog.action == "notification.created",
+                AuditLog.resource_type == "notification",
+            )
+        )
+        assert notification_audit is not None
+        assert notification_audit.business_id is None
+        assert notification_audit.actor_user_id == UUID(accepted.json()["user"]["id"])
+        assert set(notification_audit.details) == {
+            "notification_type",
+            "target_resource_id",
+            "target_resource_type",
+        }
+        assert notification_audit.details["notification_type"] == "INVITATION_ACCEPTED"
+        assert notification_audit.details["target_resource_type"] == "membership"
+        assert (
+            notification_audit.details["target_resource_id"] == accepted.json()["membership"]["id"]
+        )
+        serialized_details = str(notification_audit.details).casefold()
+        assert "strategist@example.com" not in serialized_details
+        assert "pessoa convidada" not in serialized_details
+        assert token.casefold() not in serialized_details
 
     actions = {entry["action"] for entry in client.get("/api/v1/audit-logs").json()}
-    assert {"invitation.created", "invitation.accepted"} <= actions
+    assert {"invitation.created", "invitation.accepted", "notification.created"} <= actions
 
 
 def test_client_owner_can_invite_only_reviewers_for_own_business(client: TestClient) -> None:

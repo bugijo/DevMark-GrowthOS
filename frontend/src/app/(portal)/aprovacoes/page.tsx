@@ -154,7 +154,7 @@ export default function ApprovalsPage() {
       setComments((current) => ({ ...current, [key]: "" }));
       setSuccess(
         decision === "approve"
-          ? `${component === "TEXT" ? "Texto" : "Imagem"} aprovado. O conteúdo só avança quando ambos estiverem aprovados.`
+          ? `${component === "TEXT" ? "Texto aprovado" : "Imagem aprovada"}. O conteúdo só avança quando ambos estiverem aprovados.`
           : "Pedido de alteração registrado para o componente correto.",
       );
     } catch (requestError) {

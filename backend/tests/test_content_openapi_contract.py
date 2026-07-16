@@ -27,16 +27,8 @@ def test_content_paths_methods_and_operation_ids_remain_stable() -> None:
             "send_to_client_api_v1_contents__content_id__send_to_client_post",
             _DEFAULT_RESPONSES,
         ),
-        ("/api/v1/contents/{content_id}/approve", "post"): (
-            "approve_content_api_v1_contents__content_id__approve_post",
-            _DEFAULT_RESPONSES,
-        ),
         ("/api/v1/contents/{content_id}/decisions/{component}/approve", "post"): (
             "approve_content_component_api_v1_contents__content_id__decisions__component__approve_post",
-            _DEFAULT_RESPONSES,
-        ),
-        ("/api/v1/contents/{content_id}/request-changes", "post"): (
-            "request_changes_api_v1_contents__content_id__request_changes_post",
             _DEFAULT_RESPONSES,
         ),
         (

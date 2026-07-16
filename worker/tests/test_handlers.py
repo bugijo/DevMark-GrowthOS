@@ -50,13 +50,13 @@ def identity_job(job_type: str, payload: dict[str, object]) -> ClaimedJob:
     )
 
 
-def notification_job(payload: dict[str, object]) -> ClaimedJob:
+def notification_job(payload: dict[str, object], *, attempts: int = 1) -> ClaimedJob:
     return ClaimedJob(
         id="notification-job-1",
         organization_id=str(ORGANIZATION_ID),
         type="notification.email.smtp",
         payload=payload,
-        attempts=1,
+        attempts=attempts,
         max_attempts=3,
     )
 
@@ -65,6 +65,7 @@ def notification_job(payload: dict[str, object]) -> ClaimedJob:
 class FakeSmtpConnection:
     messages: list[EmailMessage]
     failure: Exception | None = None
+    events: list[str] = field(default_factory=list)
 
     def __enter__(self) -> FakeSmtpConnection:
         return self
@@ -78,6 +79,7 @@ class FakeSmtpConnection:
         return None
 
     def send_message(self, message: EmailMessage) -> None:
+        self.events.append("smtp")
         if self.failure is not None:
             raise self.failure
         self.messages.append(message)
@@ -88,10 +90,11 @@ class FakeSmtpFactory:
     messages: list[EmailMessage] = field(default_factory=list)
     calls: list[tuple[str, int, float]] = field(default_factory=list)
     failure: Exception | None = None
+    events: list[str] = field(default_factory=list)
 
     def __call__(self, host: str, port: int, timeout: float) -> FakeSmtpConnection:
         self.calls.append((host, port, timeout))
-        return FakeSmtpConnection(self.messages, self.failure)
+        return FakeSmtpConnection(self.messages, self.failure, self.events)
 
 
 class FakeCursor:
@@ -111,6 +114,9 @@ class FakeCursor:
 
     def execute(self, query: str, parameters: tuple[object, ...]) -> None:
         self.database.queries.append((query, parameters))
+        self.database.events.append("database")
+        if self.database.failure_on_query_number == len(self.database.queries):
+            raise RuntimeError("private database detail")
 
     def fetchone(self) -> dict[str, Any] | None:
         return self.database.row
@@ -140,6 +146,8 @@ class FakeConnection:
 class FakeDatabase:
     row: dict[str, Any] | None
     queries: list[tuple[str, tuple[object, ...]]] = field(default_factory=list)
+    events: list[str] = field(default_factory=list)
+    failure_on_query_number: int | None = None
 
     def connect(self) -> FakeConnection:
         return FakeConnection(self)
@@ -242,15 +250,17 @@ def test_smtp_failure_is_retryable_without_exposing_message() -> None:
 def test_notification_email_revalidates_active_tenant_membership_before_smtp(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    events: list[str] = []
     database = FakeDatabase(
         {
             "id": NOTIFICATION_ID,
             "email": "reviewer@example.com",
             "title": "Conteúdo aguardando revisão",
             "message": "Entre no GrowthOS para decidir.",
-        }
+        },
+        events=events,
     )
-    factory = FakeSmtpFactory()
+    factory = FakeSmtpFactory(events=events)
     handler = NotificationEmailHandler(
         connect=database.connect,
         smtp=smtp_handler(factory, "test.notification.smtp"),
@@ -267,9 +277,119 @@ def test_notification_email_revalidates_active_tenant_membership_before_smtp(
     assert "membership.is_active IS TRUE" in query
     assert "membership.business_id = notification.business_id" in query
     assert parameters == (NOTIFICATION_ID, ORGANIZATION_ID)
+    audit_query, audit_parameters = database.queries[1]
+    assert "INSERT INTO audit_logs" in audit_query
+    assert "'notification.email_delivery_attempted'" in audit_query
+    assert "actor_user_id" in audit_query
+    assert "NULL" in audit_query
+    assert "ON CONFLICT (id) DO NOTHING" in audit_query
+    assert "'notification_id'" in audit_query
+    assert "'job_id'" in audit_query
+    assert "'attempt'" in audit_query
+    assert audit_parameters[1:] == (
+        "notification-job-1",
+        1,
+        NOTIFICATION_ID,
+        ORGANIZATION_ID,
+    )
+    assert isinstance(audit_parameters[0], UUID)
+    assert all(
+        term not in audit_query.casefold()
+        for term in ("recipient.email", "notification.title", "notification.message", "comment")
+    )
+    assert events == ["database", "database", "smtp"]
     assert factory.messages[0]["To"] == "reviewer@example.com"
     assert "reviewer@example.com" not in caplog.text
     assert "Entre no GrowthOS para decidir." not in caplog.text
+
+
+def test_notification_email_records_failed_smtp_attempt_before_retry() -> None:
+    events: list[str] = []
+    database = FakeDatabase(
+        {
+            "id": NOTIFICATION_ID,
+            "email": "reviewer@example.com",
+            "title": "Conteúdo aguardando revisão",
+            "message": "Entre no GrowthOS para decidir.",
+        },
+        events=events,
+    )
+    factory = FakeSmtpFactory(failure=OSError("private transport detail"), events=events)
+    handler = NotificationEmailHandler(
+        connect=database.connect,
+        smtp=smtp_handler(factory, "test.notification.retry"),
+        logger=logging.getLogger("test.notification.retry"),
+    )
+
+    with pytest.raises(RetryableJobError, match=r"smtp delivery failed \(OSError\)"):
+        handler(notification_job({"notification_id": str(NOTIFICATION_ID)}))
+
+    assert events == ["database", "database", "smtp"]
+    assert len(database.queries) == 2
+    audit_query, audit_parameters = database.queries[1]
+    assert "ON CONFLICT (id) DO NOTHING" in audit_query
+    assert audit_parameters[1:3] == ("notification-job-1", 1)
+    assert all("private transport detail" not in str(value) for value in audit_parameters)
+
+
+def test_notification_email_attempt_audit_is_idempotent_per_attempt() -> None:
+    database = FakeDatabase(
+        {
+            "id": NOTIFICATION_ID,
+            "email": "reviewer@example.com",
+            "title": "Conteúdo aguardando revisão",
+            "message": "Entre no GrowthOS para decidir.",
+        }
+    )
+    handler = NotificationEmailHandler(
+        connect=database.connect,
+        smtp=smtp_handler(FakeSmtpFactory(), "test.notification.idempotency"),
+        logger=logging.getLogger("test.notification.idempotency"),
+    )
+    payload = {"notification_id": str(NOTIFICATION_ID)}
+
+    handler(notification_job(payload, attempts=1))
+    handler(notification_job(payload, attempts=1))
+    handler(notification_job(payload, attempts=2))
+
+    first_audit_id = database.queries[1][1][0]
+    repeated_audit_id = database.queries[3][1][0]
+    retry_audit_id = database.queries[5][1][0]
+    assert isinstance(first_audit_id, UUID)
+    assert first_audit_id == repeated_audit_id
+    assert retry_audit_id != first_audit_id
+    assert all("ON CONFLICT (id) DO NOTHING" in database.queries[index][0] for index in (1, 3, 5))
+
+
+def test_notification_email_does_not_send_when_attempt_audit_fails() -> None:
+    events: list[str] = []
+    database = FakeDatabase(
+        {
+            "id": NOTIFICATION_ID,
+            "email": "reviewer@example.com",
+            "title": "Conteúdo aguardando revisão",
+            "message": "Entre no GrowthOS para decidir.",
+        },
+        events=events,
+        failure_on_query_number=2,
+    )
+    factory = FakeSmtpFactory(events=events)
+    handler = NotificationEmailHandler(
+        connect=database.connect,
+        smtp=smtp_handler(factory, "test.notification.audit-failure"),
+        logger=logging.getLogger("test.notification.audit-failure"),
+    )
+
+    with pytest.raises(
+        RetryableJobError,
+        match=r"notification delivery audit failed \(RuntimeError\)",
+    ) as error:
+        handler(notification_job({"notification_id": str(NOTIFICATION_ID)}))
+
+    assert events == ["database", "database"]
+    assert factory.calls == []
+    assert factory.messages == []
+    assert "private database detail" not in str(error.value)
 
 
 def test_notification_email_never_sends_after_access_is_unavailable() -> None:

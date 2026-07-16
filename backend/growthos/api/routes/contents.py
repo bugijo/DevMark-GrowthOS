@@ -88,17 +88,6 @@ def send_to_client(
     return content_approvals.send_to_client(session, context, content_id)
 
 
-@router.post("/{content_id}/approve", response_model=ContentRead)
-def approve_content(
-    content_id: UUID,
-    payload: DecisionRequest | None = None,
-    context: AuthContext = Depends(require_csrf),
-    session: Session = Depends(get_session),
-) -> ContentRead:
-    require_capability(context, Capability.CONTENT_DECIDE_CLIENT)
-    return content_approvals.approve_content(session, context, content_id, payload)
-
-
 @router.post(
     "/{content_id}/decisions/{component}/approve",
     response_model=ContentRead,
@@ -117,23 +106,6 @@ def approve_content_component(
         content_id,
         component,
         payload,
-    )
-
-
-@router.post("/{content_id}/request-changes", response_model=ContentRead)
-def request_changes(
-    content_id: UUID,
-    payload: ChangesRequest,
-    context: AuthContext = Depends(require_csrf),
-    session: Session = Depends(get_session),
-) -> ContentRead:
-    require_capability(context, Capability.CONTENT_DECIDE_CLIENT)
-    return content_approvals.request_component_changes(
-        session,
-        context,
-        content_id,
-        ApprovalComponent.TEXT,
-        payload.comment.strip(),
     )
 
 

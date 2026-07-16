@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from email.message import EmailMessage
 from typing import Any, Protocol, cast
 from urllib.parse import quote
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from growthos.services.tokens import TokenPurpose, derive_token, hashes_match
 from psycopg.rows import dict_row
@@ -188,6 +188,13 @@ class NotificationEmailHandler:
         )
         if row is None:
             raise PermanentJobError("notification email unavailable")
+        _record_notification_delivery_attempt(
+            self.connect,
+            notification_id=notification_id,
+            organization_id=organization_id,
+            job_id=job.id,
+            attempt=job.attempts,
+        )
         return self.smtp.send(
             recipient=str(row["email"]),
             subject=str(row["title"]),
@@ -433,3 +440,61 @@ def _fetch_one(
         # somente a classe, nunca SQL, token ou dados pessoais.
         raise RetryableJobError(f"identity database lookup failed ({type(exc).__name__})") from exc
     return cast(Mapping[str, Any] | None, row)
+
+
+def _record_notification_delivery_attempt(
+    connect: ConnectionFactory,
+    *,
+    notification_id: UUID,
+    organization_id: UUID,
+    job_id: str,
+    attempt: int,
+) -> None:
+    audit_id = uuid5(
+        NAMESPACE_URL,
+        f"growthos:notification-email:{organization_id}:{job_id}:{attempt}",
+    )
+    query = """
+        INSERT INTO audit_logs (
+            id,
+            organization_id,
+            business_id,
+            actor_user_id,
+            action,
+            resource_type,
+            resource_id,
+            metadata,
+            created_at
+        )
+        SELECT %s,
+               notification.organization_id,
+               notification.business_id,
+               NULL,
+               'notification.email_delivery_attempted',
+               'notification',
+               notification.id,
+               json_build_object(
+                   'notification_id', notification.id::text,
+                   'job_id', %s::text,
+                   'attempt', %s::integer
+               ),
+               NOW()
+          FROM notifications AS notification
+         WHERE notification.id = %s
+           AND notification.organization_id = %s
+        ON CONFLICT (id) DO NOTHING
+    """
+    parameters: tuple[object, ...] = (
+        audit_id,
+        job_id,
+        attempt,
+        notification_id,
+        organization_id,
+    )
+    try:
+        with connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(query, parameters)
+    except Exception as exc:
+        raise RetryableJobError(
+            f"notification delivery audit failed ({type(exc).__name__})"
+        ) from exc

@@ -530,13 +530,6 @@ export const api = {
       apiRequest<ContentItem>(`/contents/${id}/send-to-client`, {
         method: "POST",
       }),
-    approve: (id: string) =>
-      apiRequest<ContentItem>(`/contents/${id}/approve`, { method: "POST" }),
-    requestChanges: (id: string, comment: string) =>
-      apiRequest<ContentItem>(`/contents/${id}/request-changes`, {
-        method: "POST",
-        body: JSON.stringify({ comment }),
-      }),
     createRevision: (id: string, input: ContentRevisionInput) =>
       apiRequest<ContentItem>(`/contents/${id}/revisions`, {
         method: "POST",

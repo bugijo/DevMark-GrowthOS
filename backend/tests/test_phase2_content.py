@@ -21,6 +21,7 @@ from growthos.models import (
     Job,
     MarketingObjective,
     MediaAsset,
+    Notification,
     Service,
     StrategyVersion,
     VisualPreset,
@@ -590,11 +591,38 @@ def test_client_decides_text_and_image_separately_and_can_request_image_changes(
                 )
             ).all()
         )
+        notification_audits = list(
+            session.scalars(
+                select(AuditLog).where(
+                    AuditLog.organization_id == fixture.identity.organization_id,
+                    AuditLog.business_id == fixture.identity.business_id,
+                    AuditLog.action == "notification.created",
+                    AuditLog.resource_type == "notification",
+                )
+            ).all()
+        )
     assert len(review_jobs) == 1
     assert review_jobs[0].type == "notification.email.smtp"
     assert set(review_jobs[0].payload) == {"notification_id"}
     assert generated["current_version"]["caption"] not in review_jobs[0].payload.values()
     assert generated["current_version"]["visual_prompt"] not in review_jobs[0].payload.values()
+    assert len(notification_audits) == 1
+    review_audit = notification_audits[0]
+    assert review_audit.actor_user_id == fixture.identity.user_id
+    assert set(review_audit.details) == {
+        "notification_type",
+        "target_resource_id",
+        "target_resource_type",
+    }
+    assert review_audit.details["notification_type"] == "CONTENT_REVIEW_REQUESTED"
+    assert review_audit.details["target_resource_type"] == "content_item"
+    assert review_audit.details["target_resource_id"] == generated["id"]
+    with get_session_factory()() as session:
+        notification = session.get(Notification, review_audit.resource_id)
+        assert notification is not None
+        assert notification.organization_id == fixture.identity.organization_id
+        assert notification.business_id == fixture.identity.business_id
+        assert notification.resource_id == UUID(generated["id"])
 
     reviewer_client = TestClient(client.app)
     reviewer_headers = csrf_headers(login(reviewer_client, fixture.reviewer))
@@ -618,9 +646,33 @@ def test_client_decides_text_and_image_separately_and_can_request_image_changes(
                 )
             ).all()
         )
+        notification_audits = list(
+            session.scalars(
+                select(AuditLog).where(
+                    AuditLog.organization_id == fixture.identity.organization_id,
+                    AuditLog.business_id == fixture.identity.business_id,
+                    AuditLog.action == "notification.created",
+                    AuditLog.resource_type == "notification",
+                )
+            ).all()
+        )
     assert len(decision_jobs) == 1
     assert set(decision_jobs[0].payload) == {"notification_id"}
     assert "Texto aprovado" not in decision_jobs[0].payload.values()
+    assert len(notification_audits) == 2
+    assert {entry.actor_user_id for entry in notification_audits} == {
+        fixture.identity.user_id,
+        fixture.reviewer.user_id,
+    }
+    for entry in notification_audits:
+        assert set(entry.details) == {
+            "notification_type",
+            "target_resource_id",
+            "target_resource_type",
+        }
+        assert entry.details["target_resource_id"] == generated["id"]
+        assert entry.details["target_resource_type"] == "content_item"
+        assert "texto aprovado" not in str(entry.details).casefold()
 
     image_decision = reviewer_client.post(
         f"/api/v1/contents/{generated['id']}/decisions/IMAGE/approve",
@@ -812,9 +864,16 @@ def test_manual_publication_is_idempotent_audited_and_creates_no_external_job(
 
     reviewer_client = TestClient(client.app)
     reviewer_headers = csrf_headers(login(reviewer_client, fixture.reviewer))
-    approved = reviewer_client.post(
-        f"/api/v1/contents/{generated['id']}/approve",
+    text_approved = reviewer_client.post(
+        f"/api/v1/contents/{generated['id']}/decisions/TEXT/approve",
         json={"comment": "Texto e imagem aprovados"},
+        headers=reviewer_headers,
+    )
+    assert text_approved.status_code == 200, text_approved.text
+    assert text_approved.json()["status"] == "CLIENT_REVIEW"
+    approved = reviewer_client.post(
+        f"/api/v1/contents/{generated['id']}/decisions/IMAGE/approve",
+        json={"comment": "Imagem aprovada"},
         headers=reviewer_headers,
     )
     assert approved.status_code == 200, approved.text

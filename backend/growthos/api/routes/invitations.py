@@ -13,7 +13,6 @@ from growthos.models import (
     Business,
     Job,
     Membership,
-    Notification,
     Organization,
     OrganizationInvite,
     PasswordResetToken,
@@ -31,6 +30,7 @@ from growthos.schemas_identity import (
 )
 from growthos.security import hash_password, normalize_email
 from growthos.services.audit import add_audit_log
+from growthos.services.notifications import create_notification
 from growthos.services.tokens import (
     TokenPurpose,
     issue_token,
@@ -218,17 +218,17 @@ def accept_invitation(
         )
         .values(revoked_at=now)
     )
-    session.add(
-        Notification(
-            organization_id=invite.organization_id,
-            business_id=invite.business_id,
-            recipient_user_id=invite.invited_by_user_id,
-            type="INVITATION_ACCEPTED",
-            title="Convite aceito",
-            message="Uma pessoa convidada concluiu o acesso à organização.",
-            resource_type="membership",
-            resource_id=membership.id,
-        )
+    create_notification(
+        session,
+        organization_id=invite.organization_id,
+        business_id=invite.business_id,
+        actor_user_id=user.id,
+        recipient_user_id=invite.invited_by_user_id,
+        notification_type="INVITATION_ACCEPTED",
+        title="Convite aceito",
+        message="Uma pessoa convidada concluiu o acesso à organização.",
+        resource_type="membership",
+        resource_id=membership.id,
     )
     add_audit_log(
         session,

@@ -1,7 +1,9 @@
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 
 from growthos.domain.enums import Role
-from tests.conftest import create_identity, csrf_headers, login
+from tests.conftest import create_identity, create_ready_media, csrf_headers, login
 
 
 def _prepare_content(client: TestClient) -> tuple[dict[str, object], dict[str, str]]:
@@ -60,6 +62,7 @@ def _prepare_content(client: TestClient) -> tuple[dict[str, object], dict[str, s
             "objective": "Explicar a vacinação preventiva",
             "channel": "INSTAGRAM",
             "format": "FEED",
+            "media_asset_id": str(create_ready_media(admin, business_id=UUID(business["id"]))),
         },
         headers=headers,
     )
@@ -102,9 +105,16 @@ def test_vertical_flow_approval_notifications_and_audit(client: TestClient) -> N
         headers=csrf_headers(csrf),
     )
     assert read.status_code == 200
-    approved = reviewer_client.post(
-        f"/api/v1/contents/{content['id']}/approve",
+    text_approved = reviewer_client.post(
+        f"/api/v1/contents/{content['id']}/decisions/TEXT/approve",
         json={"comment": "Aprovado pela clínica"},
+        headers=csrf_headers(csrf),
+    )
+    assert text_approved.status_code == 200, text_approved.text
+    assert text_approved.json()["status"] == "CLIENT_REVIEW"
+    approved = reviewer_client.post(
+        f"/api/v1/contents/{content['id']}/decisions/IMAGE/approve",
+        json={"comment": "Imagem aprovada pela clínica"},
         headers=csrf_headers(csrf),
     )
     assert approved.status_code == 200, approved.text
@@ -115,6 +125,7 @@ def test_vertical_flow_approval_notifications_and_audit(client: TestClient) -> N
     assert "content.generated" in actions
     assert "content.sent_to_client" in actions
     assert "content.approved_by_client" in actions
+    assert "notification.created" in actions
     admin_notifications = client.get("/api/v1/notifications").json()
     assert any(item["type"] == "CONTENT_DECISION" for item in admin_notifications)
 
@@ -130,7 +141,7 @@ def test_request_changes_requires_real_agency_revision_before_resubmission(
     )
     csrf = login_response.json()["csrf_token"]
     changed = reviewer_client.post(
-        f"/api/v1/contents/{content['id']}/request-changes",
+        f"/api/v1/contents/{content['id']}/decisions/TEXT/request-changes",
         json={"comment": "Ajustar a chamada final"},
         headers=csrf_headers(csrf),
     )
@@ -186,9 +197,16 @@ def test_request_changes_requires_real_agency_revision_before_resubmission(
         headers=csrf_headers(admin_csrf),
     )
     assert sent.status_code == 200
-    approved = reviewer_client.post(
-        f"/api/v1/contents/{content['id']}/approve",
+    text_approved = reviewer_client.post(
+        f"/api/v1/contents/{content['id']}/decisions/TEXT/approve",
         json={"comment": "Nova versão aprovada"},
+        headers=csrf_headers(csrf),
+    )
+    assert text_approved.status_code == 200, text_approved.text
+    assert text_approved.json()["status"] == "CLIENT_REVIEW"
+    approved = reviewer_client.post(
+        f"/api/v1/contents/{content['id']}/decisions/IMAGE/approve",
+        json={"comment": "Nova imagem aprovada"},
         headers=csrf_headers(csrf),
     )
     assert approved.status_code == 200, approved.text

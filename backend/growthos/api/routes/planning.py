@@ -25,7 +25,6 @@ from growthos.models import (
     ContentStrategy,
     MarketingObjective,
     Membership,
-    Notification,
     Service,
     StrategyVersion,
     User,
@@ -45,6 +44,7 @@ from growthos.schemas_planning import (
 )
 from growthos.services.audit import add_audit_log
 from growthos.services.email_jobs import enqueue_notification_email
+from growthos.services.notifications import create_notification
 from growthos.services.strategy_provider import MockStrategyProvider, StrategyGenerationRequest
 
 router = APIRouter()
@@ -372,17 +372,18 @@ def send_strategy_to_client(
         )
     ).all()
     for _user, membership in reviewers:
-        notification = Notification(
+        notification = create_notification(
+            session,
             organization_id=context.organization.id,
             business_id=strategy.business_id,
+            actor_user_id=context.user.id,
             recipient_user_id=membership.user_id,
-            type="STRATEGY_REVIEW",
+            notification_type="STRATEGY_REVIEW",
             title="Estratégia aguardando aprovação",
             message="A estratégia mensal está pronta para sua revisão.",
             resource_type="content_strategy",
             resource_id=strategy.id,
         )
-        session.add(notification)
         enqueue_notification_email(
             session,
             notification,
@@ -436,21 +437,21 @@ def decide_strategy(
         )
     ).all()
     for user in internal_users:
-        session.add(
-            Notification(
-                organization_id=context.organization.id,
-                business_id=strategy.business_id,
-                recipient_user_id=user.id,
-                type="STRATEGY_DECISION",
-                title="Decisão do cliente sobre a estratégia",
-                message=(
-                    "A estratégia foi aprovada."
-                    if payload.decision == "APPROVE"
-                    else "O cliente pediu alterações na estratégia."
-                ),
-                resource_type="content_strategy",
-                resource_id=strategy.id,
-            )
+        create_notification(
+            session,
+            organization_id=context.organization.id,
+            business_id=strategy.business_id,
+            actor_user_id=context.user.id,
+            recipient_user_id=user.id,
+            notification_type="STRATEGY_DECISION",
+            title="Decisão do cliente sobre a estratégia",
+            message=(
+                "A estratégia foi aprovada."
+                if payload.decision == "APPROVE"
+                else "O cliente pediu alterações na estratégia."
+            ),
+            resource_type="content_strategy",
+            resource_id=strategy.id,
         )
     add_audit_log(
         session,

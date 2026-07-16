@@ -199,7 +199,7 @@ def test_business_scope_isolated_inside_same_organization(client: TestClient) ->
     assert portal_a.get(f"/api/v1/contents/{content_b['id']}").status_code == 404
     assert (
         portal_a.post(
-            f"/api/v1/contents/{content_b['id']}/approve",
+            f"/api/v1/contents/{content_b['id']}/decisions/TEXT/approve",
             json={},
             headers=csrf_headers(csrf_a),
         ).status_code
@@ -207,7 +207,7 @@ def test_business_scope_isolated_inside_same_organization(client: TestClient) ->
     )
     assert (
         portal_a.post(
-            f"/api/v1/contents/{content_b['id']}/request-changes",
+            f"/api/v1/contents/{content_b['id']}/decisions/TEXT/request-changes",
             json={"comment": "Tentativa cruzada"},
             headers=csrf_headers(csrf_a),
         ).status_code

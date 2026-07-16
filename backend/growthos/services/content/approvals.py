@@ -18,7 +18,6 @@ from growthos.models import (
     ContentVersion,
     ContentVersionMedia,
     Membership,
-    Notification,
     User,
 )
 from growthos.models.base import utcnow
@@ -31,6 +30,7 @@ from growthos.services.content.read_models import (
     serialize_content,
 )
 from growthos.services.email_jobs import enqueue_notification_email
+from growthos.services.notifications import create_notification
 
 
 def _pending_approval(
@@ -83,6 +83,7 @@ def _notify_agency(
     title: str,
     message: str,
     *,
+    actor_user_id: UUID,
     email_key: str,
 ) -> None:
     recipients = session.execute(
@@ -108,17 +109,18 @@ def _notify_agency(
         )
     ).all()
     for _user, membership in recipients:
-        notification = Notification(
+        notification = create_notification(
+            session,
             organization_id=content.organization_id,
             business_id=content.business_id,
+            actor_user_id=actor_user_id,
             recipient_user_id=membership.user_id,
-            type="CONTENT_DECISION",
+            notification_type="CONTENT_DECISION",
             title=title,
             message=message,
             resource_type="content_item",
             resource_id=content.id,
         )
-        session.add(notification)
         enqueue_notification_email(
             session,
             notification,
@@ -186,17 +188,18 @@ def send_to_client(
             )
         )
     for _user, reviewer in reviewers:
-        notification = Notification(
+        notification = create_notification(
+            session,
             organization_id=context.organization.id,
             business_id=content.business_id,
+            actor_user_id=context.user.id,
             recipient_user_id=reviewer.user_id,
-            type="CONTENT_REVIEW_REQUESTED",
+            notification_type="CONTENT_REVIEW_REQUESTED",
             title="Novo conteúdo para revisar",
             message="A equipe enviou um conteúdo para sua aprovação.",
             resource_type="content_item",
             resource_id=content.id,
         )
-        session.add(notification)
         enqueue_notification_email(
             session,
             notification,
@@ -216,74 +219,6 @@ def send_to_client(
             "version_id": str(version.id),
             "reviewer_count": len(reviewers),
             "components": [component.value for component in ApprovalComponent],
-        },
-    )
-    session.commit()
-    return serialize_content(session, content, context)
-
-
-def approve_content(
-    session: Session,
-    context: AuthContext,
-    content_id: UUID,
-    payload: DecisionRequest | None,
-) -> ContentRead:
-    content = get_content(session, context, content_id, for_update=True)
-    if context.membership.business_id != content.business_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Aprovação fora do cliente permitido")
-    version = get_current_version(session, content)
-    approvals = list(
-        session.scalars(
-            select(Approval)
-            .where(
-                Approval.organization_id == content.organization_id,
-                Approval.business_id == content.business_id,
-                Approval.content_item_id == content.id,
-                Approval.content_version_id == version.id,
-                Approval.stage == ApprovalStage.CLIENT,
-                Approval.status == ApprovalStatus.PENDING,
-            )
-            .with_for_update()
-        ).all()
-    )
-    if not approvals:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "Não há aprovação pendente para esta versão",
-        )
-    decided_at = utcnow()
-    for approval in approvals:
-        approval.status = ApprovalStatus.APPROVED
-        approval.decided_by_user_id = context.user.id
-        approval.decision_comment = payload.comment if payload else None
-        approval.decided_at = decided_at
-    session.flush()
-    if not _all_components_approved(session, content, version):
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "Texto e imagem precisam estar disponíveis para aprovação",
-        )
-    previous = transition(content, ContentStatus.APPROVED)
-    _notify_agency(
-        session,
-        content,
-        "Conteúdo aprovado",
-        "O cliente aprovou o conteúdo enviado.",
-        email_key=f"content-decision:{content.id}:{version.id}:approved",
-    )
-    add_audit_log(
-        session,
-        organization_id=context.organization.id,
-        business_id=content.business_id,
-        actor_user_id=context.user.id,
-        action="content.approved_by_client",
-        resource_type="content_item",
-        resource_id=content.id,
-        details={
-            "from": previous.value,
-            "to": content.status.value,
-            "version_id": str(version.id),
-            "components": sorted(approval.component.value for approval in approvals),
         },
     )
     session.commit()
@@ -336,6 +271,7 @@ def approve_content_component(
         content,
         title,
         message,
+        actor_user_id=context.user.id,
         email_key=(
             f"content-decision:{content.id}:{version.id}:approved:{component.value.lower()}"
         ),
@@ -402,6 +338,7 @@ def request_component_changes(
         content,
         "Alteração solicitada",
         f"O cliente pediu uma alteração em {component.value.lower()}.",
+        actor_user_id=context.user.id,
         email_key=(f"content-decision:{content.id}:{current.id}:changes:{component.value.lower()}"),
     )
     add_audit_log(

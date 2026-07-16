@@ -5,7 +5,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from growthos.domain.enums import Role
-from tests.conftest import Identity, add_user_to_identity, create_identity, csrf_headers, login
+from tests.conftest import (
+    Identity,
+    add_user_to_identity,
+    create_identity,
+    create_ready_media,
+    csrf_headers,
+    login,
+)
 
 
 def _create_portal_context() -> tuple[Identity, Identity, Identity]:
@@ -33,6 +40,7 @@ def _generate_content(
     headers: dict[str, str],
     business_id: UUID,
     objective: str,
+    media_asset_id: UUID | None = None,
 ) -> dict[str, Any]:
     response = client.post(
         "/api/v1/contents/generate",
@@ -41,6 +49,7 @@ def _generate_content(
             "objective": objective,
             "channel": "INSTAGRAM",
             "format": "FEED",
+            **({"media_asset_id": str(media_asset_id)} if media_asset_id else {}),
         },
         headers=headers,
     )
@@ -77,6 +86,7 @@ def test_business_portal_only_reads_content_released_to_the_client(
         headers,
         admin.business_id,
         "Revisão do cliente aprovada",
+        create_ready_media(admin),
     )
     for content in (change_requested, approved):
         assert (
@@ -117,14 +127,20 @@ def test_business_portal_only_reads_content_released_to_the_client(
     assert reviewer_client.get(f"/api/v1/contents/{approved['id']}").status_code == 200
 
     changed = reviewer_client.post(
-        f"/api/v1/contents/{change_requested['id']}/request-changes",
+        f"/api/v1/contents/{change_requested['id']}/decisions/TEXT/request-changes",
         json={"comment": "Ajustar a chamada"},
         headers=reviewer_headers,
     )
     assert changed.status_code == 200, changed.text
-    accepted = reviewer_client.post(
-        f"/api/v1/contents/{approved['id']}/approve",
+    accepted_text = reviewer_client.post(
+        f"/api/v1/contents/{approved['id']}/decisions/TEXT/approve",
         json={"comment": "Aprovado"},
+        headers=reviewer_headers,
+    )
+    assert accepted_text.status_code == 200, accepted_text.text
+    accepted = reviewer_client.post(
+        f"/api/v1/contents/{approved['id']}/decisions/IMAGE/approve",
+        json={"comment": "Imagem aprovada"},
         headers=reviewer_headers,
     )
     assert accepted.status_code == 200, accepted.text
