@@ -28,7 +28,10 @@ test-results/
 
 # Local runtime data
 .data/
+backups/
 uploads/
+*.dump
+*.backup
 *.db
 *.sqlite
 *.sqlite3
@@ -42,4 +45,3 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
-

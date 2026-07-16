@@ -6,7 +6,7 @@ VENV := .venv/bin
 
 .PHONY: help setup install up down reset logs status migrate seed \
 	test test-backend test-worker test-frontend lint lint-backend lint-worker lint-frontend \
-	e2e validate
+	e2e validate doctor backup backup-verify restore-test
 
 help: ## Lista os comandos disponíveis
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -31,6 +31,18 @@ logs: ## Acompanha logs dos processos da aplicação
 
 status: ## Exibe estado e healthchecks
 	$(COMPOSE) ps
+
+doctor: ## Diagnostica requisitos, configuração e serviços locais
+	./scripts/doctor.sh
+
+backup: ## Cria backup local privado do PostgreSQL e MinIO
+	./scripts/backup.sh
+
+backup-verify: ## Verifica checksums e integridade do backup local
+	./scripts/backup-verify.sh $(BACKUP)
+
+restore-test: ## Restaura um backup em ambiente Docker isolado e descartável
+	./scripts/restore-test.sh $(BACKUP)
 
 migrate: ## Aplica migrations do backend
 	$(COMPOSE) exec backend alembic upgrade head

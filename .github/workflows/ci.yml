@@ -26,7 +26,8 @@ jobs:
       - name: Valida contratos JSON e scripts
         run: |
           python -m json.tool shared/contracts/worker-job-v1.schema.json >/dev/null
-          find scripts -maxdepth 1 -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          find scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
+          find scripts/tests -type f -name '*.test.sh' -print0 | xargs -0 -n1 bash
 
   backend-worker:
     name: Backend e worker

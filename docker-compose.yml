@@ -74,8 +74,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-growthos_minio_local}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-minio-only-change-before-shared-use}
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio-data:/data
     healthcheck:
@@ -130,10 +130,11 @@ services:
         alembic upgrade head &&
         if [ "$${SEED_DEMO_DATA}" = "true" ]; then python -m growthos.seed; fi &&
         exec uvicorn growthos.main:app --host 0.0.0.0 --port 8000
+        --no-server-header --timeout-graceful-shutdown 15
     environment:
       <<: *backend-environment
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -146,7 +147,7 @@ services:
         - -c
         - >-
           import urllib.request;
-          urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)
+          urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=2)
       interval: 5s
       timeout: 3s
       retries: 20
@@ -167,9 +168,14 @@ services:
       JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS:-120}
       JOB_RETRY_BASE_SECONDS: ${JOB_RETRY_BASE_SECONDS:-5}
       JOB_RETRY_MAX_SECONDS: ${JOB_RETRY_MAX_SECONDS:-300}
+      JOB_CLEANUP_INTERVAL_SECONDS: ${JOB_CLEANUP_INTERVAL_SECONDS:-3600}
+      JOB_CLEANUP_BATCH_SIZE: ${JOB_CLEANUP_BATCH_SIZE:-500}
+      JOB_RETENTION_SUCCEEDED_DAYS: ${JOB_RETENTION_SUCCEEDED_DAYS:-30}
+      JOB_RETENTION_FAILED_DAYS: ${JOB_RETENTION_FAILED_DAYS:-90}
       MOCK_PROVIDER_LATENCY_MS: ${MOCK_PROVIDER_LATENCY_MS:-0}
       WORKER_HEARTBEAT_FILE: /tmp/growthos-worker-heartbeat
-      WORKER_HEARTBEAT_MAX_AGE_SECONDS: ${WORKER_HEARTBEAT_MAX_AGE_SECONDS:-30}
+      WORKER_HEARTBEAT_MAX_AGE_SECONDS: ${WORKER_HEARTBEAT_MAX_AGE_SECONDS:-150}
+      WORKER_STOP_GRACE_PERIOD_SECONDS: ${WORKER_STOP_GRACE_PERIOD_SECONDS:-150}
       RUFF_CACHE_DIR: /tmp/ruff-cache
       MYPY_CACHE_DIR: /tmp/mypy-cache
       PYTHONPYCACHEPREFIX: /tmp/pycache
@@ -182,7 +188,7 @@ services:
       mailpit:
         condition: service_healthy
     init: true
-    stop_grace_period: 20s
+    stop_grace_period: ${WORKER_STOP_GRACE_PERIOD_SECONDS:-150}s
     restart: unless-stopped
     networks: [growthos]
 
@@ -190,12 +196,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        APP_ENV: ${APP_ENV:-development}
     environment:
       NODE_ENV: production
+      APP_ENV: ${APP_ENV:-development}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api/v1}
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://backend:8000}
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy

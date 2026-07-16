@@ -1,0 +1,106 @@
+name: devmark-growthos-restore-test
+
+x-restore-database: &restore-database
+  POSTGRES_DB: growthos_restore_test
+  POSTGRES_USER: growthos_restore_test
+  POSTGRES_PASSWORD: restore-test-password-not-for-shared-use
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      <<: *restore-database
+    volumes:
+      - restore-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [restore]
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: growthos_restore_test
+      MINIO_ROOT_PASSWORD: restore-test-minio-password
+    volumes:
+      - restore-minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [restore]
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    environment:
+      MINIO_ROOT_USER: growthos_restore_test
+      MINIO_ROOT_PASSWORD: restore-test-minio-password
+      S3_BUCKET: growthos-restore-test
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set restored http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing "restored/$${S3_BUCKET}" &&
+        mc anonymous set none "restored/$${S3_BUCKET}"
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks: [restore]
+
+  db-tool:
+    image: postgres:16-alpine
+    profiles: [tools]
+    environment:
+      <<: *restore-database
+      PGPASSWORD: restore-test-password-not-for-shared-use
+    volumes:
+      - ${RESTORE_BACKUP_DIR:?RESTORE_BACKUP_DIR obrigatório}:/backup:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [restore]
+
+  minio-tool:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    profiles: [tools]
+    environment:
+      MINIO_ROOT_USER: growthos_restore_test
+      MINIO_ROOT_PASSWORD: restore-test-minio-password
+      S3_BUCKET: growthos-restore-test
+      MC_CONFIG_DIR: /tmp/.mc
+    volumes:
+      - ${RESTORE_BACKUP_DIR:?RESTORE_BACKUP_DIR obrigatório}:/backup:ro
+      - ${RESTORE_WORK_DIR:?RESTORE_WORK_DIR obrigatório}:/work
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    networks: [restore]
+
+  backend-check:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    profiles: [tools]
+    environment:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://growthos_restore_test:restore-test-password-not-for-shared-use@postgres:5432/growthos_restore_test
+      AUTH_SECRET_KEY: restore-test-auth-key-with-at-least-32-characters
+      TOKEN_SECRET_KEY: restore-test-token-key-with-at-least-32-characters
+      AI_PROVIDER: mock
+      SEED_DEMO_DATA: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [restore]
+
+networks:
+  restore:
+    internal: true
+
+volumes:
+  restore-postgres:
+  restore-minio:
