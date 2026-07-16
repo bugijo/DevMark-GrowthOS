@@ -146,6 +146,58 @@ class SmtpEmailHandler:
 
 
 @dataclass(slots=True)
+class NotificationEmailHandler:
+    connect: ConnectionFactory = field(repr=False)
+    smtp: SmtpEmailHandler
+    logger: logging.Logger
+
+    def __call__(self, job: ClaimedJob) -> Mapping[str, Any]:
+        notification_id = _payload_uuid(
+            job,
+            "notification_id",
+            job_name="notification email",
+        )
+        organization_id = _job_organization_uuid(job)
+        row = _fetch_one(
+            self.connect,
+            """
+                SELECT notification.id,
+                       recipient.email,
+                       notification.title,
+                       notification.message
+                  FROM notifications AS notification
+                  JOIN users AS recipient
+                    ON recipient.id = notification.recipient_user_id
+                 WHERE notification.id = %s
+                   AND notification.organization_id = %s
+                   AND recipient.is_active IS TRUE
+                   AND EXISTS (
+                       SELECT 1
+                         FROM memberships AS membership
+                        WHERE membership.user_id = notification.recipient_user_id
+                          AND membership.organization_id = notification.organization_id
+                          AND membership.is_active IS TRUE
+                          AND (
+                              notification.business_id IS NULL
+                              OR membership.business_id IS NULL
+                              OR membership.business_id = notification.business_id
+                          )
+                   )
+            """,
+            (notification_id, organization_id),
+        )
+        if row is None:
+            raise PermanentJobError("notification email unavailable")
+        return self.smtp.send(
+            recipient=str(row["email"]),
+            subject=str(row["title"]),
+            body=str(row["message"]),
+            job_id=job.id,
+            organization_id=job.organization_id,
+        )
+
+
+@dataclass(slots=True)
 class IdentityInviteEmailHandler:
     connect: ConnectionFactory = field(repr=False)
     smtp: SmtpEmailHandler
@@ -321,7 +373,11 @@ def default_handlers(
     provider = MockProviderHandler(seed=mock_seed, latency_ms=latency_ms)
     handlers: dict[str, JobHandler] = {
         "notification.email.console": console_email,
-        "notification.email.smtp": smtp_email,
+        "notification.email.smtp": (
+            NotificationEmailHandler(connect, smtp_email, logger)
+            if connect is not None
+            else smtp_email
+        ),
         "EMAIL_CONSOLE": console_email,
         "SEND_EMAIL": selected_email,
         "provider.mock": provider,
@@ -346,14 +402,14 @@ def default_handlers(
     return handlers
 
 
-def _payload_uuid(job: ClaimedJob, key: str) -> UUID:
+def _payload_uuid(job: ClaimedJob, key: str, *, job_name: str = "identity") -> UUID:
     value = job.payload.get(key)
     if set(job.payload) != {key}:
-        raise PermanentJobError(f"identity job payload must contain only {key}")
+        raise PermanentJobError(f"{job_name} job payload must contain only {key}")
     try:
         return UUID(str(value))
     except (AttributeError, TypeError, ValueError) as exc:
-        raise PermanentJobError(f"identity job payload has no valid {key}") from exc
+        raise PermanentJobError(f"{job_name} job payload has no valid {key}") from exc
 
 
 def _job_organization_uuid(job: ClaimedJob) -> UUID:
@@ -366,7 +422,7 @@ def _job_organization_uuid(job: ClaimedJob) -> UUID:
 def _fetch_one(
     connect: ConnectionFactory,
     query: str,
-    parameters: tuple[UUID, UUID],
+    parameters: tuple[object, ...],
 ) -> Mapping[str, Any] | None:
     try:
         with connect() as connection, connection.cursor(row_factory=dict_row) as cursor:

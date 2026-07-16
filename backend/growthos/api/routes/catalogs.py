@@ -14,6 +14,7 @@ from growthos.dependencies import (
     require_capability,
     require_csrf,
 )
+from growthos.domain.enums import BUSINESS_SCOPED_ROLES
 from growthos.domain.permissions import Capability
 from growthos.models.base import utcnow
 from growthos.models.business import BrandProfile
@@ -44,6 +45,23 @@ from growthos.services.audit import add_audit_log
 from growthos.services.visual_prompts import MockVisualPromptProvider, VisualPromptRequest
 
 router = APIRouter()
+
+
+def _serialize_visual_preset(
+    preset: VisualPreset,
+    context: AuthContext,
+) -> VisualPresetRead:
+    result = VisualPresetRead.model_validate(preset)
+    if context.membership.role in BUSINESS_SCOPED_ROLES:
+        return result.model_copy(
+            update={
+                "base_prompt": "",
+                "negative_prompt": "",
+                "created_by_user_id": None,
+                "updated_by_user_id": None,
+            }
+        )
+    return result
 
 
 def _brand_profile(
@@ -604,10 +622,10 @@ def list_visual_presets(
     business_id: UUID,
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
-) -> list[VisualPreset]:
+) -> list[VisualPresetRead]:
     require_capability(context, Capability.PRESET_VIEW)
     get_scoped_business(session, context, business_id)
-    return list(
+    presets = list(
         session.scalars(
             select(VisualPreset)
             .where(
@@ -618,6 +636,7 @@ def list_visual_presets(
             .order_by(VisualPreset.name)
         ).all()
     )
+    return [_serialize_visual_preset(preset, context) for preset in presets]
 
 
 @router.post(
@@ -630,7 +649,7 @@ def create_visual_preset(
     payload: VisualPresetCreate,
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
-) -> VisualPreset:
+) -> VisualPresetRead:
     require_capability(context, Capability.PRESET_MANAGE)
     get_scoped_business(session, context, business_id)
     brand = _brand_profile(session, context, business_id)
@@ -661,7 +680,7 @@ def create_visual_preset(
     )
     session.commit()
     session.refresh(item)
-    return item
+    return _serialize_visual_preset(item, context)
 
 
 @router.get(
@@ -673,7 +692,7 @@ def get_visual_preset(
     preset_id: UUID,
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
-) -> VisualPreset:
+) -> VisualPresetRead:
     require_capability(context, Capability.PRESET_VIEW)
     get_scoped_business(session, context, business_id)
     item = _preset(session, context, business_id, preset_id)
@@ -681,7 +700,7 @@ def get_visual_preset(
     if item.brand_profile_id != brand.id:
         raise HTTPException(status.HTTP_409_CONFLICT, "Preset visual inconsistente")
     _validate_logo_asset(session, context, business_id, item.logo_media_asset_id)
-    return item
+    return _serialize_visual_preset(item, context)
 
 
 @router.patch(
@@ -757,7 +776,7 @@ def generate_visual_prompt(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
 ) -> VisualPromptRead:
-    require_capability(context, Capability.CONTENT_CREATE)
+    require_capability(context, Capability.VISUAL_PROMPT_GENERATE)
     get_scoped_business(session, context, payload.business_id)
     brand = _brand_profile(session, context, payload.business_id)
     preset = _preset(session, context, payload.business_id, payload.preset_id)

@@ -15,7 +15,7 @@ from growthos.dependencies import (
     require_capability,
     require_csrf,
 )
-from growthos.domain.enums import JobStatus, Role
+from growthos.domain.enums import Role
 from growthos.domain.permissions import Capability
 from growthos.models import (
     AudienceSegment,
@@ -23,7 +23,6 @@ from growthos.models import (
     CalendarEntry,
     ContentPlan,
     ContentStrategy,
-    Job,
     MarketingObjective,
     Membership,
     Notification,
@@ -45,6 +44,7 @@ from growthos.schemas_planning import (
     StrategyVersionRead,
 )
 from growthos.services.audit import add_audit_log
+from growthos.services.email_jobs import enqueue_notification_email
 from growthos.services.strategy_provider import MockStrategyProvider, StrategyGenerationRequest
 
 router = APIRouter()
@@ -230,26 +230,6 @@ def _create_version(
     return version
 
 
-def _email_job(
-    session: Session,
-    *,
-    organization_id: UUID,
-    user: User,
-    subject: str,
-    text: str,
-    key: str,
-) -> None:
-    session.add(
-        Job(
-            organization_id=organization_id,
-            type="notification.email.smtp",
-            status=JobStatus.PENDING,
-            payload={"to": user.email, "subject": subject, "text": text},
-            idempotency_key=key,
-        )
-    )
-
-
 @router.get(
     "/businesses/{business_id}/strategies",
     response_model=list[StrategyRead],
@@ -391,26 +371,22 @@ def send_strategy_to_client(
             User.is_active.is_(True),
         )
     ).all()
-    for user, membership in reviewers:
-        session.add(
-            Notification(
-                organization_id=context.organization.id,
-                business_id=strategy.business_id,
-                recipient_user_id=user.id,
-                type="STRATEGY_REVIEW",
-                title="Estratégia aguardando aprovação",
-                message="A estratégia mensal está pronta para sua revisão.",
-                resource_type="content_strategy",
-                resource_id=strategy.id,
-            )
-        )
-        _email_job(
-            session,
+    for _user, membership in reviewers:
+        notification = Notification(
             organization_id=context.organization.id,
-            user=user,
-            subject="Estratégia aguardando aprovação",
-            text="Entre no GrowthOS para revisar a estratégia mensal.",
-            key=f"strategy-review:{strategy.id}:{membership.id}",
+            business_id=strategy.business_id,
+            recipient_user_id=membership.user_id,
+            type="STRATEGY_REVIEW",
+            title="Estratégia aguardando aprovação",
+            message="A estratégia mensal está pronta para sua revisão.",
+            resource_type="content_strategy",
+            resource_id=strategy.id,
+        )
+        session.add(notification)
+        enqueue_notification_email(
+            session,
+            notification,
+            idempotency_key=f"strategy-review:{strategy.id}:{membership.id}",
         )
     add_audit_log(
         session,
@@ -664,7 +640,14 @@ def generate_calendar_mock(
     )
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "O plano já possui pautas")
-    version = session.get(StrategyVersion, plan.strategy_version_id)
+    version = session.scalar(
+        select(StrategyVersion).where(
+            StrategyVersion.id == plan.strategy_version_id,
+            StrategyVersion.organization_id == plan.organization_id,
+            StrategyVersion.business_id == plan.business_id,
+            StrategyVersion.content_strategy_id == plan.content_strategy_id,
+        )
+    )
     if version is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Versão da estratégia indisponível")
     pillars = [str(item) for item in version.pillars] or [version.objective]

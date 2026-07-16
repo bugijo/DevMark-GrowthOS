@@ -16,7 +16,7 @@ from growthos.dependencies import (
     require_role,
 )
 from growthos.domain.enums import BUSINESS_SCOPED_ROLES, Role
-from growthos.domain.permissions import Capability, has_capability
+from growthos.domain.permissions import Capability
 from growthos.models import BrandProfile, Business, Membership, User
 from growthos.schemas import (
     BrandProfileRead,
@@ -247,11 +247,7 @@ def upsert_brand_profile(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
 ) -> BrandProfile:
-    if not (
-        has_capability(context.membership.role, Capability.BRAND_MANAGE)
-        or has_capability(context.membership.role, Capability.BRAND_VISUAL_MANAGE)
-    ):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Você não pode realizar esta ação")
+    require_capability(context, Capability.BRAND_MANAGE)
     business = get_scoped_business(session, context, business_id)
     profile = session.scalar(
         select(BrandProfile).where(

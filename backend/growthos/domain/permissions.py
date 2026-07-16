@@ -42,6 +42,7 @@ class Capability(StrEnum):
 
     PRESET_VIEW = "preset.view"
     PRESET_MANAGE = "preset.manage"
+    VISUAL_PROMPT_GENERATE = "visual_prompt.generate"
     MEDIA_VIEW = "media.view"
     MEDIA_UPLOAD = "media.upload"
     MEDIA_MANAGE = "media.manage"
@@ -118,6 +119,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CALENDAR_MANAGE,
             Capability.PRESET_VIEW,
             Capability.PRESET_MANAGE,
+            Capability.VISUAL_PROMPT_GENERATE,
             Capability.MEDIA_VIEW,
             Capability.MEDIA_UPLOAD,
             Capability.MEDIA_MANAGE,
@@ -154,6 +156,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CALENDAR_VIEW,
             Capability.CALENDAR_MANAGE,
             Capability.PRESET_VIEW,
+            Capability.VISUAL_PROMPT_GENERATE,
             Capability.MEDIA_VIEW,
             Capability.CONTENT_VIEW,
             Capability.CONTENT_CREATE,
@@ -184,6 +187,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CALENDAR_VIEW,
             Capability.CALENDAR_MANAGE,
             Capability.PRESET_VIEW,
+            Capability.VISUAL_PROMPT_GENERATE,
             Capability.MEDIA_VIEW,
             Capability.MEDIA_UPLOAD,
             Capability.CONTENT_VIEW,
@@ -208,11 +212,11 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CALENDAR_VIEW,
             Capability.PRESET_VIEW,
             Capability.PRESET_MANAGE,
+            Capability.VISUAL_PROMPT_GENERATE,
             Capability.MEDIA_VIEW,
             Capability.MEDIA_UPLOAD,
             Capability.MEDIA_MANAGE,
             Capability.CONTENT_VIEW,
-            Capability.CONTENT_CREATE,
             Capability.CONTENT_EDIT_VISUAL,
             Capability.CONTENT_SUBMIT_INTERNAL,
             Capability.CONTENT_COMMENT,

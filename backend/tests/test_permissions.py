@@ -39,6 +39,8 @@ def test_specialists_receive_only_their_operational_mutations() -> None:
 
     assert has_capability(Role.DESIGNER, Capability.CONTENT_EDIT_VISUAL)
     assert has_capability(Role.DESIGNER, Capability.PRESET_MANAGE)
+    assert has_capability(Role.DESIGNER, Capability.VISUAL_PROMPT_GENERATE)
+    assert not has_capability(Role.DESIGNER, Capability.CONTENT_CREATE)
     assert not has_capability(Role.DESIGNER, Capability.CONTENT_EDIT_TEXT)
 
 

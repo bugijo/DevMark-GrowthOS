@@ -21,7 +21,6 @@ from growthos.domain.enums import (
     ApprovalStage,
     ApprovalStatus,
     ContentStatus,
-    JobStatus,
     Role,
 )
 from growthos.domain.permissions import Capability
@@ -36,7 +35,6 @@ from growthos.models import (
     ContentStrategy,
     ContentVersion,
     ContentVersionMedia,
-    Job,
     MarketingObjective,
     MediaAsset,
     Membership,
@@ -59,6 +57,7 @@ from growthos.schemas import (
     ManualPublicationCreate,
 )
 from growthos.services.audit import add_audit_log
+from growthos.services.email_jobs import enqueue_notification_email
 from growthos.services.providers import MockTextProvider, TextGenerationRequest
 from growthos.services.visual_prompts import MockVisualPromptProvider, VisualPromptRequest
 
@@ -131,7 +130,7 @@ def _get_current_version(session: Session, content: ContentItem) -> ContentVersi
     return version
 
 
-def _serialize(session: Session, content: ContentItem) -> ContentRead:
+def _serialize(session: Session, content: ContentItem, context: AuthContext) -> ContentRead:
     version = _get_current_version(session, content)
     approvals = list(
         session.scalars(
@@ -170,6 +169,26 @@ def _serialize(session: Session, content: ContentItem) -> ContentRead:
             .order_by(Approval.decided_at.desc())
             .limit(1)
         )
+    version_read = ContentVersionRead.model_validate(version).model_copy(
+        update={"media_asset_ids": media_asset_ids}
+    )
+    approval_reads = [ApprovalRead.model_validate(approval) for approval in approvals]
+    published_by_user_id = content.published_by_user_id
+    if _is_business_portal_context(context):
+        version_read = version_read.model_copy(
+            update={
+                "notes": "",
+                "visual_prompt": "",
+                "negative_prompt": "",
+                "brand_context_snapshot": {},
+                "visual_preset_snapshot": {},
+            }
+        )
+        approval_reads = [
+            approval.model_copy(update={"requested_by_user_id": None, "decided_by_user_id": None})
+            for approval in approval_reads
+        ]
+        published_by_user_id = None
     return ContentRead(
         id=content.id,
         organization_id=content.organization_id,
@@ -184,12 +203,10 @@ def _serialize(session: Session, content: ContentItem) -> ContentRead:
         published_at=content.published_at,
         publication_channel=content.publication_channel,
         publication_reference=content.publication_reference,
-        published_by_user_id=content.published_by_user_id,
+        published_by_user_id=published_by_user_id,
         change_request_comment=change_request_comment,
-        current_version=ContentVersionRead.model_validate(version).model_copy(
-            update={"media_asset_ids": media_asset_ids}
-        ),
-        approvals=[ApprovalRead.model_validate(approval) for approval in approvals],
+        current_version=version_read,
+        approvals=approval_reads,
         created_at=content.created_at,
         updated_at=content.updated_at,
     )
@@ -249,26 +266,6 @@ def _all_components_approved(
     )
 
 
-def _email_job(
-    session: Session,
-    *,
-    organization_id: UUID,
-    user: User,
-    subject: str,
-    text: str,
-    key: str,
-) -> None:
-    session.add(
-        Job(
-            organization_id=organization_id,
-            type="notification.email.smtp",
-            status=JobStatus.PENDING,
-            payload={"to": user.email, "subject": subject, "text": text},
-            idempotency_key=key,
-        )
-    )
-
-
 def _notify_agency(
     session: Session,
     content: ContentItem,
@@ -299,26 +296,22 @@ def _notify_agency(
             ),
         )
     ).all()
-    for user, membership in recipients:
-        session.add(
-            Notification(
-                organization_id=content.organization_id,
-                business_id=content.business_id,
-                recipient_user_id=membership.user_id,
-                type="CONTENT_DECISION",
-                title=title,
-                message=message,
-                resource_type="content_item",
-                resource_id=content.id,
-            )
-        )
-        _email_job(
-            session,
+    for _user, membership in recipients:
+        notification = Notification(
             organization_id=content.organization_id,
-            user=user,
-            subject=title,
-            text="Entre no GrowthOS para consultar a decisão do cliente.",
-            key=f"{email_key}:{membership.id}",
+            business_id=content.business_id,
+            recipient_user_id=membership.user_id,
+            type="CONTENT_DECISION",
+            title=title,
+            message=message,
+            resource_type="content_item",
+            resource_id=content.id,
+        )
+        session.add(notification)
+        enqueue_notification_email(
+            session,
+            notification,
+            idempotency_key=f"{email_key}:{membership.id}",
         )
 
 
@@ -424,6 +417,26 @@ def _resolve_generation_links(
         )
         if strategy is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Estratégia não encontrada")
+        if strategy_version is None:
+            selected_version_id = strategy.approved_version_id or strategy.current_version_id
+            if selected_version_id is None:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "Estratégia sem versão disponível",
+                )
+            strategy_version = session.scalar(
+                select(StrategyVersion).where(
+                    StrategyVersion.id == selected_version_id,
+                    StrategyVersion.organization_id == organization_id,
+                    StrategyVersion.business_id == business_id,
+                    StrategyVersion.content_strategy_id == strategy.id,
+                )
+            )
+            if strategy_version is None:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "Versão da estratégia indisponível",
+                )
 
     preset: VisualPreset | None = None
     if preset_id is not None:
@@ -750,7 +763,7 @@ def generate_content(
         },
     )
     session.commit()
-    return _serialize(session, content)
+    return _serialize(session, content, context)
 
 
 @router.get("", response_model=list[ContentRead])
@@ -787,7 +800,7 @@ def list_contents(
         get_scoped_business(session, context, business_id)
         query = query.where(ContentItem.business_id == business_id)
     contents = session.scalars(query.order_by(ContentItem.created_at.desc())).all()
-    return [_serialize(session, content) for content in contents]
+    return [_serialize(session, content, context) for content in contents]
 
 
 @router.get("/{content_id}", response_model=ContentRead)
@@ -797,7 +810,7 @@ def get_content(
     session: Session = Depends(get_session),
 ) -> ContentRead:
     require_capability(context, Capability.CONTENT_VIEW)
-    return _serialize(session, _get_content(session, context, content_id))
+    return _serialize(session, _get_content(session, context, content_id), context)
 
 
 @router.post("/{content_id}/submit-internal", response_model=ContentRead)
@@ -821,7 +834,7 @@ def submit_internal(
         details={"from": previous.value, "to": content.status.value, "version_id": str(version.id)},
     )
     session.commit()
-    return _serialize(session, content)
+    return _serialize(session, content, context)
 
 
 @router.post("/{content_id}/send-to-client", response_model=ContentRead)
@@ -863,26 +876,22 @@ def send_to_client(
                 requested_by_user_id=context.user.id,
             )
         )
-    for user, reviewer in reviewers:
-        session.add(
-            Notification(
-                organization_id=context.organization.id,
-                business_id=content.business_id,
-                recipient_user_id=reviewer.user_id,
-                type="CONTENT_REVIEW_REQUESTED",
-                title="Novo conteúdo para revisar",
-                message="A equipe enviou um conteúdo para sua aprovação.",
-                resource_type="content_item",
-                resource_id=content.id,
-            )
-        )
-        _email_job(
-            session,
+    for _user, reviewer in reviewers:
+        notification = Notification(
             organization_id=context.organization.id,
-            user=user,
-            subject="Novo conteúdo para revisar",
-            text="Entre no GrowthOS para revisar o texto e a imagem do conteúdo.",
-            key=f"content-review:{content.id}:{version.id}:{reviewer.id}",
+            business_id=content.business_id,
+            recipient_user_id=reviewer.user_id,
+            type="CONTENT_REVIEW_REQUESTED",
+            title="Novo conteúdo para revisar",
+            message="A equipe enviou um conteúdo para sua aprovação.",
+            resource_type="content_item",
+            resource_id=content.id,
+        )
+        session.add(notification)
+        enqueue_notification_email(
+            session,
+            notification,
+            idempotency_key=f"content-review:{content.id}:{version.id}:{reviewer.id}",
         )
     add_audit_log(
         session,
@@ -901,7 +910,7 @@ def send_to_client(
         },
     )
     session.commit()
-    return _serialize(session, content)
+    return _serialize(session, content, context)
 
 
 @router.post("/{content_id}/approve", response_model=ContentRead)
@@ -971,7 +980,7 @@ def approve_content(
         },
     )
     session.commit()
-    return _serialize(session, content)
+    return _serialize(session, content, context)
 
 
 @router.post(
@@ -990,6 +999,19 @@ def approve_content_component(
     if context.membership.business_id != content.business_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Aprovação fora do cliente permitido")
     version = _get_current_version(session, content)
+    if component == ApprovalComponent.IMAGE:
+        media_id = session.scalar(
+            select(ContentVersionMedia.media_asset_id).where(
+                ContentVersionMedia.organization_id == content.organization_id,
+                ContentVersionMedia.business_id == content.business_id,
+                ContentVersionMedia.content_version_id == version.id,
+            )
+        )
+        if media_id is None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Vincule uma imagem antes de aprovar o componente visual",
+            )
     approval = _pending_approval(session, content, version, component)
     approval.status = ApprovalStatus.APPROVED
     approval.decided_by_user_id = context.user.id
@@ -1033,7 +1055,7 @@ def approve_content_component(
         },
     )
     session.commit()
-    return _serialize(session, content)
+    return _serialize(session, content, context)
 
 
 def _request_component_changes(
@@ -1090,12 +1112,12 @@ def _request_component_changes(
             "from": previous.value,
             "to": content.status.value,
             "reviewed_version_id": str(current.id),
-            "comment": comment,
+            "comment_present": bool(comment),
             "cancelled_components": [pending.component.value for pending in obsolete],
         },
     )
     session.commit()
-    return _serialize(session, content)
+    return _serialize(session, content, context)
 
 
 @router.post("/{content_id}/request-changes", response_model=ContentRead)
@@ -1240,7 +1262,7 @@ def create_revision(
         },
     )
     session.commit()
-    return _serialize(session, content)
+    return _serialize(session, content, context)
 
 
 @router.post("/{content_id}/visual-revisions", response_model=ContentRead)
@@ -1408,7 +1430,7 @@ def create_visual_revision(
         },
     )
     session.commit()
-    return _serialize(session, content)
+    return _serialize(session, content, context)
 
 
 @router.post("/{content_id}/publication", response_model=ContentRead)
@@ -1429,7 +1451,7 @@ def record_manual_publication(
         )
     if content.status == ContentStatus.PUBLISHED:
         if content.publication_idempotency_key == idempotency_key:
-            return _serialize(session, content)
+            return _serialize(session, content, context)
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "Este conteúdo já possui publicação manual registrada",
@@ -1504,4 +1526,4 @@ def record_manual_publication(
             status.HTTP_409_CONFLICT,
             "Esta chave de idempotência já foi utilizada",
         ) from exc
-    return _serialize(session, content)
+    return _serialize(session, content, context)

@@ -15,6 +15,7 @@ from growthos_worker.handlers import (
     IdentityInviteEmailHandler,
     IdentityPasswordResetEmailHandler,
     MockProviderHandler,
+    NotificationEmailHandler,
     SmtpEmailHandler,
     default_handlers,
 )
@@ -23,6 +24,7 @@ from growthos_worker.jobs import ClaimedJob, PermanentJobError, RetryableJobErro
 ORGANIZATION_ID = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
 INVITE_ID = UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
 RESET_ID = UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc")
+NOTIFICATION_ID = UUID("dddddddd-dddd-4ddd-8ddd-dddddddddddd")
 TOKEN_SECRET = "worker-test-token-secret-with-at-least-thirty-two-bytes"
 
 
@@ -42,6 +44,17 @@ def identity_job(job_type: str, payload: dict[str, object]) -> ClaimedJob:
         id="identity-job-1",
         organization_id=str(ORGANIZATION_ID),
         type=job_type,
+        payload=payload,
+        attempts=1,
+        max_attempts=3,
+    )
+
+
+def notification_job(payload: dict[str, object]) -> ClaimedJob:
+    return ClaimedJob(
+        id="notification-job-1",
+        organization_id=str(ORGANIZATION_ID),
+        type="notification.email.smtp",
         payload=payload,
         attempts=1,
         max_attempts=3,
@@ -96,7 +109,7 @@ class FakeCursor:
     ) -> None:
         return None
 
-    def execute(self, query: str, parameters: tuple[UUID, UUID]) -> None:
+    def execute(self, query: str, parameters: tuple[object, ...]) -> None:
         self.database.queries.append((query, parameters))
 
     def fetchone(self) -> dict[str, Any] | None:
@@ -126,7 +139,7 @@ class FakeConnection:
 @dataclass
 class FakeDatabase:
     row: dict[str, Any] | None
-    queries: list[tuple[str, tuple[UUID, UUID]]] = field(default_factory=list)
+    queries: list[tuple[str, tuple[object, ...]]] = field(default_factory=list)
 
     def connect(self) -> FakeConnection:
         return FakeConnection(self)
@@ -224,6 +237,76 @@ def test_smtp_failure_is_retryable_without_exposing_message() -> None:
 
     assert "secret transport detail" not in str(error.value)
     assert "Conteúdo privado" not in str(error.value)
+
+
+def test_notification_email_revalidates_active_tenant_membership_before_smtp(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    database = FakeDatabase(
+        {
+            "id": NOTIFICATION_ID,
+            "email": "reviewer@example.com",
+            "title": "Conteúdo aguardando revisão",
+            "message": "Entre no GrowthOS para decidir.",
+        }
+    )
+    factory = FakeSmtpFactory()
+    handler = NotificationEmailHandler(
+        connect=database.connect,
+        smtp=smtp_handler(factory, "test.notification.smtp"),
+        logger=logging.getLogger("test.notification"),
+    )
+
+    with caplog.at_level(logging.INFO):
+        result = handler(notification_job({"notification_id": str(NOTIFICATION_ID)}))
+
+    assert result == {"provider": "smtp", "delivered": True}
+    query, parameters = database.queries[0]
+    assert "notification.organization_id = %s" in query
+    assert "membership.organization_id = notification.organization_id" in query
+    assert "membership.is_active IS TRUE" in query
+    assert "membership.business_id = notification.business_id" in query
+    assert parameters == (NOTIFICATION_ID, ORGANIZATION_ID)
+    assert factory.messages[0]["To"] == "reviewer@example.com"
+    assert "reviewer@example.com" not in caplog.text
+    assert "Entre no GrowthOS para decidir." not in caplog.text
+
+
+def test_notification_email_never_sends_after_access_is_unavailable() -> None:
+    factory = FakeSmtpFactory()
+    handler = NotificationEmailHandler(
+        connect=FakeDatabase(None).connect,
+        smtp=smtp_handler(factory, "test.notification.suspended"),
+        logger=logging.getLogger("test.notification.suspended"),
+    )
+
+    with pytest.raises(PermanentJobError, match="unavailable"):
+        handler(notification_job({"notification_id": str(NOTIFICATION_ID)}))
+    assert factory.messages == []
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({"notification_id": "invalid"}, "valid notification_id"),
+        (
+            {"notification_id": str(NOTIFICATION_ID), "to": "forbidden@example.com"},
+            "only notification_id",
+        ),
+    ],
+)
+def test_notification_email_rejects_invalid_or_expanded_payload(
+    payload: dict[str, object],
+    message: str,
+) -> None:
+    handler = NotificationEmailHandler(
+        connect=FakeDatabase(None).connect,
+        smtp=smtp_handler(FakeSmtpFactory(), "test.notification.invalid"),
+        logger=logging.getLogger("test.notification.invalid"),
+    )
+
+    with pytest.raises(PermanentJobError, match=message):
+        handler(notification_job(payload))
 
 
 def test_invitation_email_loads_tenant_record_and_keeps_token_out_of_logs(
@@ -361,7 +444,7 @@ def test_default_handlers_preserve_console_and_mock_and_register_identity() -> N
     )
 
     assert isinstance(handlers["notification.email.console"], ConsoleEmailHandler)
-    assert isinstance(handlers["notification.email.smtp"], SmtpEmailHandler)
+    assert isinstance(handlers["notification.email.smtp"], NotificationEmailHandler)
     assert isinstance(handlers["SEND_EMAIL"], SmtpEmailHandler)
     assert isinstance(handlers["provider.mock"], MockProviderHandler)
     assert isinstance(handlers["identity.invite.email"], IdentityInviteEmailHandler)

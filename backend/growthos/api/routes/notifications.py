@@ -5,8 +5,14 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from growthos.database import get_session
-from growthos.dependencies import AuthContext, get_current_context, require_csrf
+from growthos.dependencies import (
+    AuthContext,
+    get_current_context,
+    require_capability,
+    require_csrf,
+)
 from growthos.domain.enums import BUSINESS_SCOPED_ROLES
+from growthos.domain.permissions import Capability
 from growthos.models import Notification
 from growthos.models.base import utcnow
 from growthos.schemas import NotificationRead
@@ -21,6 +27,7 @@ def list_notifications(
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> list[Notification]:
+    require_capability(context, Capability.NOTIFICATION_VIEW_OWN)
     query = select(Notification).where(
         Notification.organization_id == context.organization.id,
         Notification.recipient_user_id == context.user.id,
@@ -46,6 +53,7 @@ def mark_notification_read(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
 ) -> Notification:
+    require_capability(context, Capability.NOTIFICATION_UPDATE_OWN)
     query = select(Notification).where(
         Notification.id == notification_id,
         Notification.organization_id == context.organization.id,

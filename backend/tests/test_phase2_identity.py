@@ -207,6 +207,23 @@ def test_agency_admin_manages_roles_but_not_own_access(client: TestClient) -> No
     )
     assert updated.status_code == 200, updated.text
     assert updated.json()["role"] == "CONTENT_EDITOR"
+
+    managed_client = TestClient(client.app)
+    assert login(managed_client, strategist)
+    suspended = client.patch(
+        f"/api/v1/members/{strategist.membership_id}",
+        json={"status": "SUSPENDED"},
+        headers=headers,
+    )
+    assert suspended.status_code == 200, suspended.text
+    assert managed_client.get("/api/v1/auth/me").status_code == 401
+    reactivated = client.patch(
+        f"/api/v1/members/{strategist.membership_id}",
+        json={"status": "ACTIVE"},
+        headers=headers,
+    )
+    assert reactivated.status_code == 200, reactivated.text
+    assert managed_client.get("/api/v1/auth/me").status_code == 401
     assert (
         client.patch(
             f"/api/v1/members/{admin.membership_id}",
@@ -221,3 +238,4 @@ def test_agency_admin_manages_roles_but_not_own_access(client: TestClient) -> No
         user = session.get(User, strategist.user_id)
         assert membership is not None and membership.role == Role.CONTENT_EDITOR
         assert user is not None and user.is_active is True
+        assert user.session_version == 4

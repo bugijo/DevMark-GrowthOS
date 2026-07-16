@@ -174,8 +174,8 @@ class VisualPresetUpdate(CatalogUpdateSchema):
 class VisualPresetRead(VisualPresetCreate, CatalogReadSchema):
     brand_profile_id: UUID
     version: int
-    created_by_user_id: UUID
-    updated_by_user_id: UUID
+    created_by_user_id: UUID | None
+    updated_by_user_id: UUID | None
 
 
 class VisualPromptGenerateRequest(CatalogSchema):

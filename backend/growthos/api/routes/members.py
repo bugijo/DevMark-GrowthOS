@@ -189,6 +189,11 @@ def update_member(
                 status.HTTP_409_CONFLICT,
                 "A organização precisa manter ao menos um administrador ativo",
             )
+    before = {
+        "role": membership.role.value,
+        "business_id": str(membership.business_id) if membership.business_id else None,
+        "active": membership.is_active,
+    }
     fields: list[str] = []
     if membership.role != next_role:
         membership.role = next_role
@@ -199,6 +204,13 @@ def update_member(
     if membership.is_active != next_active:
         membership.is_active = next_active
         fields.append("status")
+    if fields:
+        user.session_version += 1
+    after = {
+        "role": membership.role.value,
+        "business_id": str(membership.business_id) if membership.business_id else None,
+        "active": membership.is_active,
+    }
     add_audit_log(
         session,
         organization_id=context.organization.id,
@@ -207,7 +219,7 @@ def update_member(
         action="membership.updated",
         resource_type="membership",
         resource_id=membership.id,
-        details={"fields": fields, "role": membership.role.value, "active": membership.is_active},
+        details={"fields": fields, "before": before, "after": after},
     )
     session.commit()
     return _serialize_member(user, membership)

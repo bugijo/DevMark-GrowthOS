@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
@@ -439,6 +440,95 @@ def test_generation_persists_scoped_links_mock_prompt_media_and_snapshots(
     assert persisted_version["visual_preset_snapshot"]["version"] == 1
 
 
+@pytest.mark.parametrize(
+    "role",
+    [Role.CLIENT_OWNER, Role.CLIENT_REVIEWER, Role.VIEWER],
+)
+def test_client_portal_redacts_internal_content_and_preset_fields(
+    client: TestClient,
+    role: Role,
+) -> None:
+    fixture = _create_linked_fixture(f"content-redaction-{role.value.lower()}")
+    headers = csrf_headers(login(client, fixture.identity))
+    generated = _generate(client, headers, fixture)
+    _send_to_client(client, headers, generated["id"])
+
+    agency_version = client.get(f"/api/v1/contents/{generated['id']}").json()["current_version"]
+    assert agency_version["notes"]
+    assert agency_version["visual_prompt"]
+    assert agency_version["negative_prompt"]
+    assert agency_version["visual_preset_snapshot"]["base_prompt"]
+
+    portal_identity = (
+        fixture.reviewer
+        if role == Role.CLIENT_REVIEWER
+        else add_user_to_identity(
+            fixture.identity,
+            email=f"portal-redaction-{role.value.lower()}@example.com",
+            role=role,
+        )
+    )
+    portal_client = TestClient(client.app)
+    login(portal_client, portal_identity)
+    listed = portal_client.get("/api/v1/contents")
+    detail = portal_client.get(f"/api/v1/contents/{generated['id']}")
+    assert listed.status_code == 200, listed.text
+    assert detail.status_code == 200, detail.text
+    assert listed.json()[0]["id"] == generated["id"]
+    portal_content = detail.json()
+    portal_version = portal_content["current_version"]
+    assert portal_version["notes"] == ""
+    assert portal_version["visual_prompt"] == ""
+    assert portal_version["negative_prompt"] == ""
+    assert portal_version["brand_context_snapshot"] == {}
+    assert portal_version["visual_preset_snapshot"] == {}
+    assert portal_content["published_by_user_id"] is None
+    assert all(
+        approval["requested_by_user_id"] is None and approval["decided_by_user_id"] is None
+        for approval in portal_content["approvals"]
+    )
+
+    preset = portal_client.get(
+        f"/api/v1/businesses/{fixture.identity.business_id}/visual-presets/{fixture.preset_id}"
+    )
+    assert preset.status_code == 200, preset.text
+    assert preset.json()["base_prompt"] == ""
+    assert preset.json()["negative_prompt"] == ""
+    assert preset.json()["created_by_user_id"] is None
+    assert preset.json()["updated_by_user_id"] is None
+
+
+def test_strategy_link_uses_exact_version_and_image_decision_requires_media(
+    client: TestClient,
+) -> None:
+    fixture = _create_linked_fixture("content-exact-strategy")
+    headers = csrf_headers(login(client, fixture.identity))
+    generated = client.post(
+        "/api/v1/contents/generate",
+        json={
+            "business_id": str(fixture.identity.business_id),
+            "objective": "Conteúdo ligado diretamente à estratégia aprovada",
+            "content_strategy_id": str(fixture.strategy_id),
+            "visual_preset_id": str(fixture.preset_id),
+        },
+        headers=headers,
+    )
+    assert generated.status_code == 201, generated.text
+    assert generated.json()["strategy_version_id"] == str(fixture.strategy_version_id)
+    sent = _send_to_client(client, headers, generated.json()["id"])
+    assert sent["current_version"]["media_asset_ids"] == []
+
+    reviewer_client = TestClient(client.app)
+    reviewer_headers = csrf_headers(login(reviewer_client, fixture.reviewer))
+    blocked = reviewer_client.post(
+        f"/api/v1/contents/{generated.json()['id']}/decisions/IMAGE/approve",
+        json={"comment": "Não há imagem para avaliar"},
+        headers=reviewer_headers,
+    )
+    assert blocked.status_code == 409, blocked.text
+    assert "Vincule uma imagem" in blocked.json()["detail"]
+
+
 def test_generation_rejects_every_cross_tenant_link_and_non_ready_media(
     client: TestClient,
 ) -> None:
@@ -502,7 +592,7 @@ def test_client_decides_text_and_image_separately_and_can_request_image_changes(
         )
     assert len(review_jobs) == 1
     assert review_jobs[0].type == "notification.email.smtp"
-    assert set(review_jobs[0].payload) == {"to", "subject", "text"}
+    assert set(review_jobs[0].payload) == {"notification_id"}
     assert generated["current_version"]["caption"] not in review_jobs[0].payload.values()
     assert generated["current_version"]["visual_prompt"] not in review_jobs[0].payload.values()
 
@@ -529,7 +619,7 @@ def test_client_decides_text_and_image_separately_and_can_request_image_changes(
             ).all()
         )
     assert len(decision_jobs) == 1
-    assert set(decision_jobs[0].payload) == {"to", "subject", "text"}
+    assert set(decision_jobs[0].payload) == {"notification_id"}
     assert "Texto aprovado" not in decision_jobs[0].payload.values()
 
     image_decision = reviewer_client.post(
@@ -588,6 +678,36 @@ def test_designer_creates_immutable_scoped_visual_revision_but_cannot_edit_text(
 
     designer_client = TestClient(client.app)
     designer_headers = csrf_headers(login(designer_client, designer))
+    assert (
+        designer_client.put(
+            f"/api/v1/businesses/{fixture.identity.business_id}/brand-profile",
+            json={"brand_name": "Designer não pode alterar texto da marca"},
+            headers=designer_headers,
+        ).status_code
+        == 403
+    )
+    assert (
+        designer_client.post(
+            "/api/v1/contents/generate",
+            json={
+                "business_id": str(fixture.identity.business_id),
+                "objective": "Designer não gera o conteúdo textual completo",
+            },
+            headers=designer_headers,
+        ).status_code
+        == 403
+    )
+    prompt = designer_client.post(
+        "/api/v1/visual-prompts/generate",
+        json={
+            "business_id": str(fixture.identity.business_id),
+            "preset_id": str(fixture.preset_id),
+            "objective": "Direção visual autorizada ao designer",
+        },
+        headers=designer_headers,
+    )
+    assert prompt.status_code == 200, prompt.text
+    assert prompt.json()["provider_name"] == "mock"
     original_version = generated["current_version"]
     forbidden_text_revision = designer_client.post(
         f"/api/v1/contents/{generated['id']}/revisions",

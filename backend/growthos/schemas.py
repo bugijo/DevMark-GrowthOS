@@ -175,7 +175,7 @@ class ApprovalRead(BaseModel):
     stage: ApprovalStage
     component: ApprovalComponent
     status: ApprovalStatus
-    requested_by_user_id: UUID
+    requested_by_user_id: UUID | None
     decided_by_user_id: UUID | None
     decision_comment: str | None
     decided_at: datetime | None

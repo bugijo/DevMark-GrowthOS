@@ -70,6 +70,7 @@ def test_private_media_upload_detects_content_and_returns_short_signed_url(
 
     actions = {item["action"] for item in client.get("/api/v1/audit-logs").json()}
     assert "media.uploaded" in actions
+    assert "media.signed_url_issued" in actions
 
 
 def test_upload_rejects_spoofed_or_executable_content(

@@ -151,8 +151,20 @@ def media_download_url(
     require_capability(context, Capability.MEDIA_VIEW)
     asset = _scoped_asset(session, context, asset_id)
     expires_at = datetime.now(UTC) + timedelta(seconds=settings.signed_url_ttl_seconds)
+    signed_url = storage.signed_get_url(asset.object_key, settings.signed_url_ttl_seconds)
+    add_audit_log(
+        session,
+        organization_id=context.organization.id,
+        business_id=asset.business_id,
+        actor_user_id=context.user.id,
+        action="media.signed_url_issued",
+        resource_type="media_asset",
+        resource_id=asset.id,
+        details={"ttl_seconds": settings.signed_url_ttl_seconds},
+    )
+    session.commit()
     return SignedMediaUrlRead(
-        url=storage.signed_get_url(asset.object_key, settings.signed_url_ttl_seconds),
+        url=signed_url,
         expires_at=expires_at,
     )
 

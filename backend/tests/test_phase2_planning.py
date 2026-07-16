@@ -1,9 +1,11 @@
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from growthos.database import get_session_factory
 from growthos.domain.enums import Role
-from growthos.models import BrandProfile, Job
+from growthos.models import BrandProfile, ContentPlan, Job
 from tests.conftest import add_user_to_identity, create_identity, csrf_headers, login
 
 
@@ -190,3 +192,66 @@ def test_strategy_change_request_requires_new_version_and_is_tenant_isolated(
     assert (
         other_client.get(f"/api/v1/businesses/{reviewer.business_id}/strategies").status_code == 404
     )
+
+
+def test_calendar_generation_rejects_strategy_version_from_another_tenant(
+    client: TestClient,
+) -> None:
+    reviewer, headers, strategy = _prepare_strategy(client)
+    strategy_id = strategy["id"]
+    client.post(f"/api/v1/strategies/{strategy_id}/submit-internal", headers=headers)
+    client.post(f"/api/v1/strategies/{strategy_id}/send-to-client", headers=headers)
+    reviewer_client = TestClient(client.app)
+    reviewer_csrf = login(reviewer_client, reviewer)
+    approved = reviewer_client.post(
+        f"/api/v1/strategies/{strategy_id}/decision",
+        json={"decision": "APPROVE"},
+        headers=csrf_headers(reviewer_csrf),
+    )
+    assert approved.status_code == 200, approved.text
+    plan = client.post(
+        f"/api/v1/businesses/{reviewer.business_id}/plans",
+        json={
+            "strategy_id": strategy_id,
+            "name": "Plano com vínculo adulterado",
+            "starts_on": "2026-08-01",
+            "ends_on": "2026-08-31",
+        },
+        headers=headers,
+    )
+    assert plan.status_code == 201, plan.text
+
+    other_client = TestClient(client.app)
+    other = create_identity(
+        slug="planning-version-other",
+        email="planning-version-other@example.com",
+        role=Role.AGENCY_ADMIN,
+        business_name="Clínica de outro tenant",
+    )
+    assert other.business_id is not None
+    _brand(other.organization_id, other.business_id)
+    other_headers = csrf_headers(login(other_client, other))
+    other_strategy = other_client.post(
+        f"/api/v1/businesses/{other.business_id}/strategies",
+        json={
+            "name": "Estratégia externa",
+            "starts_on": "2026-08-01",
+            "ends_on": "2026-08-31",
+            "objective": "Objetivo que não pode atravessar tenants",
+        },
+        headers=other_headers,
+    )
+    assert other_strategy.status_code == 201, other_strategy.text
+
+    with get_session_factory()() as session:
+        stored_plan = session.get(ContentPlan, UUID(plan.json()["id"]))
+        assert stored_plan is not None
+        stored_plan.strategy_version_id = UUID(other_strategy.json()["current_version"]["id"])
+        session.commit()
+
+    generated = client.post(
+        f"/api/v1/plans/{plan.json()['id']}/generate-mock",
+        headers=headers,
+    )
+    assert generated.status_code == 409, generated.text
+    assert generated.json()["detail"] == "Versão da estratégia indisponível"
