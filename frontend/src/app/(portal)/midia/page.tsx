@@ -203,7 +203,7 @@ export default function MediaLibraryPage() {
                   className="aspect-video w-full rounded-xl bg-slate-100 object-cover"
                 />
               ) : (
-                <div className="flex aspect-video items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-500">
+                <div className="flex aspect-video items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-600">
                   Prévia privada
                 </div>
               )}
