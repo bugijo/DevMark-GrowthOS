@@ -5,10 +5,43 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Breadcrumbs,
+  type BreadcrumbItem,
+} from "@/components/ui/breadcrumbs";
 import { Alert, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { useAuth } from "@/contexts/auth-context";
 import { displayName, ROLE_LABELS } from "@/lib/format";
-import { navigationForRoles } from "@/lib/navigation";
+import {
+  navigationForRoles,
+  type NavigationItem,
+} from "@/lib/navigation";
+
+function nestedPageLabel(pathname: string): string {
+  if (pathname === "/clientes/novo") return "Novo cliente";
+  if (/^\/clientes\/[^/]+$/.test(pathname)) return "Perfil do cliente";
+  return "Detalhes";
+}
+
+function breadcrumbsForPath(
+  pathname: string,
+  navigation: NavigationItem[],
+): BreadcrumbItem[] {
+  const activeItem = navigation.find(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+  );
+
+  if (pathname === "/dashboard") return [{ label: "Início" }];
+
+  const items: BreadcrumbItem[] = [{ label: "Início", href: "/dashboard" }];
+  if (!activeItem) return [...items, { label: "Página atual" }];
+  if (pathname === activeItem.href) return [...items, { label: activeItem.label }];
+  return [
+    ...items,
+    { label: activeItem.label, href: activeItem.href },
+    { label: nestedPageLabel(pathname) },
+  ];
+}
 
 function Brand() {
   return (
@@ -74,6 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const navigation = navigationForRoles(roles);
+  const breadcrumbs = breadcrumbsForPath(pathname, navigation);
   const activeMembership = memberships.find(
     (membership) => membership.organization_id === activeOrganizationId,
   );
@@ -207,8 +241,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main
           id="conteudo-principal"
+          tabIndex={-1}
           className="mx-auto w-full max-w-7xl space-y-7 px-4 py-6 sm:px-6 sm:py-8 lg:px-10"
         >
+          <Breadcrumbs items={breadcrumbs} />
           {children}
         </main>
       </div>

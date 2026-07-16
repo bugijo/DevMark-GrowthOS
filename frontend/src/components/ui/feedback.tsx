@@ -12,8 +12,15 @@ export function Alert({
     success: "border-emerald-200 bg-emerald-50 text-emerald-900",
     info: "border-sky-200 bg-sky-50 text-sky-900",
   };
+  const urgent = tone === "error";
+
   return (
-    <div className={`rounded-xl border px-4 py-3 text-sm ${colors[tone]}`} role="status">
+    <div
+      className={`rounded-xl border px-4 py-3 text-sm ${colors[tone]}`}
+      role={urgent ? "alert" : "status"}
+      aria-live={urgent ? "assertive" : "polite"}
+      aria-atomic="true"
+    >
       {children}
     </div>
   );
