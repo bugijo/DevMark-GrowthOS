@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from growthos.api.router import api_router
 from growthos.config import get_settings
 from growthos.database import get_engine
+from growthos.security_headers import SecurityHeadersMiddleware
 
 
 @asynccontextmanager
@@ -36,6 +37,11 @@ def create_app() -> FastAPI:
             "X-Organization-ID",
             "X-Request-ID",
         ],
+    )
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        environment=settings.app_env,
+        api_prefix=settings.api_v1_prefix,
     )
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
