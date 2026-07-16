@@ -1,20 +1,33 @@
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /build
+
+COPY backend /build/backend
+COPY worker /build/worker
+
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip wheel --no-cache-dir --wheel-dir /wheels /build/backend /build/worker
+
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-WORKDIR /workspace
+WORKDIR /app
 
 RUN groupadd --system growthos \
     && useradd --system --gid growthos --create-home growthos
 
-COPY backend /workspace/backend
-COPY worker /workspace/worker
-COPY shared /workspace/shared
+COPY --from=builder /wheels /wheels
 
-RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir -e /workspace/backend -e /workspace/worker
+RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
+      devmark-growthos-backend growthos-worker \
+    && rm -rf /wheels
 
 USER growthos
 

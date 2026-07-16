@@ -77,9 +77,13 @@ jobs:
         run: mypy --config-file backend/pyproject.toml backend/growthos
       - name: mypy worker
         run: mypy --config-file worker/pyproject.toml worker/src/growthos_worker
-      - name: Aplica migrations desde banco vazio
+      - name: Valida upgrade, drift e rollback das migrations
         working-directory: backend
-        run: alembic upgrade head
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
       - name: Testa backend
         run: pytest backend/tests
       - name: Testa worker
