@@ -95,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden border-r border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:p-5">
         <Brand />
 
-        <nav aria-label="Navegação principal" className="mt-9 space-y-1">
+        <nav aria-label="Navegação principal" className="mt-7 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
           {navigation.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
@@ -115,7 +115,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="mt-auto rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <p className="truncate text-sm font-semibold text-slate-900">
             {displayName(user)}
           </p>
