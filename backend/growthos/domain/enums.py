@@ -12,6 +12,15 @@ class Role(StrEnum):
     VIEWER = "VIEWER"
 
 
+BUSINESS_SCOPED_ROLES = frozenset(
+    {
+        Role.CLIENT_OWNER,
+        Role.CLIENT_REVIEWER,
+        Role.VIEWER,
+    }
+)
+
+
 class ContentStatus(StrEnum):
     DRAFT = "DRAFT"
     INTERNAL_REVIEW = "INTERNAL_REVIEW"

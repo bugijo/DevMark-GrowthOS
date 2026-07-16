@@ -19,8 +19,16 @@ class InMemoryLoginRateLimiter:
     adaptador por um store compartilhado, como Redis, preservando o contrato.
     """
 
-    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        clock: Callable[[], float] = time.monotonic,
+        *,
+        max_entries: int = 10_000,
+    ) -> None:
+        if max_entries < 1:
+            raise ValueError("max_entries deve ser positivo")
         self._clock = clock
+        self._max_entries = max_entries
         self._windows: dict[str, _AttemptWindow] = {}
         self._lock = Lock()
 
@@ -37,6 +45,10 @@ class InMemoryLoginRateLimiter:
         with self._lock:
             current = self._active_window(key, now, window_seconds)
             if current is None:
+                if len(self._windows) >= self._max_entries:
+                    # Dict preserva ordem de inserção. Como uma janela mantém o
+                    # início fixo, a primeira chave também é a mais antiga.
+                    self._windows.pop(next(iter(self._windows)))
                 self._windows[key] = _AttemptWindow(failures=1, started_at=now)
             else:
                 current.failures += 1
@@ -49,6 +61,11 @@ class InMemoryLoginRateLimiter:
         """Remove todas as janelas; destinada também ao isolamento dos testes."""
         with self._lock:
             self._windows.clear()
+
+    @property
+    def tracked_entry_count(self) -> int:
+        with self._lock:
+            return len(self._windows)
 
     def _active_window(
         self,

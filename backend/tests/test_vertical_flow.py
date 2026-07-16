@@ -141,6 +141,12 @@ def test_request_changes_requires_real_agency_revision_before_resubmission(
     assert changed.json()["current_version"]["id"] == content["current_version"]["id"]
 
     admin_csrf = client.get("/api/v1/auth/me").json()["csrf_token"]
+    bypass_revision = client.post(
+        f"/api/v1/contents/{content['id']}/submit-internal",
+        headers=csrf_headers(admin_csrf),
+    )
+    assert bypass_revision.status_code == 409
+
     unchanged_payload = {
         "title": content["current_version"]["title"],
         "caption": content["current_version"]["caption"],

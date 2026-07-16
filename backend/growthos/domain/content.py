@@ -15,9 +15,7 @@ ALLOWED_TRANSITIONS: dict[ContentStatus, frozenset[ContentStatus]] = {
     ContentStatus.CLIENT_REVIEW: frozenset(
         {ContentStatus.APPROVED, ContentStatus.CHANGES_REQUESTED, ContentStatus.ARCHIVED}
     ),
-    ContentStatus.CHANGES_REQUESTED: frozenset(
-        {ContentStatus.INTERNAL_REVIEW, ContentStatus.DRAFT, ContentStatus.ARCHIVED}
-    ),
+    ContentStatus.CHANGES_REQUESTED: frozenset({ContentStatus.DRAFT, ContentStatus.ARCHIVED}),
     ContentStatus.APPROVED: frozenset({ContentStatus.SCHEDULED, ContentStatus.ARCHIVED}),
     ContentStatus.SCHEDULED: frozenset(
         {ContentStatus.APPROVED, ContentStatus.PUBLISHED, ContentStatus.FAILED}

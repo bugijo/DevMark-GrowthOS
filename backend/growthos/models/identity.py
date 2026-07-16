@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import Boolean, Enum, ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, CheckConstraint, Enum, ForeignKey, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from growthos.domain.enums import Role
@@ -27,6 +27,12 @@ class Membership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "memberships"
     __table_args__ = (
         UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
+        CheckConstraint(
+            "is_active = false OR "
+            "role NOT IN ('CLIENT_OWNER', 'CLIENT_REVIEWER', 'VIEWER') OR "
+            "business_id IS NOT NULL",
+            name="ck_membership_active_client_business",
+        ),
     )
 
     organization_id: Mapped[UUID] = mapped_column(

@@ -11,6 +11,7 @@ os.environ["AUTH_SECRET_KEY"] = "tests-only-secret-key-that-is-longer-than-32-ch
 os.environ["SESSION_COOKIE_SECURE"] = "false"
 os.environ["LOGIN_RATE_LIMIT_ATTEMPTS"] = "2"
 os.environ["LOGIN_RATE_LIMIT_WINDOW_SECONDS"] = "60"
+os.environ["LOGIN_RATE_LIMIT_ORIGIN_MULTIPLIER"] = "2"
 os.environ["AI_PROVIDER"] = "mock"
 os.environ["DEMO_CLIENT_EMAIL"] = "client@clinicafeliz.local"
 os.environ["DEMO_CLIENT_PASSWORD"] = "client-password-123"

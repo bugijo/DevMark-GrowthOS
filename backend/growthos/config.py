@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 30
     login_rate_limit_attempts: int = Field(default=10, ge=1)
     login_rate_limit_window_seconds: int = Field(default=60, ge=1)
+    login_rate_limit_origin_multiplier: int = Field(default=20, ge=1)
     session_cookie_name: str = "growthos_session"
     csrf_cookie_name: str = "growthos_csrf"
     session_cookie_secure: bool = False
@@ -57,6 +58,16 @@ class Settings(BaseSettings):
     def normalize_mode(cls, value: object) -> object:
         return value.strip().casefold() if isinstance(value, str) else value
 
+    @field_validator("session_cookie_same_site", mode="before")
+    @classmethod
+    def validate_cookie_same_site(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().casefold()
+        if normalized not in {"lax", "strict", "none"}:
+            raise ValueError("SESSION_COOKIE_SAME_SITE deve ser lax, strict ou none")
+        return normalized
+
     @model_validator(mode="after")
     def reject_unsafe_runtime_configuration(self) -> Self:
         problems: list[str] = []
@@ -73,6 +84,8 @@ class Settings(BaseSettings):
                 problems.append("AI_PROVIDER deve ser mock nesta versão")
             if self.seed_demo_data:
                 problems.append("SEED_DEMO_DATA deve ser false")
+            if not self.cors_origins or any("*" in origin for origin in self.cors_origins):
+                problems.append("ALLOWED_ORIGINS deve listar origens explícitas")
 
         if self.seed_demo_data:
             problems.extend(self._demo_credentials_problems())

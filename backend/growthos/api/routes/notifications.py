@@ -1,11 +1,12 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from growthos.database import get_session
 from growthos.dependencies import AuthContext, get_current_context, require_csrf
+from growthos.domain.enums import BUSINESS_SCOPED_ROLES
 from growthos.models import Notification
 from growthos.models.base import utcnow
 from growthos.schemas import NotificationRead
@@ -24,6 +25,16 @@ def list_notifications(
         Notification.organization_id == context.organization.id,
         Notification.recipient_user_id == context.user.id,
     )
+    limited_business = context.membership.business_id
+    if context.membership.role in BUSINESS_SCOPED_ROLES:
+        query = query.where(Notification.business_id == limited_business)
+    elif limited_business is not None:
+        query = query.where(
+            or_(
+                Notification.business_id.is_(None),
+                Notification.business_id == limited_business,
+            )
+        )
     if unread_only:
         query = query.where(Notification.read_at.is_(None))
     return list(session.scalars(query.order_by(Notification.created_at.desc()).limit(100)).all())
@@ -35,13 +46,22 @@ def mark_notification_read(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
 ) -> Notification:
-    notification = session.scalar(
-        select(Notification).where(
-            Notification.id == notification_id,
-            Notification.organization_id == context.organization.id,
-            Notification.recipient_user_id == context.user.id,
-        )
+    query = select(Notification).where(
+        Notification.id == notification_id,
+        Notification.organization_id == context.organization.id,
+        Notification.recipient_user_id == context.user.id,
     )
+    limited_business = context.membership.business_id
+    if context.membership.role in BUSINESS_SCOPED_ROLES:
+        query = query.where(Notification.business_id == limited_business)
+    elif limited_business is not None:
+        query = query.where(
+            or_(
+                Notification.business_id.is_(None),
+                Notification.business_id == limited_business,
+            )
+        )
+    notification = session.scalar(query.with_for_update())
     if notification is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Notificação não encontrada")
     if notification.read_at is None:

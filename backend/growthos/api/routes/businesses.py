@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from growthos.config import Settings, get_settings
 from growthos.database import get_session
 from growthos.dependencies import (
     AuthContext,
@@ -13,7 +14,7 @@ from growthos.dependencies import (
     require_csrf,
     require_role,
 )
-from growthos.domain.enums import Role
+from growthos.domain.enums import BUSINESS_SCOPED_ROLES, Role
 from growthos.models import BrandProfile, Business, Membership, User
 from growthos.schemas import (
     BrandProfileRead,
@@ -52,6 +53,8 @@ def list_businesses(
         Business.organization_id == context.organization.id,
         Business.is_active.is_(True),
     )
+    if context.membership.role in BUSINESS_SCOPED_ROLES and context.membership.business_id is None:
+        return []
     if context.membership.business_id is not None:
         query = query.where(Business.id == context.membership.business_id)
     return list(session.scalars(query.order_by(Business.name)).all())
@@ -108,33 +111,43 @@ def create_reviewer(
     payload: ReviewerCreate,
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
 ) -> ReviewerRead:
     """Cria acesso local provisório; convites de uso único substituirão este fluxo."""
     require_role(context, *_AGENCY_WRITERS)
+    if settings.app_env not in {"development", "test"}:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Provisionamento direto indisponível neste ambiente",
+        )
     business = get_scoped_business(session, context, business_id)
     email = normalize_email(payload.email)
+    password_hash = hash_password(payload.password)
     if session.scalar(select(User).where(User.email == email)) is not None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "E-mail já cadastrado")
+        raise HTTPException(status.HTTP_409_CONFLICT, "Não foi possível criar o acesso provisório")
     user = User(
         email=email,
         name=payload.name.strip(),
-        password_hash=hash_password(payload.password),
+        password_hash=password_hash,
         is_active=True,
     )
-    session.add(user)
-    session.flush()
-    membership = Membership(
-        organization_id=context.organization.id,
-        user_id=user.id,
-        role=Role.CLIENT_REVIEWER,
-        business_id=business.id,
-    )
-    session.add(membership)
     try:
+        session.add(user)
+        session.flush()
+        membership = Membership(
+            organization_id=context.organization.id,
+            user_id=user.id,
+            role=Role.CLIENT_REVIEWER,
+            business_id=business.id,
+        )
+        session.add(membership)
         session.flush()
     except IntegrityError as exc:
         session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Revisor já possui vínculo") from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Não foi possível criar o acesso provisório",
+        ) from exc
     add_audit_log(
         session,
         organization_id=context.organization.id,

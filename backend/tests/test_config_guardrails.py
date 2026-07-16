@@ -27,6 +27,20 @@ def test_secure_production_configuration_accepts_mock_provider() -> None:
     assert settings.session_cookie_secure is True
 
 
+def test_production_rejects_wildcard_cors_origin() -> None:
+    with pytest.raises(UnsafeConfigurationError, match="ALLOWED_ORIGINS"):
+        production_settings(allowed_origins="*")
+
+
+def test_cookie_same_site_accepts_only_supported_values() -> None:
+    with pytest.raises(ValueError, match="SESSION_COOKIE_SAME_SITE"):
+        Settings(
+            _env_file=None,
+            auth_secret_key=SAFE_PRODUCTION_SECRET,
+            session_cookie_same_site="invalid",
+        )
+
+
 @pytest.mark.parametrize(
     "secret",
     [

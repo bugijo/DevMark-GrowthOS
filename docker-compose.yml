@@ -6,6 +6,9 @@ x-backend-environment: &backend-environment
   DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://growthos_local:local-postgres-only-change-before-shared-use@postgres:5432/growthos}
   AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-local-auth-key-change-before-shared-use-at-least-32-characters}
   ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES:-30}
+  LOGIN_RATE_LIMIT_ATTEMPTS: ${LOGIN_RATE_LIMIT_ATTEMPTS:-10}
+  LOGIN_RATE_LIMIT_WINDOW_SECONDS: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS:-60}
+  LOGIN_RATE_LIMIT_ORIGIN_MULTIPLIER: ${LOGIN_RATE_LIMIT_ORIGIN_MULTIPLIER:-20}
   SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
   SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-lax}
   ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}

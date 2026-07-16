@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from growthos.config import Settings, get_settings
@@ -18,6 +18,7 @@ from growthos.domain.enums import ApprovalStage, ApprovalStatus, ContentStatus, 
 from growthos.models import (
     Approval,
     BrandProfile,
+    Business,
     ContentItem,
     ContentVersion,
     Membership,
@@ -61,9 +62,15 @@ def _get_content(
     *,
     for_update: bool = False,
 ) -> ContentItem:
-    query = select(ContentItem).where(
-        ContentItem.id == content_id,
-        ContentItem.organization_id == context.organization.id,
+    query = (
+        select(ContentItem)
+        .join(Business, Business.id == ContentItem.business_id)
+        .where(
+            ContentItem.id == content_id,
+            ContentItem.organization_id == context.organization.id,
+            Business.organization_id == context.organization.id,
+            Business.is_active.is_(True),
+        )
     )
     limited_business = context.membership.business_id
     if _is_business_portal_context(context):
@@ -164,6 +171,10 @@ def _notify_agency(session: Session, content: ContentItem, title: str, message: 
             Membership.organization_id == content.organization_id,
             Membership.is_active.is_(True),
             Membership.role.in_([Role.AGENCY_ADMIN, Role.SUPER_ADMIN]),
+            or_(
+                Membership.business_id.is_(None),
+                Membership.business_id == content.business_id,
+            ),
         )
     ).all()
     for membership in recipients:
@@ -259,7 +270,15 @@ def list_contents(
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> list[ContentRead]:
-    query = select(ContentItem).where(ContentItem.organization_id == context.organization.id)
+    query = (
+        select(ContentItem)
+        .join(Business, Business.id == ContentItem.business_id)
+        .where(
+            ContentItem.organization_id == context.organization.id,
+            Business.organization_id == context.organization.id,
+            Business.is_active.is_(True),
+        )
+    )
     limited_business = context.membership.business_id
     if _is_business_portal_context(context):
         if limited_business is None:

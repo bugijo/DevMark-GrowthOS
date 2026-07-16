@@ -20,7 +20,7 @@ def list_audit_logs(
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> list[AuditLog]:
-    require_role(context, Role.SUPER_ADMIN, Role.AGENCY_ADMIN, Role.VIEWER)
+    require_role(context, Role.SUPER_ADMIN, Role.AGENCY_ADMIN)
     query = select(AuditLog).where(AuditLog.organization_id == context.organization.id)
     limited_business = context.membership.business_id
     if limited_business is not None:
