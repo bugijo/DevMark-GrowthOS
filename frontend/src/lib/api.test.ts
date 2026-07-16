@@ -106,6 +106,35 @@ describe("apiRequest", () => {
     expect(String(url)).not.toContain("fragment-token-value");
     expect(JSON.parse(String(init?.body))).toEqual({ token: "fragment-token-value" });
   });
+
+  it("envia somente os campos aceitos ao criar uma versão de estratégia", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ id: "strategy-1", status: "DRAFT" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await api.planning.strategies.createVersion("strategy-1", {
+      objective: "Aumentar a educação preventiva",
+      positioning: "Referência local responsável",
+      funnel: ["AWARENESS"],
+      channels: ["INSTAGRAM"],
+      pillars: ["prevenção"],
+      planned_indicators: ["conteúdos aprovados"],
+      service_ids: ["service-1"],
+      audience_ids: ["audience-1"],
+      marketing_objective_ids: ["objective-1"],
+    });
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(url).toBe("/api/v1/strategies/strategy-1/versions");
+    expect(body).not.toHaveProperty("name");
+    expect(body).not.toHaveProperty("starts_on");
+    expect(body).not.toHaveProperty("ends_on");
+    expect(body.objective).toBe("Aumentar a educação preventiva");
+  });
 });
 
 describe("extractItems", () => {
