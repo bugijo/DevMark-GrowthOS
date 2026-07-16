@@ -45,6 +45,11 @@ class ApprovalStage(StrEnum):
     CLIENT = "CLIENT"
 
 
+class ApprovalComponent(StrEnum):
+    TEXT = "TEXT"
+    IMAGE = "IMAGE"
+
+
 class JobStatus(StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
