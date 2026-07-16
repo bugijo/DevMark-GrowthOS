@@ -1,4 +1,5 @@
 import re
+from base64 import b64decode
 from calendar import monthrange
 from datetime import UTC, date, datetime
 from uuid import UUID
@@ -25,7 +26,9 @@ from growthos.models import (
     ContentPlan,
     ContentStrategy,
     ContentVersion,
+    ContentVersionMedia,
     MarketingObjective,
+    MediaAsset,
     Membership,
     Notification,
     Organization,
@@ -35,6 +38,12 @@ from growthos.models import (
     VisualPreset,
 )
 from growthos.security import hash_password, normalize_email
+from growthos.services.storage import StorageProvider, get_storage_provider, validate_image_upload
+
+_PHASE2_DEMO_PNG = b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    validate=True,
+)
 
 
 def _slugify(value: str) -> str:
@@ -63,6 +72,121 @@ def _month_period(reference: date) -> tuple[date, date]:
     return starts_on, ends_on
 
 
+def _ensure_phase2_demo_media(
+    session: Session,
+    *,
+    organization: Organization,
+    business: Business,
+    content: ContentItem,
+    admin: User,
+    storage: StorageProvider,
+) -> MediaAsset:
+    """Keep the published demo and every image review backed by private media."""
+    current_version_id = content.current_version_id
+    if current_version_id is None:
+        raise RuntimeError("Conteúdo demo publicado sem versão atual")
+
+    version_ids = set(
+        session.scalars(
+            select(Approval.content_version_id).where(
+                Approval.organization_id == organization.id,
+                Approval.business_id == business.id,
+                Approval.content_item_id == content.id,
+                Approval.component == ApprovalComponent.IMAGE,
+            )
+        ).all()
+    )
+    version_ids.add(current_version_id)
+    scoped_version_ids = set(
+        session.scalars(
+            select(ContentVersion.id).where(
+                ContentVersion.id.in_(version_ids),
+                ContentVersion.organization_id == organization.id,
+                ContentVersion.business_id == business.id,
+                ContentVersion.content_item_id == content.id,
+            )
+        ).all()
+    )
+    if scoped_version_ids != version_ids:
+        raise RuntimeError("Conteúdo demo possui aprovação visual sem versão válida")
+
+    validated = validate_image_upload(
+        _PHASE2_DEMO_PNG,
+        declared_mime="image/png",
+        allowed_mime_types=frozenset({"image/png"}),
+        max_bytes=1024 * 1024,
+    )
+    object_key = (
+        f"organizations/{organization.id}/businesses/{business.id}/media/seed/phase2-demo.png"
+    )
+    storage.put(object_key, validated.data, validated.mime_type)
+
+    asset = session.scalar(
+        select(MediaAsset).where(
+            MediaAsset.organization_id == organization.id,
+            MediaAsset.business_id == business.id,
+            MediaAsset.object_key == object_key,
+        )
+    )
+    if asset is None:
+        asset = MediaAsset(
+            organization_id=organization.id,
+            business_id=business.id,
+            kind="IMAGE",
+            storage_provider=storage.name,
+            object_key=object_key,
+            display_name="imagem-demo-fase-2.png",
+            mime_type=validated.mime_type,
+            byte_size=validated.byte_size,
+            checksum_sha256=validated.checksum_sha256,
+            width=validated.width,
+            height=validated.height,
+            origin="SEED",
+            processing_status="READY",
+            metadata_safe={"fixture": "phase2-demo"},
+            created_by_user_id=admin.id,
+        )
+        session.add(asset)
+        session.flush()
+    else:
+        asset.kind = "IMAGE"
+        asset.storage_provider = storage.name
+        asset.display_name = "imagem-demo-fase-2.png"
+        asset.mime_type = validated.mime_type
+        asset.byte_size = validated.byte_size
+        asset.checksum_sha256 = validated.checksum_sha256
+        asset.width = validated.width
+        asset.height = validated.height
+        asset.origin = "SEED"
+        asset.processing_status = "READY"
+        asset.metadata_safe = {"fixture": "phase2-demo"}
+        asset.archived_at = None
+
+    for version_id in sorted(version_ids, key=str):
+        association = session.scalar(
+            select(ContentVersionMedia).where(
+                ContentVersionMedia.organization_id == organization.id,
+                ContentVersionMedia.business_id == business.id,
+                ContentVersionMedia.content_version_id == version_id,
+                ContentVersionMedia.media_asset_id == asset.id,
+                ContentVersionMedia.role == "PRIMARY",
+            )
+        )
+        if association is None:
+            session.add(
+                ContentVersionMedia(
+                    organization_id=organization.id,
+                    business_id=business.id,
+                    content_version_id=version_id,
+                    media_asset_id=asset.id,
+                    role="PRIMARY",
+                    sort_order=0,
+                    created_by_user_id=admin.id,
+                )
+            )
+    return asset
+
+
 def _seed_phase2_demo(
     session: Session,
     *,
@@ -71,6 +195,7 @@ def _seed_phase2_demo(
     brand: BrandProfile,
     admin: User,
     reviewer: User,
+    storage: StorageProvider,
 ) -> dict[str, UUID]:
     service = session.scalar(
         select(Service).where(
@@ -401,6 +526,15 @@ def _seed_phase2_demo(
             )
         )
 
+    media_asset = _ensure_phase2_demo_media(
+        session,
+        organization=organization,
+        business=business,
+        content=content,
+        admin=admin,
+        storage=storage,
+    )
+
     return {
         "service_id": service.id,
         "audience_id": audience.id,
@@ -411,12 +545,18 @@ def _seed_phase2_demo(
         "content_plan_id": plan.id,
         "calendar_entry_id": calendar_entry.id,
         "content_id": content.id,
+        "media_asset_id": media_asset.id,
     }
 
 
-def seed_demo(session: Session) -> dict[str, UUID]:
+def seed_demo(
+    session: Session,
+    *,
+    storage: StorageProvider | None = None,
+) -> dict[str, UUID]:
     settings = get_settings()
     settings.ensure_demo_seed_allowed()
+    selected_storage = storage if storage is not None else get_storage_provider(settings)
     slug = _slugify(settings.demo_organization_name)
     organization = session.scalar(select(Organization).where(Organization.slug == slug))
     if organization is None:
@@ -501,6 +641,7 @@ def seed_demo(session: Session) -> dict[str, UUID]:
         brand=brand,
         admin=admin,
         reviewer=reviewer,
+        storage=selected_storage,
     )
     session.commit()
     return {
