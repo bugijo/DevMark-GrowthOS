@@ -48,6 +48,7 @@ def create_session_token(
         "org": str(membership.organization_id),
         "role": membership.role.value,
         "business": str(membership.business_id) if membership.business_id else None,
+        "sv": user.session_version,
         "csrf": csrf_token,
         "jti": secrets.token_urlsafe(16),
         "iat": now,
@@ -65,6 +66,8 @@ def decode_session_token(token: str, settings: Settings) -> dict[str, Any]:
         UUID(str(payload["org"]))
         if not isinstance(payload.get("csrf"), str):
             raise InvalidSession("Sessão sem proteção CSRF")
+        if not isinstance(payload.get("sv"), int):
+            raise InvalidSession("Sessão sem versão válida")
     except (InvalidTokenError, KeyError, TypeError, ValueError) as exc:
         raise InvalidSession("Sessão inválida ou expirada") from exc
     return payload

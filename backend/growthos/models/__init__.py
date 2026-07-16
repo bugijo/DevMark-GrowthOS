@@ -1,3 +1,4 @@
+from growthos.models.access import OrganizationInvite, PasswordResetToken
 from growthos.models.base import Base
 from growthos.models.business import BrandProfile, Business
 from growthos.models.content import Approval, ContentItem, ContentVersion
@@ -16,5 +17,7 @@ __all__ = [
     "Membership",
     "Notification",
     "Organization",
+    "OrganizationInvite",
+    "PasswordResetToken",
     "User",
 ]
