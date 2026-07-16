@@ -9,25 +9,153 @@ import { Field, Select, Textarea } from "@/components/ui/form-controls";
 import { Card, PageHeader } from "@/components/ui/page";
 import { useAuth } from "@/contexts/auth-context";
 import { api, extractItems } from "@/lib/api";
-import type { Business, ContentItem } from "@/types/api";
+import type {
+  AudienceSegment,
+  Business,
+  CalendarEntry,
+  ContentItem,
+  ContentPlan,
+  ContentStrategy,
+  MarketingObjective,
+  MediaAsset,
+  Service,
+  VisualPreset,
+} from "@/types/api";
 
-const MANAGER_ROLES = ["SUPER_ADMIN", "AGENCY_ADMIN"];
+interface GenerationLinks {
+  strategyId: string;
+  strategyVersionId: string;
+  planId: string;
+  calendarEntryId: string;
+  presetId: string;
+  serviceId: string;
+  audienceId: string;
+  objectiveId: string;
+  mediaId: string;
+}
+
+const EMPTY_LINKS: GenerationLinks = {
+  strategyId: "",
+  strategyVersionId: "",
+  planId: "",
+  calendarEntryId: "",
+  presetId: "",
+  serviceId: "",
+  audienceId: "",
+  objectiveId: "",
+  mediaId: "",
+};
+
+function calendarYearBounds(): { startsOn: string; endsOn: string } {
+  const year = new Date().getFullYear();
+  return { startsOn: `${year}-01-01`, endsOn: `${year}-12-31` };
+}
 
 export default function ContentsPage() {
   const { activeOrganizationId, roles } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [contents, setContents] = useState<ContentItem[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState("all");
+  const [strategies, setStrategies] = useState<ContentStrategy[]>([]);
+  const [plans, setPlans] = useState<ContentPlan[]>([]);
+  const [calendar, setCalendar] = useState<CalendarEntry[]>([]);
+  const [presets, setPresets] = useState<VisualPreset[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [audiences, setAudiences] = useState<AudienceSegment[]>([]);
+  const [objectives, setObjectives] = useState<MarketingObjective[]>([]);
+  const [media, setMedia] = useState<MediaAsset[]>([]);
+  const [links, setLinks] = useState<GenerationLinks>(EMPTY_LINKS);
   const [objective, setObjective] = useState("");
   const [channel, setChannel] = useState("INSTAGRAM");
   const [format, setFormat] = useState("FEED");
+  const [notes, setNotes] = useState("");
+  const [script, setScript] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const canManage = roles.some((role) => MANAGER_ROLES.includes(role));
+  const canCreate = roles.some((role) =>
+    ["SUPER_ADMIN", "AGENCY_ADMIN", "STRATEGIST", "CONTENT_EDITOR"].includes(role),
+  );
+  const canSubmit = roles.some((role) =>
+    ["SUPER_ADMIN", "AGENCY_ADMIN", "STRATEGIST", "CONTENT_EDITOR", "DESIGNER"].includes(
+      role,
+    ),
+  );
+  const canSend = roles.some((role) =>
+    ["SUPER_ADMIN", "AGENCY_ADMIN", "STRATEGIST"].includes(role),
+  );
+
+  const loadOptions = useCallback(async (businessId: string) => {
+    if (!businessId || businessId === "all") {
+      setStrategies([]);
+      setPlans([]);
+      setCalendar([]);
+      setPresets([]);
+      setServices([]);
+      setAudiences([]);
+      setObjectives([]);
+      setMedia([]);
+      setLinks(EMPTY_LINKS);
+      return;
+    }
+    setLoadingOptions(true);
+    setError(null);
+    const bounds = calendarYearBounds();
+    try {
+      const [nextStrategies, nextPlans, nextCalendar, nextPresets, nextServices, nextAudiences, nextObjectives, nextMedia] =
+        await Promise.all([
+          api.planning.strategies.list(businessId),
+          api.planning.plans.list(businessId),
+          api.planning.calendar.list(businessId, bounds.startsOn, bounds.endsOn),
+          api.catalogs.presets.list(businessId),
+          api.catalogs.services.list(businessId),
+          api.catalogs.audiences.list(businessId),
+          api.catalogs.objectives.list(businessId),
+          api.media.list(businessId),
+        ]);
+      setStrategies(nextStrategies);
+      setPlans(nextPlans);
+      setCalendar(nextCalendar.filter((entry) => !entry.content_item_id));
+      setPresets(nextPresets);
+      setServices(nextServices);
+      setAudiences(nextAudiences);
+      setObjectives(nextObjectives);
+      setMedia(nextMedia);
+
+      const requestedEntry = new URLSearchParams(window.location.search).get("calendar_entry_id");
+      const entry = nextCalendar.find(
+        (item) => item.id === requestedEntry && !item.content_item_id,
+      );
+      const plan = entry
+        ? nextPlans.find((item) => item.id === entry.content_plan_id)
+        : undefined;
+      setLinks({
+        ...EMPTY_LINKS,
+        strategyId: plan?.content_strategy_id ?? "",
+        strategyVersionId: plan?.strategy_version_id ?? "",
+        planId: plan?.id ?? "",
+        calendarEntryId: entry?.id ?? "",
+        presetId: entry?.visual_preset_id ?? "",
+      });
+      if (entry) {
+        setObjective(entry.objective);
+        setChannel(entry.channel);
+        setFormat(entry.format);
+      }
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Não foi possível carregar os vínculos do conteúdo.",
+      );
+    } finally {
+      setLoadingOptions(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!activeOrganizationId) return;
@@ -42,19 +170,14 @@ export default function ContentsPage() {
       setBusinesses(nextBusinesses);
       setContents(extractItems(contentResponse));
 
-      const requestedBusiness = new URLSearchParams(window.location.search).get(
-        "business_id",
-      );
-      if (
-        requestedBusiness &&
-        nextBusinesses.some((business) => business.id === requestedBusiness)
-      ) {
-        setSelectedBusiness(requestedBusiness);
-      } else {
-        setSelectedBusiness((current) =>
-          nextBusinesses.some((business) => business.id === current) ? current : "all",
-        );
-      }
+      const requestedBusiness = new URLSearchParams(window.location.search).get("business_id");
+      const selected = requestedBusiness && nextBusinesses.some((item) => item.id === requestedBusiness)
+        ? requestedBusiness
+        : nextBusinesses.length === 1
+          ? nextBusinesses[0].id
+          : "all";
+      setSelectedBusiness(selected);
+      if (selected !== "all") await loadOptions(selected);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -64,7 +187,7 @@ export default function ContentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeOrganizationId]);
+  }, [activeOrganizationId, loadOptions]);
 
   useEffect(() => {
     void load();
@@ -78,11 +201,64 @@ export default function ContentsPage() {
     selectedBusiness === "all"
       ? contents
       : contents.filter((content) => content.business_id === selectedBusiness);
+  const filteredPlans = links.strategyId
+    ? plans.filter((plan) => plan.content_strategy_id === links.strategyId)
+    : plans;
+  const filteredCalendar = links.planId
+    ? calendar.filter((entry) => entry.content_plan_id === links.planId)
+    : calendar;
+
+  async function chooseBusiness(next: string) {
+    setSelectedBusiness(next);
+    setLinks(EMPTY_LINKS);
+    await loadOptions(next);
+  }
+
+  function chooseStrategy(strategyId: string) {
+    const strategy = strategies.find((item) => item.id === strategyId);
+    setLinks((current) => ({
+      ...current,
+      strategyId,
+      strategyVersionId:
+        strategy?.approved_version_id ?? strategy?.current_version.id ?? "",
+      planId: "",
+      calendarEntryId: "",
+    }));
+  }
+
+  function choosePlan(planId: string) {
+    const plan = plans.find((item) => item.id === planId);
+    setLinks((current) => ({
+      ...current,
+      strategyId: plan?.content_strategy_id ?? current.strategyId,
+      strategyVersionId: plan?.strategy_version_id ?? current.strategyVersionId,
+      planId,
+      calendarEntryId: "",
+    }));
+  }
+
+  function chooseCalendar(entryId: string) {
+    const entry = calendar.find((item) => item.id === entryId);
+    const plan = plans.find((item) => item.id === entry?.content_plan_id);
+    setLinks((current) => ({
+      ...current,
+      strategyId: plan?.content_strategy_id ?? current.strategyId,
+      strategyVersionId: plan?.strategy_version_id ?? current.strategyVersionId,
+      planId: plan?.id ?? current.planId,
+      calendarEntryId: entryId,
+      presetId: entry?.visual_preset_id ?? current.presetId,
+    }));
+    if (entry) {
+      setObjective(entry.objective);
+      setChannel(entry.channel);
+      setFormat(entry.format);
+    }
+  }
 
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (selectedBusiness === "all") {
-      setError("Escolha uma empresa antes de gerar o conteúdo.");
+      setError("Escolha um cliente antes de gerar o conteúdo.");
       return;
     }
     setGenerating(true);
@@ -94,10 +270,29 @@ export default function ContentsPage() {
         objective: objective.trim(),
         channel,
         format,
+        ...(links.strategyId ? { content_strategy_id: links.strategyId } : {}),
+        ...(links.strategyVersionId
+          ? { strategy_version_id: links.strategyVersionId }
+          : {}),
+        ...(links.planId ? { content_plan_id: links.planId } : {}),
+        ...(links.calendarEntryId ? { calendar_entry_id: links.calendarEntryId } : {}),
+        ...(links.presetId ? { visual_preset_id: links.presetId } : {}),
+        ...(links.serviceId ? { service_id: links.serviceId } : {}),
+        ...(links.audienceId ? { audience_segment_id: links.audienceId } : {}),
+        ...(links.objectiveId ? { marketing_objective_id: links.objectiveId } : {}),
+        ...(links.mediaId ? { media_asset_id: links.mediaId } : {}),
+        notes: notes.trim(),
+        script: script.trim(),
       });
       setContents((current) => [created, ...current]);
+      if (links.calendarEntryId) {
+        setCalendar((current) => current.filter((item) => item.id !== links.calendarEntryId));
+      }
       setObjective("");
-      setSuccess("Rascunho criado com o provider mock. Revise antes de enviar.");
+      setNotes("");
+      setScript("");
+      setLinks(EMPTY_LINKS);
+      setSuccess("Rascunho vinculado criado com providers mock. Revise antes de enviar.");
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -109,10 +304,7 @@ export default function ContentsPage() {
     }
   }
 
-  async function transition(
-    content: ContentItem,
-    action: "internal" | "client",
-  ) {
+  async function transition(content: ContentItem, action: "internal" | "client") {
     setActionId(content.id);
     setError(null);
     setSuccess(null);
@@ -127,7 +319,7 @@ export default function ContentsPage() {
       setSuccess(
         action === "internal"
           ? "Conteúdo enviado para revisão interna."
-          : "Conteúdo enviado ao cliente e notificação criada.",
+          : "Texto e imagem enviados separadamente à aprovação do cliente.",
       );
     } catch (requestError) {
       setError(
@@ -143,67 +335,52 @@ export default function ContentsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Produção"
+        eyebrow="Produção vinculada"
         title="Conteúdos"
-        description="Gere rascunhos com o provider mock e conduza cada versão pelas revisões."
+        description="Crie versões ligadas à estratégia, pauta, preset e mídia. Nada é publicado automaticamente."
       />
 
-      {canManage ? (
+      {canCreate ? (
         <Card>
           <div className="mb-5">
             <h2 className="text-lg font-bold text-slate-950">Criar conteúdo mock</h2>
             <p className="mt-1 text-sm text-slate-600">
-              O resultado é um rascunho. Nada será publicado automaticamente.
+              Os vínculos são opcionais, mas preservam o contexto aprovado em snapshots.
             </p>
           </div>
-          <form className="grid gap-4 lg:grid-cols-4" onSubmit={generate}>
-            <Field label="Empresa" required>
-              <Select
-                value={selectedBusiness}
-                onChange={(event) => setSelectedBusiness(event.target.value)}
-                required
-              >
-                <option value="all">Escolha uma empresa</option>
-                {businesses.map((business) => (
-                  <option key={business.id} value={business.id}>
-                    {business.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Canal" required>
-              <Select value={channel} onChange={(event) => setChannel(event.target.value)}>
-                <option value="INSTAGRAM">Instagram</option>
-                <option value="FACEBOOK">Facebook</option>
-                <option value="LINKEDIN">LinkedIn</option>
-              </Select>
-            </Field>
-            <Field label="Formato" required>
-              <Select value={format} onChange={(event) => setFormat(event.target.value)}>
-                <option value="FEED">Feed</option>
-                <option value="CAROUSEL">Carrossel</option>
-                <option value="STORY">Story</option>
-                <option value="REELS">Reels</option>
-              </Select>
-            </Field>
-            <div className="lg:col-span-4">
-              <Field label="Objetivo do conteúdo" required>
-                <Textarea
-                  rows={3}
-                  value={objective}
-                  onChange={(event) => setObjective(event.target.value)}
-                  placeholder="Ex.: explicar por que consultas preventivas são importantes"
-                  minLength={2}
-                  maxLength={1000}
+          <form className="space-y-5" onSubmit={generate}>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Cliente" required>
+                <Select
+                  value={selectedBusiness}
+                  onChange={(event) => void chooseBusiness(event.target.value)}
                   required
-                />
+                >
+                  <option value="all">Escolha um cliente</option>
+                  {businesses.map((business) => <option key={business.id} value={business.id}>{business.name}</option>)}
+                </Select>
               </Field>
+              <Field label="Canal" required><Select value={channel} onChange={(event) => setChannel(event.target.value)}><option value="INSTAGRAM">Instagram</option><option value="FACEBOOK">Facebook</option><option value="LINKEDIN">LinkedIn</option></Select></Field>
+              <Field label="Formato" required><Select value={format} onChange={(event) => setFormat(event.target.value)}><option value="FEED">Feed</option><option value="CAROUSEL">Carrossel</option><option value="STORY">Story</option><option value="REELS">Reels</option></Select></Field>
+              <Field label="Serviço"><Select value={links.serviceId} onChange={(event) => setLinks((current) => ({ ...current, serviceId: event.target.value }))}><option value="">Sem vínculo</option>{services.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
             </div>
-            <div className="lg:col-span-4 lg:justify-self-end">
-              <Button type="submit" busy={generating} disabled={businesses.length === 0}>
-                {generating ? "Gerando…" : "Gerar rascunho"}
-              </Button>
+
+            {loadingOptions ? <Alert tone="info">Carregando vínculos autorizados do cliente…</Alert> : null}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Estratégia"><Select value={links.strategyId} onChange={(event) => chooseStrategy(event.target.value)}><option value="">Sem vínculo</option>{strategies.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.status}</option>)}</Select></Field>
+              <Field label="Plano"><Select value={links.planId} onChange={(event) => choosePlan(event.target.value)}><option value="">Sem vínculo</option>{filteredPlans.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+              <Field label="Pauta do calendário"><Select value={links.calendarEntryId} onChange={(event) => chooseCalendar(event.target.value)}><option value="">Sem pauta</option>{filteredCalendar.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</Select></Field>
+              <Field label="Preset visual"><Select value={links.presetId} onChange={(event) => setLinks((current) => ({ ...current, presetId: event.target.value }))}><option value="">Sem preset</option>{presets.map((item) => <option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}</Select></Field>
+              <Field label="Público"><Select value={links.audienceId} onChange={(event) => setLinks((current) => ({ ...current, audienceId: event.target.value }))}><option value="">Público do Brand Kit</option>{audiences.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+              <Field label="Objetivo de marketing"><Select value={links.objectiveId} onChange={(event) => setLinks((current) => ({ ...current, objectiveId: event.target.value }))}><option value="">Sem vínculo</option>{objectives.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+              <Field label="Imagem principal"><Select value={links.mediaId} onChange={(event) => setLinks((current) => ({ ...current, mediaId: event.target.value }))}><option value="">Sem imagem</option>{media.map((item) => <option key={item.id} value={item.id}>{item.display_name}</option>)}</Select></Field>
             </div>
+            <Field label="Objetivo do conteúdo" required><Textarea rows={3} value={objective} onChange={(event) => setObjective(event.target.value)} placeholder="Ex.: explicar por que consultas preventivas são importantes" minLength={2} maxLength={1000} required /></Field>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Notas internas"><Textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={10000} /></Field>
+              <Field label="Roteiro"><Textarea rows={3} value={script} onChange={(event) => setScript(event.target.value)} maxLength={30000} /></Field>
+            </div>
+            <div className="flex justify-end"><Button type="submit" busy={generating} disabled={selectedBusiness === "all" || loadingOptions}>{generating ? "Gerando…" : "Gerar rascunho vinculado"}</Button></div>
           </form>
         </Card>
       ) : null}
@@ -212,70 +389,24 @@ export default function ContentsPage() {
       {success ? <Alert tone="success">{success}</Alert> : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-slate-950">Biblioteca</h2>
-          <p className="text-sm text-slate-600">{filtered.length} conteúdo(s) neste filtro</p>
-        </div>
-        {businesses.length > 1 ? (
-          <label className="text-sm font-semibold text-slate-700">
-            Filtrar por empresa
-            <Select
-              className="sm:min-w-64"
-              value={selectedBusiness}
-              onChange={(event) => setSelectedBusiness(event.target.value)}
-            >
-              <option value="all">Todas as empresas</option>
-              {businesses.map((business) => (
-                <option key={business.id} value={business.id}>
-                  {business.name}
-                </option>
-              ))}
-            </Select>
-          </label>
-        ) : null}
+        <div><h2 className="text-lg font-bold text-slate-950">Biblioteca</h2><p className="text-sm text-slate-600">{filtered.length} conteúdo(s) neste filtro</p></div>
+        {businesses.length > 1 ? <label className="text-sm font-semibold text-slate-700">Filtrar por cliente<Select className="sm:min-w-64" value={selectedBusiness} onChange={(event) => void chooseBusiness(event.target.value)}><option value="all">Todos os clientes</option>{businesses.map((business) => <option key={business.id} value={business.id}>{business.name}</option>)}</Select></label> : null}
       </div>
 
       {loading ? <LoadingState label="Carregando conteúdos…" /> : null}
-      {!loading && !error && filtered.length === 0 ? (
-        <EmptyState
-          title="Nenhum conteúdo neste filtro"
-          description={
-            canManage
-              ? "Escolha uma empresa, descreva o objetivo e gere o primeiro rascunho."
-              : "A equipe ainda não disponibilizou conteúdos para o seu acesso."
-          }
-        />
-      ) : null}
+      {!loading && !error && filtered.length === 0 ? <EmptyState title="Nenhum conteúdo neste filtro" description={canCreate ? "Escolha um cliente e gere o primeiro rascunho vinculado." : "A equipe ainda não disponibilizou conteúdos para o seu acesso."} /> : null}
       {!loading && filtered.length > 0 ? (
         <div className="grid gap-4 xl:grid-cols-2">
           {filtered.map((content) => (
-            <ContentCard
-              key={content.id}
-              content={content}
-              businessName={businessById.get(content.business_id)}
-            >
-              {canManage && content.status === "DRAFT" ? (
-                <Button
-                  variant="secondary"
-                  busy={actionId === content.id}
-                  onClick={() => void transition(content, "internal")}
-                >
-                  Enviar para revisão interna
-                </Button>
-              ) : null}
-              {canManage && content.status === "INTERNAL_REVIEW" ? (
-                <Button
-                  busy={actionId === content.id}
-                  onClick={() => void transition(content, "client")}
-                >
-                  Enviar ao cliente
-                </Button>
-              ) : null}
-              {!canManage ? (
-                <p className="text-sm text-slate-600">
-                  Consulte a área de aprovações para tomar uma decisão quando solicitado.
-                </p>
-              ) : null}
+            <ContentCard key={content.id} content={content} businessName={businessById.get(content.business_id)}>
+              <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                {content.content_strategy_id ? <span>Estratégia vinculada</span> : null}
+                {content.calendar_entry_id ? <span>Pauta vinculada</span> : null}
+                {content.visual_preset_id ? <span>Preset preservado</span> : null}
+              </div>
+              {canSubmit && content.status === "DRAFT" ? <Button variant="secondary" busy={actionId === content.id} onClick={() => void transition(content, "internal")}>Enviar para revisão interna</Button> : null}
+              {canSend && content.status === "INTERNAL_REVIEW" ? <Button busy={actionId === content.id} onClick={() => void transition(content, "client")}>Enviar texto e imagem ao cliente</Button> : null}
+              {!canCreate ? <p className="text-sm text-slate-600">Use Aprovações quando esta versão aguardar sua decisão.</p> : null}
             </ContentCard>
           ))}
         </div>
