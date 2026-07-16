@@ -487,9 +487,24 @@ test("fase 2 vincula estratégia, calendário, visual e conteúdo até relatóri
     await approvalCard
       .getByRole("button", { name: "Abrir imagem para revisar" })
       .click();
-    await expect(
-      approvalCard.getByRole("img", { name: /Imagem em aprovação/ }),
-    ).toBeVisible();
+    const approvalImage = approvalCard.getByRole("img", {
+      name: /Imagem em aprovação/,
+    });
+    await expect(approvalImage).toBeVisible();
+    await expect
+      .poll(() =>
+        approvalImage.evaluate(
+          (image: HTMLImageElement) => image.complete,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        approvalImage.evaluate(
+          (image: HTMLImageElement) => image.naturalWidth,
+        ),
+      )
+      .toBeGreaterThan(0);
     await expectNoHorizontalOverflow(page);
 
     const textDecision = await reviewer.context.post(
