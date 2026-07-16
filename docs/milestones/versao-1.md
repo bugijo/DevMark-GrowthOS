@@ -35,7 +35,7 @@ Resultados automatizados:
 
 | Área | Evidência |
 |---|---:|
-| Backend | 28 testes aprovados |
+| Backend | 46 testes aprovados |
 | Worker | 7 testes aprovados |
 | Frontend | 15 testes aprovados |
 | E2E | 3 cenários aprovados |

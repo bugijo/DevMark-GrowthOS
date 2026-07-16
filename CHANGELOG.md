@@ -39,10 +39,20 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - pedido de alteração deixou de criar uma cópia fictícia atribuída ao cliente;
 - envio concorrente protegido por lock e unicidade da aprovação por versão;
 - provider mock limita título e CTA ao contrato persistido no PostgreSQL.
+- memberships ativas do portal agora exigem empresa válida no banco e na sessão;
+- arquivar um cliente revoga o portal e remove seus conteúdos das rotas ativas;
+- `VIEWER` deixou de receber acesso divergente ao audit log;
+- pedido de alteração não pode reenviar a mesma versão e colidir com a aprovação anterior;
+- rate limit de login separa identidade e origem e mantém armazenamento local limitado;
+- CORS curinga e `SameSite` inválido são recusados pela configuração de produção;
+- imagem do worker deixou de incorporar caches, ambientes locais e metadados editáveis;
+- setup e E2E passaram a exigir também o healthcheck do worker e proteger `.env` local com modo restrito quando suportado.
+- provisionamento direto de revisor ficou restrito a desenvolvimento/teste e trata duplicidade concorrente sem erro interno.
+- dashboard móvel deixou de expandir horizontalmente quando conteúdos têm títulos longos.
 
 ### Validação
 
-- 28 testes do backend aprovados;
+- 46 testes do backend aprovados;
 - 7 testes do worker aprovados;
 - 15 testes do frontend aprovados;
 - 3 cenários E2E aprovados, incluindo o fluxo completo pela interface;
@@ -56,7 +66,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - sessão em cookie `HttpOnly`, CSRF e hash de senha por biblioteca mantida;
 - tentativas de login limitadas por origem e identidade, com resposta `Retry-After`;
 - imagens de backend e worker executadas como usuário sem privilégios e sem dependências de teste;
-- produção rejeita segredo conhecido, cookie inseguro e seed demo;
+- produção rejeita segredo conhecido, cookie inseguro, origem CORS curinga, `SameSite` inválido e seed demo;
 - proibição de segredos no repositório e de uso cruzado de dados entre clientes;
 - revisão profissional para conteúdo veterinário ou de saúde preservada como requisito; o bloqueio automatizado completo ainda é pendente.
 

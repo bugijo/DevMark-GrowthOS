@@ -16,10 +16,10 @@ A versão 1.0 também precisa continuar utilizável por clientes de API e por te
 2. O backend emitirá um JWT de vida curta, assinado com segredo fornecido pelo ambiente, dentro de cookie `HttpOnly`.
 3. O cookie usará `SameSite=Lax`; em produção também usará `Secure` e os atributos de domínio/caminho mínimos necessários.
 4. Operações autenticadas que alteram estado e usam o cookie exigirão um token CSRF no padrão double-submit: valor em cookie legível pelo frontend e cópia no cabeçalho `X-CSRF-Token`.
-5. Clientes que usam `Authorization: Bearer` não dependem do cookie e, por isso, não usam a validação CSRF baseada em cookie.
+5. Neste ciclo, a API autenticada usa somente cookie de sessão. Suporte futuro a `Authorization: Bearer` exigirá política e testes próprios; não está implícito neste ADR.
 6. O backend validará a membership e o contexto da organização a cada requisição. Papel e organização não serão aceitos como autoridade apenas por estarem no token.
 7. Logout removerá os cookies de sessão e CSRF. Expiração ou token inválido produzirá resposta `401` sem revelar detalhes internos.
-8. Login terá limite de tentativas. A implementação em memória é aceitável apenas no desenvolvimento inicial; produção com múltiplas réplicas exigirá armazenamento compartilhado.
+8. Login terá limites independentes por identidade e origem. O adaptador local mantém memória limitada e usa um limiar de origem maior porque o proxy do frontend pode ser compartilhado; produção com múltiplas réplicas exige armazenamento compartilhado e configuração explícita da cadeia de proxies confiáveis.
 9. Recuperação de senha, rotação de sessão, revogação central e MFA permanecem no backlog da versão 1.0 e devem usar tokens de uso único e bibliotecas mantidas.
 
 ## Consequências
@@ -35,6 +35,7 @@ A versão 1.0 também precisa continuar utilizável por clientes de API e por te
 
 - toda mutação do frontend precisa enviar o cabeçalho CSRF;
 - CORS deve permitir somente origens configuradas e credenciais quando frontend e API estiverem separados;
+- o backend não confia diretamente em `X-Forwarded-For`; a infraestrutura deve preservar a origem apenas por proxies confiáveis antes de ajustar o rate limit;
 - JWT curto não substitui revogação central para cenários de alto risco;
 - cookies seguros em produção dependem de HTTPS e configuração correta do proxy.
 
@@ -60,4 +61,3 @@ Adiada. Reduz parte da manutenção de identidade, mas criaria uma dependência 
 - token válido sem membership da organização recebe negação;
 - usuário de outra organização não acessa o recurso mesmo conhecendo seu UUID;
 - nenhum segredo, hash ou token aparece em logs e respostas de erro.
-

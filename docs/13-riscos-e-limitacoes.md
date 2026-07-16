@@ -30,6 +30,9 @@ Escala usada: probabilidade e impacto `Baixo`, `Médio` ou `Alto`. Um risco alto
 | R-18 | Migrations causarem indisponibilidade ou perda. | Baixa | Alto | Expandir/migrar/contrair, homologação, backup e rollback ensaiado. | DDL destrutivo sem plano ou execução concorrente. |
 | R-19 | Dependência vulnerável comprometer a aplicação. | Média | Alto | Lockfiles, atualização, auditoria e correção antes da entrega. | Vulnerabilidade crítica explorável sem aceite formal. |
 | R-20 | Custo e latência de IA crescerem sem visibilidade. | Média | Médio | Limites por tarefa, timeout, modelos locais, registro de custo confirmado. | Chamadas sem orçamento, duração ou provider identificado. |
+| R-21 | Fluxo provisório de revisor revelar disponibilidade de e-mail ou conceder acesso sem convite verificável. | Média | Alto | Endpoint bloqueado fora de desenvolvimento/teste, mensagem genérica e substituição por convite de uso único antes de dados reais. | Endpoint provisório exposto em ambiente compartilhado. |
+| R-22 | Rate limit local divergir entre réplicas ou enxergar apenas o proxy do frontend. | Média | Alto | Limites por identidade/origem, armazenamento local limitado e store compartilhado com proxies confiáveis antes de escalar. | Bloqueio coletivo ou tentativas distribuídas sem contenção. |
+| R-23 | Escrita interna incoerente cruzar organização e empresa apesar dos filtros HTTP. | Baixa | Alto | Serviços escopados, testes negativos e evolução das FKs compostas/constraints antes de novos escritores internos. | Job, script ou integração grava IDs de tenants diferentes. |
 
 ## Riscos de autonomia
 
@@ -75,6 +78,10 @@ Qualquer mudança de nível exige ADR, revisão de segurança/LGPD, critérios d
 - A aplicação é web mobile first, não aplicativo móvel nativo.
 - O sistema não é prontuário e não deve receber dados clínicos sensíveis.
 - White label, cobrança, marketplace e API pública não fazem parte desta versão.
+- A criação direta de revisor e senha por um administrador é apenas um auxílio local; convite com aceite, uso único e resposta anti-enumeração é obrigatório antes de uso com pessoas reais.
+- O rate limiter em memória é limitado e adequado a uma única instância local; múltiplas réplicas exigem store compartilhado e configuração de proxy confiável.
+- A elevação excepcional de `SUPER_ADMIN`, com justificativa operacional própria, continua pendente; as rotas atuais ainda o mantêm dentro da membership e organização selecionadas.
+- As rotas validam tenant e empresa, mas constraints compostas de todas as relações serão ampliadas antes de permitir novos processos de escrita direta no banco.
 
 ## Dependências e hipóteses
 
@@ -110,4 +117,3 @@ Se uma hipótese não se confirmar, ela deve virar risco ou bloqueio explícito;
 6. **RISK-06:** a revisão de go-live confirma contratos/LGPD, backups, responsável clínico e infraestrutura.
 7. **RISK-07:** nova integração ou autonomia atualiza este documento e gera ADR quando muda uma decisão estrutural.
 8. **RISK-08:** o registro é revisado ao fim de cada milestone e após incidente relevante.
-

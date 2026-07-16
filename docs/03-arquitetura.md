@@ -53,7 +53,7 @@ flowchart TB
 
     DB[(PostgreSQL)]
     OBJ[(MinIO / S3)]
-    EMAIL[Mailpit local / e-mail configurado]
+    EMAIL[Saída de e-mail em console / provider futuro]
     PROV[Mock / Hermes / provider remoto]
 
     U -->|HTTPS| FE
@@ -87,7 +87,7 @@ DevMark-GrowthOS/
 ├── backend/           # API, domínio, serviços, adaptadores e migrações
 ├── worker/            # processo assíncrono e handlers de jobs
 ├── shared/            # contratos OpenAPI/tipos e convenções compartilhadas
-├── infra/             # configuração de infraestrutura local/deploy
+├── infra/             # decisões e configuração operacional futura
 ├── docs/              # produto, arquitetura, operação e ADRs
 ├── scripts/           # automação de desenvolvimento, sem segredos
 ├── tests/             # integração e ponta a ponta entre aplicações
@@ -241,7 +241,7 @@ Dados clínicos, senhas, cookies, tokens, prompts sensíveis completos e segredo
 
 ### Desenvolvimento local
 
-Docker Compose inicia frontend, API, worker, PostgreSQL, MinIO e capturador de e-mail. O provider mock é o padrão. Seeds criam uma organização/agência, clínica piloto e usuários claramente identificados como demonstração.
+Docker Compose inicia frontend, API, worker, PostgreSQL e MinIO. O provider mock é o padrão e o e-mail é apenas registrado em console, sem entrega externa. Seeds criam uma organização/agência, clínica piloto e usuários claramente identificados como demonstração.
 
 ### Teste/CI
 
@@ -272,4 +272,3 @@ Antes de migrations destrutivas: backup, revisão, estratégia compatível com r
 - Integrações futuras aparecem apenas como portas/adaptadores e configuração desativada.
 - O audit log apoia investigação, mas não substitui monitoramento de segurança ou backup.
 - A arquitetura prepara escala horizontal do frontend/API/worker, porém a necessidade deve ser medida antes de adicionar infraestrutura.
-

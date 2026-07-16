@@ -73,7 +73,7 @@ DevMark-GrowthOS/
 ├── backend/           # API, domínio, persistência e migrações
 ├── worker/            # processamento assíncrono
 ├── shared/            # contratos compartilhados versionados
-├── infra/             # espaço para infraestrutura adicional
+├── infra/             # decisões e configuração operacional futura
 ├── docs/              # produto, arquitetura, segurança e decisões
 ├── scripts/           # automações reproduzíveis
 ├── tests/e2e/         # fluxo vertical Playwright
@@ -90,6 +90,7 @@ Para subir e testar o produto por Docker:
 
 - Git;
 - GNU Make;
+- curl;
 - Docker Engine 24 ou superior;
 - Docker Compose v2.
 
@@ -156,7 +157,7 @@ Nunca reutilize essas senhas em homologação, produção ou conta real.
 7. Abra a pendência e aprove ou peça alteração.
 8. Entre novamente como agência e confira a decisão em Notificações e Logs.
 
-O cliente demo já possui revisor vinculado. Para testar rapidamente a aprovação, use esse cliente; o fluxo atual de criação de revisor é provisório e será substituído por convite seguro.
+O cliente demo já possui revisor vinculado. Para testar rapidamente a aprovação, use esse cliente; o fluxo atual de criação direta de revisor existe somente em `development/test`, fica bloqueado em produção e será substituído por convite seguro.
 
 ## Qualidade e testes
 
@@ -185,7 +186,7 @@ Resultados verificados no primeiro ciclo:
 
 | Área | Resultado |
 |---|---:|
-| Backend | 28 testes aprovados |
+| Backend | 46 testes aprovados |
 | Worker | 7 testes aprovados |
 | Frontend | 15 testes aprovados |
 | E2E | 3 cenários aprovados |
