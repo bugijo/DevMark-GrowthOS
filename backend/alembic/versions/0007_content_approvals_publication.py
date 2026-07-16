@@ -196,11 +196,75 @@ def upgrade() -> None:
                 decision_comment, decided_at, created_at, updated_at
             )
             SELECT
-                gen_random_uuid(), organization_id, business_id, content_item_id,
-                content_version_id, stage, 'IMAGE', status, requested_by_user_id,
-                decided_by_user_id, decision_comment, decided_at, created_at, updated_at
-            FROM approvals
-            WHERE component = 'TEXT'
+                gen_random_uuid(), legacy.organization_id, legacy.business_id,
+                legacy.content_item_id, legacy.content_version_id, legacy.stage, 'IMAGE',
+                CASE WHEN legacy.has_visual_media THEN legacy.status ELSE 'CANCELLED' END,
+                legacy.requested_by_user_id,
+                CASE WHEN legacy.has_visual_media THEN legacy.decided_by_user_id ELSE NULL END,
+                CASE WHEN legacy.has_visual_media THEN legacy.decision_comment ELSE NULL END,
+                CASE WHEN legacy.has_visual_media THEN legacy.decided_at ELSE NULL END,
+                legacy.created_at, legacy.updated_at
+            FROM (
+                SELECT approvals.*,
+                    EXISTS (
+                        SELECT 1
+                        FROM content_version_media AS version_media
+                        WHERE version_media.content_version_id = approvals.content_version_id
+                          AND version_media.organization_id = approvals.organization_id
+                          AND version_media.business_id = approvals.business_id
+                          AND version_media.role IN ('PRIMARY', 'OUTPUT')
+                    ) AS has_visual_media
+                FROM approvals
+                WHERE approvals.component = 'TEXT'
+            ) AS legacy
+            """
+        )
+    )
+    op.execute(
+        sa.text(
+            """
+            INSERT INTO audit_logs (
+                id, organization_id, business_id, actor_user_id, action,
+                resource_type, resource_id, metadata, created_at
+            )
+            SELECT
+                gen_random_uuid(), content_items.organization_id, content_items.business_id,
+                NULL, 'content.migration_visual_review_required', 'content_item',
+                content_items.id,
+                json_build_object(
+                    'migration', '0007_content_editorial',
+                    'content_status_from', content_items.status,
+                    'content_status_to', 'CHANGES_REQUESTED',
+                    'reason', 'legacy_approval_without_visual_media'
+                ),
+                now()
+            FROM content_items
+            WHERE content_items.status IN ('CLIENT_REVIEW', 'APPROVED', 'SCHEDULED')
+              AND EXISTS (
+                  SELECT 1
+                  FROM approvals
+                  WHERE approvals.content_item_id = content_items.id
+                    AND approvals.content_version_id = content_items.current_version_id
+                    AND approvals.component = 'IMAGE'
+                    AND approvals.status = 'CANCELLED'
+              )
+            """
+        )
+    )
+    op.execute(
+        sa.text(
+            """
+            UPDATE content_items
+            SET status = 'CHANGES_REQUESTED', updated_at = now()
+            WHERE content_items.status IN ('CLIENT_REVIEW', 'APPROVED', 'SCHEDULED')
+              AND EXISTS (
+                  SELECT 1
+                  FROM approvals
+                  WHERE approvals.content_item_id = content_items.id
+                    AND approvals.content_version_id = content_items.current_version_id
+                    AND approvals.component = 'IMAGE'
+                    AND approvals.status = 'CANCELLED'
+              )
             """
         )
     )
