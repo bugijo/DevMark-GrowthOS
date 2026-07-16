@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from growthos.database import get_session_factory
-from growthos.domain.enums import Role
+from growthos.domain.enums import NotificationCategory, Role
 from growthos.models import (
     AudienceSegment,
     AuditLog,
@@ -854,7 +854,7 @@ def test_designer_creates_immutable_scoped_visual_revision_but_cannot_edit_text(
         assert new_version.created_by_user_id == designer.user_id
 
 
-def test_manual_publication_is_idempotent_audited_and_creates_no_external_job(
+def test_manual_publication_is_idempotent_audited_and_notifies_the_client(
     client: TestClient,
 ) -> None:
     fixture = _create_linked_fixture("content-publication")
@@ -916,6 +916,24 @@ def test_manual_publication_is_idempotent_audited_and_creates_no_external_job(
 
     with get_session_factory()() as session:
         jobs_after = session.scalar(select(func.count(Job.id)))
+        publication_jobs = list(
+            session.scalars(
+                select(Job).where(
+                    Job.organization_id == fixture.identity.organization_id,
+                    Job.type == "notification.email.smtp",
+                    Job.idempotency_key.like("publication-recorded:%"),
+                )
+            ).all()
+        )
+        publication_notifications = list(
+            session.scalars(
+                select(Notification).where(
+                    Notification.organization_id == fixture.identity.organization_id,
+                    Notification.resource_id == UUID(generated["id"]),
+                    Notification.type == "PUBLICATION_RECORDED",
+                )
+            ).all()
+        )
         publication_audits = list(
             session.scalars(
                 select(AuditLog).where(
@@ -926,7 +944,12 @@ def test_manual_publication_is_idempotent_audited_and_creates_no_external_job(
             ).all()
         )
         calendar_entry = session.get(CalendarEntry, fixture.calendar_entry_id)
-    assert jobs_after == jobs_before
+    assert jobs_after == jobs_before + 1
+    assert len(publication_jobs) == 1
+    assert set(publication_jobs[0].payload) == {"notification_id"}
+    assert len(publication_notifications) == 1
+    assert publication_notifications[0].recipient_user_id == fixture.reviewer.user_id
+    assert publication_notifications[0].category == NotificationCategory.PUBLICATION_RECORDED
     assert len(publication_audits) == 1
     assert publication_audits[0].details["automatic_publication"] is False
     assert calendar_entry is not None
