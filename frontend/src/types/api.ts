@@ -114,9 +114,152 @@ export interface Business {
   organization_id?: string;
   name: string;
   segment: string;
+  timezone?: string;
+  onboarding_status?: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  onboarding_completed_at?: string | null;
   is_active?: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface OnboardingCatalogItem {
+  id?: string;
+  name: string;
+  description: string;
+}
+
+export interface OnboardingServiceInput extends OnboardingCatalogItem {
+  category: string;
+  warnings: string[];
+}
+
+export interface OnboardingAudienceInput extends OnboardingCatalogItem {
+  needs: string[];
+  objections: string[];
+  location: string;
+}
+
+export interface OnboardingObjectiveInput extends OnboardingCatalogItem {
+  planned_indicators: string[];
+}
+
+export type NotificationCategory =
+  | "CONTENT_AWAITING_APPROVAL"
+  | "CONTENT_CHANGES_REQUESTED"
+  | "CONTENT_APPROVED"
+  | "STRATEGY_AWAITING_APPROVAL"
+  | "INVITATION"
+  | "PROCESSING_FAILED"
+  | "PUBLICATION_RECORDED"
+  | "REPORT_AVAILABLE";
+
+export type OnboardingStepPayload =
+  | {
+      step: 1;
+      revision: number;
+      name: string;
+      brand_name: string;
+      public_name: string;
+      description: string;
+      timezone: string;
+    }
+  | { step: 2; revision: number; segment: string }
+  | { step: 3; revision: number; services: OnboardingServiceInput[] }
+  | { step: 4; revision: number; audiences: OnboardingAudienceInput[] }
+  | { step: 5; revision: number; objectives: OnboardingObjectiveInput[] }
+  | { step: 6; revision: number; differentiators: string[] }
+  | {
+      step: 7;
+      revision: number;
+      tone_of_voice: string;
+      preferred_words: string[];
+      forbidden_words: string[];
+    }
+  | { step: 8; revision: number; logo_media_asset_ids: string[] }
+  | {
+      step: 9;
+      revision: number;
+      primary_colors: string[];
+      secondary_colors: string[];
+      fonts: string[];
+    }
+  | {
+      step: 10;
+      revision: number;
+      visual_reference_media_asset_ids: string[];
+    }
+  | {
+      step: 11;
+      revision: number;
+      allowed_rules: string[];
+      forbidden_rules: string[];
+      required_terms: string[];
+      legal_rules: string[];
+      image_restrictions: string[];
+    }
+  | { step: 12; revision: number; membership_ids: string[] }
+  | {
+      step: 13;
+      revision: number;
+      email_enabled: boolean;
+      mode: "IMMEDIATE" | "DAILY" | "WEEKLY" | "URGENT_ONLY";
+      timezone: string;
+      digest_time: string;
+      weekly_day: number;
+      disabled_categories: NotificationCategory[];
+    }
+  | {
+      step: 14;
+      revision: number;
+      preset_id: string;
+    }
+  | {
+      step: 14;
+      revision: number;
+      preset: VisualPresetInput;
+    }
+  | { step: 15; revision: number; confirmed: true; notes: string };
+
+export interface OnboardingSummary {
+  business_id: string;
+  brand_profile_id: string | null;
+  service_ids: string[];
+  audience_ids: string[];
+  objective_ids: string[];
+  logo_media_asset_ids: string[];
+  visual_reference_media_asset_ids: string[];
+  approver_membership_ids: string[];
+  initial_preset_id: string | null;
+  notification_settings_configured: boolean;
+}
+
+export interface BusinessOnboarding {
+  id: string;
+  organization_id: string;
+  business_id: string;
+  status: "IN_PROGRESS" | "COMPLETED";
+  current_step: number;
+  completed_steps: number[];
+  missing_steps: number[];
+  progress_percent: number;
+  revision: number;
+  step_data: Record<string, Record<string, unknown>>;
+  summary: OnboardingSummary;
+  started_by_user_id: string;
+  updated_by_user_id: string;
+  completed_by_user_id: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OnboardingApprover {
+  membership_id: string;
+  user_id: string;
+  business_id: string;
+  name: string;
+  email: string;
+  role: "CLIENT_OWNER" | "CLIENT_REVIEWER";
 }
 
 export interface BrandProfile {

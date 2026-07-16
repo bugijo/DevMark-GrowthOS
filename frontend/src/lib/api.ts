@@ -5,6 +5,7 @@ import type {
   AuditLog,
   BrandProfile,
   Business,
+  BusinessOnboarding,
   CalendarEntry,
   ContentGenerateInput,
   ContentItem,
@@ -25,6 +26,8 @@ import type {
   OrganizationMembership,
   OrganizationMembershipUpdate,
   Notification,
+  OnboardingApprover,
+  OnboardingStepPayload,
   Organization,
   PeriodReport,
   SecurityMessage,
@@ -261,6 +264,34 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(input),
       }),
+  },
+  onboarding: {
+    approvers: (businessId: string) =>
+      apiRequest<OnboardingApprover[]>(
+        `/businesses/${businessId}/onboarding/approvers`,
+      ),
+    get: (businessId: string) =>
+      apiRequest<BusinessOnboarding>(`/businesses/${businessId}/onboarding`),
+    start: (businessId: string) =>
+      apiRequest<BusinessOnboarding>(`/businesses/${businessId}/onboarding`, {
+        method: "POST",
+      }),
+    saveStep: (businessId: string, payload: OnboardingStepPayload) =>
+      apiRequest<BusinessOnboarding>(
+        `/businesses/${businessId}/onboarding/steps/${payload.step}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        },
+      ),
+    complete: (businessId: string, revision: number) =>
+      apiRequest<BusinessOnboarding>(
+        `/businesses/${businessId}/onboarding/complete`,
+        {
+          method: "POST",
+          body: JSON.stringify({ revision }),
+        },
+      ),
   },
   catalogs: {
     services: {
