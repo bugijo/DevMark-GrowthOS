@@ -1,17 +1,41 @@
 import type {
   ApiProblem,
+  ApprovalComponent,
+  AudienceSegment,
   AuditLog,
   BrandProfile,
   Business,
+  CalendarEntry,
+  ContentGenerateInput,
   ContentItem,
+  ContentPlan,
   ContentRevisionInput,
+  ContentStrategy,
+  InvitationAcceptance,
+  InvitationInspection,
   ListEnvelope,
   LoginResponse,
+  ManualPublicationInput,
+  MarketingObjective,
+  MediaAsset,
   MeResponse,
   Membership,
+  OrganizationInvite,
+  OrganizationInviteInput,
+  OrganizationMembership,
+  OrganizationMembershipUpdate,
   Notification,
   Organization,
+  PeriodReport,
+  SecurityMessage,
+  Service,
+  StrategyInput,
+  StrategyVersionInput,
   User,
+  VisualPreset,
+  VisualPresetInput,
+  VisualPrompt,
+  VisualRevisionInput,
 } from "@/types/api";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "/api/v1").replace(
@@ -177,6 +201,29 @@ export const api = {
       }),
     me: () => apiRequest<MeResponse>("/auth/me"),
     logout: () => apiRequest<void>("/auth/logout", { method: "POST" }),
+    requestPasswordRecovery: (email: string) =>
+      apiRequest<SecurityMessage>("/auth/password-recovery", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+    resetPassword: (token: string, newPassword: string) =>
+      apiRequest<SecurityMessage>("/auth/password-reset", {
+        method: "POST",
+        body: JSON.stringify({ token, new_password: newPassword }),
+      }),
+    inspectInvitation: (token: string) =>
+      apiRequest<InvitationInspection>("/auth/invitations/inspect", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      }),
+    acceptInvitation: (
+      token: string,
+      account?: { name: string; password: string },
+    ) =>
+      apiRequest<InvitationAcceptance>("/auth/invitations/accept", {
+        method: "POST",
+        body: JSON.stringify({ token, ...account }),
+      }),
   },
   organizations: {
     current: () => apiRequest<Organization>("/organizations/current"),
@@ -215,17 +262,262 @@ export const api = {
         body: JSON.stringify(input),
       }),
   },
+  catalogs: {
+    services: {
+      list: (businessId: string) =>
+        apiRequest<Service[]>(`/businesses/${businessId}/services`),
+      create: (
+        businessId: string,
+        input: {
+          name: string;
+          description: string;
+          category?: string | null;
+          warnings: string[];
+        },
+      ) =>
+        apiRequest<Service>(`/businesses/${businessId}/services`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      update: (
+        businessId: string,
+        id: string,
+        input: Partial<{
+          name: string;
+          description: string;
+          category: string | null;
+          warnings: string[];
+        }>,
+      ) =>
+        apiRequest<Service>(`/businesses/${businessId}/services/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(input),
+        }),
+      archive: (businessId: string, id: string) =>
+        apiRequest<void>(`/businesses/${businessId}/services/${id}`, {
+          method: "DELETE",
+        }),
+    },
+    audiences: {
+      list: (businessId: string) =>
+        apiRequest<AudienceSegment[]>(`/businesses/${businessId}/audiences`),
+      create: (
+        businessId: string,
+        input: {
+          name: string;
+          description: string;
+          needs: string[];
+          objections: string[];
+          location?: string | null;
+        },
+      ) =>
+        apiRequest<AudienceSegment>(`/businesses/${businessId}/audiences`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      update: (
+        businessId: string,
+        id: string,
+        input: Partial<{
+          name: string;
+          description: string;
+          needs: string[];
+          objections: string[];
+          location: string | null;
+        }>,
+      ) =>
+        apiRequest<AudienceSegment>(`/businesses/${businessId}/audiences/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(input),
+        }),
+      archive: (businessId: string, id: string) =>
+        apiRequest<void>(`/businesses/${businessId}/audiences/${id}`, {
+          method: "DELETE",
+        }),
+    },
+    objectives: {
+      list: (businessId: string) =>
+        apiRequest<MarketingObjective[]>(`/businesses/${businessId}/objectives`),
+      create: (
+        businessId: string,
+        input: Pick<MarketingObjective, "name" | "description" | "planned_indicators">,
+      ) =>
+        apiRequest<MarketingObjective>(`/businesses/${businessId}/objectives`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      update: (
+        businessId: string,
+        id: string,
+        input: Partial<
+          Pick<MarketingObjective, "name" | "description" | "planned_indicators">
+        >,
+      ) =>
+        apiRequest<MarketingObjective>(`/businesses/${businessId}/objectives/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(input),
+        }),
+      archive: (businessId: string, id: string) =>
+        apiRequest<void>(`/businesses/${businessId}/objectives/${id}`, {
+          method: "DELETE",
+        }),
+    },
+    presets: {
+      list: (businessId: string) =>
+        apiRequest<VisualPreset[]>(`/businesses/${businessId}/visual-presets`),
+      create: (businessId: string, input: VisualPresetInput) =>
+        apiRequest<VisualPreset>(`/businesses/${businessId}/visual-presets`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      update: (businessId: string, id: string, input: Partial<VisualPresetInput>) =>
+        apiRequest<VisualPreset>(`/businesses/${businessId}/visual-presets/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(input),
+        }),
+      archive: (businessId: string, id: string) =>
+        apiRequest<void>(`/businesses/${businessId}/visual-presets/${id}`, {
+          method: "DELETE",
+        }),
+      generatePrompt: (input: {
+        business_id: string;
+        preset_id: string;
+        objective: string;
+        audience?: string;
+        format?: string;
+        aspect_ratio?: string;
+      }) =>
+        apiRequest<VisualPrompt>("/visual-prompts/generate", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+    },
+  },
+  planning: {
+    strategies: {
+      list: (businessId: string) =>
+        apiRequest<ContentStrategy[]>(`/businesses/${businessId}/strategies`),
+      create: (businessId: string, input: StrategyInput) =>
+        apiRequest<ContentStrategy>(`/businesses/${businessId}/strategies`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      createVersion: (id: string, input: StrategyVersionInput) =>
+        apiRequest<ContentStrategy>(`/strategies/${id}/versions`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      submitInternal: (id: string) =>
+        apiRequest<ContentStrategy>(`/strategies/${id}/submit-internal`, {
+          method: "POST",
+        }),
+      sendToClient: (id: string) =>
+        apiRequest<ContentStrategy>(`/strategies/${id}/send-to-client`, {
+          method: "POST",
+        }),
+      decide: (id: string, decision: "APPROVE" | "CHANGES_REQUESTED", comment?: string) =>
+        apiRequest<ContentStrategy>(`/strategies/${id}/decision`, {
+          method: "POST",
+          body: JSON.stringify({ decision, comment }),
+        }),
+    },
+    plans: {
+      list: (businessId: string) =>
+        apiRequest<ContentPlan[]>(`/businesses/${businessId}/plans`),
+      create: (
+        businessId: string,
+        input: {
+          strategy_id: string;
+          name: string;
+          starts_on: string;
+          ends_on: string;
+          frequency: string;
+        },
+      ) =>
+        apiRequest<ContentPlan>(`/businesses/${businessId}/plans`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      generateMock: (id: string) =>
+        apiRequest<CalendarEntry[]>(`/plans/${id}/generate-mock`, {
+          method: "POST",
+        }),
+      createEntry: (
+        id: string,
+        input: Pick<
+          CalendarEntry,
+          | "title"
+          | "objective"
+          | "audience"
+          | "channel"
+          | "format"
+          | "suggested_for"
+          | "visual_preset_id"
+          | "notes"
+        >,
+      ) =>
+        apiRequest<CalendarEntry>(`/plans/${id}/entries`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+    },
+    calendar: {
+      list: (businessId: string, startsOn: string, endsOn: string) =>
+        apiRequest<CalendarEntry[]>(
+          `/businesses/${businessId}/calendar${query({
+            starts_on: startsOn,
+            ends_on: endsOn,
+          })}`,
+        ),
+      update: (id: string, input: Partial<CalendarEntry>) =>
+        apiRequest<CalendarEntry>(`/calendar/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(input),
+        }),
+    },
+  },
+  media: {
+    list: (businessId: string) =>
+      apiRequest<MediaAsset[]>(`/businesses/${businessId}/media`),
+    upload: (businessId: string, file: File, kind = "IMAGE") => {
+      const body = new FormData();
+      body.set("file", file);
+      body.set("kind", kind);
+      return apiRequest<MediaAsset>(`/businesses/${businessId}/media`, {
+        method: "POST",
+        body,
+      });
+    },
+    signedUrl: (id: string) =>
+      apiRequest<{ url: string; expires_at: string }>(`/media/${id}/download-url`),
+    archive: (id: string) =>
+      apiRequest<void>(`/media/${id}`, { method: "DELETE" }),
+  },
+  members: {
+    list: () => apiRequest<OrganizationMembership[]>("/members"),
+    update: (id: string, input: OrganizationMembershipUpdate) =>
+      apiRequest<OrganizationMembership>(`/members/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    invitations: {
+      list: () => apiRequest<OrganizationInvite[]>("/members/invitations"),
+      create: (input: OrganizationInviteInput) =>
+        apiRequest<OrganizationInvite>("/members/invitations", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      revoke: (id: string) =>
+        apiRequest<void>(`/members/invitations/${id}`, { method: "DELETE" }),
+    },
+  },
   contents: {
     list: (businessId?: string) =>
       apiRequest<ContentItem[] | ListEnvelope<ContentItem>>(
         `/contents${query({ business_id: businessId })}`,
       ),
-    generate: (input: {
-      business_id: string;
-      objective: string;
-      channel: string;
-      format: string;
-    }) =>
+    get: (id: string) => apiRequest<ContentItem>(`/contents/${id}`),
+    generate: (input: ContentGenerateInput) =>
       apiRequest<ContentItem>("/contents/generate", {
         method: "POST",
         body: JSON.stringify(input),
@@ -238,18 +530,40 @@ export const api = {
       apiRequest<ContentItem>(`/contents/${id}/send-to-client`, {
         method: "POST",
       }),
-    approve: (id: string) =>
-      apiRequest<ContentItem>(`/contents/${id}/approve`, { method: "POST" }),
-    requestChanges: (id: string, comment: string) =>
-      apiRequest<ContentItem>(`/contents/${id}/request-changes`, {
-        method: "POST",
-        body: JSON.stringify({ comment }),
-      }),
     createRevision: (id: string, input: ContentRevisionInput) =>
       apiRequest<ContentItem>(`/contents/${id}/revisions`, {
         method: "POST",
         body: JSON.stringify(input),
       }),
+    decideComponent: (
+      id: string,
+      component: ApprovalComponent,
+      decision: "approve" | "request-changes",
+      comment?: string,
+    ) =>
+      apiRequest<ContentItem>(`/contents/${id}/decisions/${component}/${decision}`, {
+        method: "POST",
+        body: JSON.stringify({ comment }),
+      }),
+    createVisualRevision: (id: string, input: VisualRevisionInput) =>
+      apiRequest<ContentItem>(`/contents/${id}/visual-revisions`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    recordPublication: (id: string, input: ManualPublicationInput) =>
+      apiRequest<ContentItem>(`/contents/${id}/publication`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+  },
+  reports: {
+    period: (businessId: string, startsOn: string, endsOn: string) =>
+      apiRequest<PeriodReport>(
+        `/businesses/${businessId}/reports/period${query({
+          starts_on: startsOn,
+          ends_on: endsOn,
+        })}`,
+      ),
   },
   notifications: {
     list: () =>

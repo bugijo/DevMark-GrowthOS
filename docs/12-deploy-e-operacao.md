@@ -12,8 +12,8 @@ Este documento define como executar e operar a fundação da versão 1.0 de form
 | `backend` | API FastAPI, autenticação, domínio e OpenAPI. | Não; persiste no banco/arquivos. |
 | `worker` | Jobs, notificações e tarefas de providers. | Não; estado dos jobs fica no banco. |
 | `postgres` | PostgreSQL, constraints, migrations e audit log. | Sim. |
-| armazenamento local/MinIO | Ativos de mídia compatíveis com S3. | Sim, quando habilitado. |
-| saída de e-mail em console | Registra entrega mock sem enviar mensagem externa. | Não. |
+| `minio` | Ativos privados de mídia compatíveis com S3. | Sim. |
+| `mailpit` | Captura local de e-mail SMTP sem entrega externa. | Sim, durante a execução local. |
 
 Na versão 1.0, a fila usa a tabela de jobs no PostgreSQL, com status, tentativas, timeout e logs. Redis e fila dedicada ficam preparados arquiteturalmente, mas não são dependências obrigatórias.
 
@@ -21,9 +21,9 @@ Na versão 1.0, a fila usa a tabela de jobs no PostgreSQL, com status, tentativa
 
 ### Desenvolvimento local
 
-- `AI_PROVIDER=mock`, `IMAGE_PROVIDER=mock` e e-mail local/console;
+- `AI_PROVIDER=mock`, `IMAGE_PROVIDER=mock` e e-mail SMTP local no Mailpit;
 - dados fictícios e seed de demonstração;
-- e-mail simulado pelo provider de console, sem entrega externa;
+- e-mail capturado em `http://localhost:8025`, sem entrega externa;
 - volumes Docker para banco e arquivos;
 - logs legíveis, sem segredos;
 - recarregamento de código apenas quando seguro para o ambiente local.
@@ -88,7 +88,8 @@ O procedimento esperado é:
 4. executar `docker compose up --build`;
 5. aguardar health checks e migrations;
 6. carregar seed de demonstração pelo comando documentado;
-7. acessar frontend e API/OpenAPI pelos endereços do `README.md`; jobs de e-mail mock, quando enfileirados, aparecem nos logs do worker;
+7. acessar frontend e API/OpenAPI pelos endereços do `README.md`; e-mails de
+   convite, recuperação e notificações podem ser inspecionados no Mailpit;
 8. ao finalizar, encerrar containers sem remover volumes, salvo quando houver intenção explícita de apagar os dados locais.
 
 O `README.md` é a referência para portas e comandos exatos. Alterações nesses comandos precisam atualizar README, Compose e CI na mesma entrega.
@@ -103,6 +104,18 @@ O `README.md` é a referência para portas e comandos exatos. Alterações nesse
 - Seed e conta demo são bloqueados em produção, inclusive quando o comando de seed é
   chamado diretamente. Em desenvolvimento, senhas e e-mails das duas identidades
   demo precisam ser distintos e as senhas devem ter ao menos 12 caracteres.
+
+O `alembic downgrade base` existe para validar reversibilidade em banco isolado,
+não como rollback automático de dados. A migration `0008` normaliza cópias
+legadas de aprovação visual que não possuíam mídia: cancela a decisão visual,
+devolve conteúdo ainda não publicado para `CHANGES_REQUESTED` e registra um
+evento técnico no audit log. Seu downgrade é intencionalmente `no-op`, pois
+restaurar esses estados reintroduziria uma aprovação inválida.
+
+O downgrade da migration `0007` remove aprovações de imagem e as tabelas
+incrementais da Fase 2 removem seus próprios dados ao recuar. Em banco com
+informação útil, faça backup e prefira rollback da aplicação; só recue o schema
+após ensaio e aceite explícito da perda.
 
 ## Health checks e prontidão
 

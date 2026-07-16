@@ -14,9 +14,14 @@ const ADMIN_PASSWORD =
 const CLIENT_EMAIL = process.env.DEMO_CLIENT_EMAIL ?? "client@clinicafeliz.local";
 const CLIENT_PASSWORD =
   process.env.DEMO_CLIENT_PASSWORD ?? "local-demo-client-only-change-before-use";
+const PNG_BYTES = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
 
 type LoginResponse = { csrf_token: string };
 type Business = { id: string; name: string };
+type MediaAsset = { id: string; display_name: string };
 type Content = {
   id: string;
   business_id: string;
@@ -117,6 +122,23 @@ test("fluxo vertical mock gera, envia e aprova com notificação e auditoria", a
     );
     expect(brandResponse.ok(), await bodyOnFailure(brandResponse)).toBeTruthy();
 
+    const mediaResponse = await admin.context.post(
+      `businesses/${business!.id}/media`,
+      {
+        headers: csrfHeaders(admin.csrf),
+        multipart: {
+          kind: "IMAGE",
+          file: {
+            name: "fluxo-vertical.png",
+            mimeType: "image/png",
+            buffer: PNG_BYTES,
+          },
+        },
+      },
+    );
+    expect(mediaResponse.status(), await bodyOnFailure(mediaResponse)).toBe(201);
+    const media = (await mediaResponse.json()) as MediaAsset;
+
     const generateResponse = await admin.context.post("contents/generate", {
       headers: csrfHeaders(admin.csrf),
       data: {
@@ -124,6 +146,7 @@ test("fluxo vertical mock gera, envia e aprova com notificação e auditoria", a
         objective: "Orientar tutores sobre consulta preventiva sem aconselhamento clínico",
         channel: "INSTAGRAM",
         format: "FEED",
+        media_asset_id: media.id,
       },
     });
     expect(generateResponse.status(), await bodyOnFailure(generateResponse)).toBe(201);
@@ -155,10 +178,27 @@ test("fluxo vertical mock gera, envia e aprova com notificação e auditoria", a
       ),
     ).toBeTruthy();
 
-    const approveResponse = await client.context.post(`contents/${generated.id}/approve`, {
-      headers: csrfHeaders(client.csrf),
-      data: { comment: "Aprovado no cenário automatizado." },
-    });
+    const textApprovalResponse = await client.context.post(
+      `contents/${generated.id}/decisions/TEXT/approve`,
+      {
+        headers: csrfHeaders(client.csrf),
+        data: { comment: "Texto aprovado no cenário automatizado." },
+      },
+    );
+    expect(
+      textApprovalResponse.ok(),
+      await bodyOnFailure(textApprovalResponse),
+    ).toBeTruthy();
+    expect(((await textApprovalResponse.json()) as Content).status).toBe(
+      "CLIENT_REVIEW",
+    );
+    const approveResponse = await client.context.post(
+      `contents/${generated.id}/decisions/IMAGE/approve`,
+      {
+        headers: csrfHeaders(client.csrf),
+        data: { comment: "Imagem aprovada no cenário automatizado." },
+      },
+    );
     expect(approveResponse.ok(), await bodyOnFailure(approveResponse)).toBeTruthy();
     expect(((await approveResponse.json()) as Content).status).toBe("APPROVED");
 
@@ -212,6 +252,39 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
 }) => {
   test.setTimeout(90_000);
   const objective = `Fluxo UI E2E ${crypto.randomUUID()}: orientar sobre consulta preventiva`;
+  const setupAdmin = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
+  let setupBusinessId: string | undefined;
+  let setupMedia: MediaAsset | undefined;
+  try {
+    const businessesResponse = await setupAdmin.context.get("businesses");
+    expect(businessesResponse.ok()).toBeTruthy();
+    const businesses = (await businessesResponse.json()) as Business[];
+    const business = businesses.find(
+      (item) => item.name === "Clínica Veterinária Demo",
+    );
+    expect(business).toBeTruthy();
+    setupBusinessId = business!.id;
+    const mediaResponse = await setupAdmin.context.post(
+      `businesses/${business!.id}/media`,
+      {
+        headers: csrfHeaders(setupAdmin.csrf),
+        multipart: {
+          kind: "IMAGE",
+          file: {
+            name: `fluxo-ui-${crypto.randomUUID()}.png`,
+            mimeType: "image/png",
+            buffer: PNG_BYTES,
+          },
+        },
+      },
+    );
+    expect(mediaResponse.status(), await bodyOnFailure(mediaResponse)).toBe(201);
+    setupMedia = (await mediaResponse.json()) as MediaAsset;
+  } finally {
+    await setupAdmin.context.dispose();
+  }
+  expect(setupBusinessId).toBeTruthy();
+  expect(setupMedia).toBeTruthy();
 
   await loginThroughUi(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await markExistingNotificationsAsRead(page);
@@ -219,7 +292,8 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
   await page.getByRole("link", { name: "Conteúdos", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Conteúdos" })).toBeVisible();
   await expect(page.getByText("Carregando conteúdos…", { exact: true })).toBeHidden();
-  await page.getByLabel(/^Empresa/).selectOption({ label: "Clínica Veterinária Demo" });
+  await expect(page.getByLabel(/^Cliente/)).toHaveValue(setupBusinessId!);
+  await page.getByLabel("Imagem principal").selectOption(setupMedia!.id);
   await page.getByLabel("Objetivo do conteúdo").fill(objective);
 
   const generatedResponsePromise = page.waitForResponse(
@@ -244,7 +318,9 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
     .getByRole("button", { name: "Enviar para revisão interna" })
     .click();
   await expect(agencyCard.getByText("Revisão interna", { exact: true })).toBeVisible();
-  await agencyCard.getByRole("button", { name: "Enviar ao cliente" }).click();
+  await agencyCard
+    .getByRole("button", { name: "Enviar texto e imagem ao cliente", exact: true })
+    .click();
   await expect(agencyCard.getByText("Aguardando cliente", { exact: true })).toBeVisible();
 
   await logoutThroughUi(page);
@@ -257,10 +333,19 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
     .locator("article")
     .filter({ has: page.getByText(objective, { exact: true }) });
   await expect(clientCard).toHaveCount(1);
-  await clientCard.getByRole("button", { name: "Aprovar esta versão" }).click();
+  await clientCard
+    .getByRole("button", { name: "Abrir imagem para revisar" })
+    .click();
+  await expect(clientCard.getByRole("img", { name: /Imagem em aprovação/ })).toBeVisible();
+  await clientCard.getByRole("button", { name: "Aprovar texto" }).click();
   await expect(
-    page.getByText("Conteúdo aprovado. A equipe foi notificada.", { exact: true }),
+    page.getByText(/Texto aprovado\. O conteúdo só avança/, { exact: true }),
   ).toBeVisible();
+  await clientCard.getByRole("button", { name: "Aprovar imagem" }).click();
+  await expect(
+    page.getByText(/Imagem aprovada\. O conteúdo só avança/, { exact: true }),
+  ).toBeVisible();
+  await expect(clientCard.getByText("Aprovado", { exact: true }).first()).toBeVisible();
 
   await logoutThroughUi(page);
   await loginThroughUi(page, ADMIN_EMAIL, ADMIN_PASSWORD);

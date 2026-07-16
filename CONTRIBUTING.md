@@ -71,7 +71,9 @@ As imagens de produção do backend e frontend são enxutas e não carregam pyte
 
 Uma mudança não está pronta quando um teste foi ignorado por falta de configuração. Corrija o ambiente ou registre claramente o bloqueio. A suíte usa provider mock e não acessa API paga.
 
-Linha de base verificada na revisão final: 46 testes de backend, 7 de worker, 15 de frontend e 3 cenários E2E. Novas mudanças não podem reduzir silenciosamente essa cobertura funcional.
+A linha de base verificada fica registrada no `CHANGELOG.md` e no Pull Request
+mais recente. Novas mudanças não podem reduzir silenciosamente a cobertura
+funcional existente.
 
 ## Banco e migrações
 

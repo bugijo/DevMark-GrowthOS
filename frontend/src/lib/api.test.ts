@@ -82,6 +82,59 @@ describe("apiRequest", () => {
       cta: "Agende agora",
     });
   });
+
+  it("envia token de convite apenas no corpo do endpoint público", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          organization: { id: "org-1", name: "Organização" },
+          role: "CLIENT_REVIEWER",
+          masked_email: "p***@example.com",
+          expires_at: "2026-07-16T12:00:00Z",
+          requires_account_setup: false,
+          business_id: null,
+          business_name: null,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    await api.auth.inspectInvitation("fragment-token-value");
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/auth/invitations/inspect");
+    expect(String(url)).not.toContain("fragment-token-value");
+    expect(JSON.parse(String(init?.body))).toEqual({ token: "fragment-token-value" });
+  });
+
+  it("envia somente os campos aceitos ao criar uma versão de estratégia", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ id: "strategy-1", status: "DRAFT" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await api.planning.strategies.createVersion("strategy-1", {
+      objective: "Aumentar a educação preventiva",
+      positioning: "Referência local responsável",
+      funnel: ["AWARENESS"],
+      channels: ["INSTAGRAM"],
+      pillars: ["prevenção"],
+      planned_indicators: ["conteúdos aprovados"],
+      service_ids: ["service-1"],
+      audience_ids: ["audience-1"],
+      marketing_objective_ids: ["objective-1"],
+    });
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(url).toBe("/api/v1/strategies/strategy-1/versions");
+    expect(body).not.toHaveProperty("name");
+    expect(body).not.toHaveProperty("starts_on");
+    expect(body).not.toHaveProperty("ends_on");
+    expect(body.objective).toBe("Aumentar a educação preventiva");
+  });
 });
 
 describe("extractItems", () => {

@@ -65,7 +65,7 @@ def test_queries_and_mutations_are_isolated_between_organizations(client: TestCl
     reviewer_csrf = login(reviewer_client, reviewer_a)
     assert reviewer_client.get(f"/api/v1/contents/{content_b['id']}").status_code == 404
     cross_approval = reviewer_client.post(
-        f"/api/v1/contents/{content_b['id']}/approve",
+        f"/api/v1/contents/{content_b['id']}/decisions/TEXT/approve",
         json={},
         headers=csrf_headers(reviewer_csrf),
     )

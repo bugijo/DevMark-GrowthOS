@@ -81,7 +81,9 @@ class InMemoryLoginRateLimiter:
 
 
 login_rate_limiter = InMemoryLoginRateLimiter()
+security_rate_limiter = InMemoryLoginRateLimiter()
 
 
 def reset_login_rate_limiter() -> None:
     login_rate_limiter.reset()
+    security_rate_limiter.reset()

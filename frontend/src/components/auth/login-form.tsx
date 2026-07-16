@@ -124,6 +124,14 @@ export function LoginForm() {
             <Button type="submit" busy={submitting} className="w-full">
               {submitting ? "Entrando…" : "Entrar"}
             </Button>
+            <div className="text-center">
+              <Link
+                href="/recuperar-senha"
+                className="inline-flex min-h-10 items-center text-sm font-bold text-emerald-700 underline"
+              >
+                Esqueci minha senha
+              </Link>
+            </div>
           </form>
 
           {isLocal ? (

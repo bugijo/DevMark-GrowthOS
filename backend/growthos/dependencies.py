@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from growthos.config import Settings, get_settings
 from growthos.database import get_session
 from growthos.domain.enums import BUSINESS_SCOPED_ROLES, Role
+from growthos.domain.permissions import Capability, has_capability
 from growthos.models import Business, Membership, Organization, User
 from growthos.security import InvalidSession, decode_session_token
 
@@ -76,6 +77,8 @@ def get_current_context(
     expected_business = str(membership.business_id) if membership.business_id else None
     if claims.get("role") != membership.role.value or claims.get("business") != expected_business:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão desatualizada")
+    if claims.get("sv") != user.session_version:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão revogada")
     return AuthContext(user, membership, organization, claims)
 
 
@@ -98,6 +101,11 @@ def require_csrf(
 
 def require_role(context: AuthContext, *allowed: Role) -> None:
     if context.membership.role not in allowed:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Você não pode realizar esta ação")
+
+
+def require_capability(context: AuthContext, capability: Capability) -> None:
+    if not has_capability(context.membership.role, capability):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Você não pode realizar esta ação")
 
 

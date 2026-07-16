@@ -53,7 +53,7 @@ flowchart TB
 
     DB[(PostgreSQL)]
     OBJ[(MinIO / S3)]
-    EMAIL[Saída de e-mail em console / provider futuro]
+    EMAIL[SMTP local / Mailpit / provider futuro]
     PROV[Mock / Hermes / provider remoto]
 
     U -->|HTTPS| FE
@@ -241,7 +241,7 @@ Dados clínicos, senhas, cookies, tokens, prompts sensíveis completos e segredo
 
 ### Desenvolvimento local
 
-Docker Compose inicia frontend, API, worker, PostgreSQL e MinIO. O provider mock é o padrão e o e-mail é apenas registrado em console, sem entrega externa. Seeds criam uma organização/agência, clínica piloto e usuários claramente identificados como demonstração.
+Docker Compose inicia frontend, API, worker, PostgreSQL, MinIO e Mailpit. O provider mock é o padrão e o SMTP local captura as mensagens no Mailpit, sem entrega externa. Seeds criam uma organização/agência, clínica piloto e usuários claramente identificados como demonstração.
 
 ### Teste/CI
 

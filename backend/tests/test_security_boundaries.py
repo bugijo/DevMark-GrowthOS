@@ -108,8 +108,11 @@ def test_database_rejects_active_client_membership_without_business(role: Role) 
         session.rollback()
 
 
-@pytest.mark.parametrize("role", [Role.CLIENT_OWNER, Role.CLIENT_REVIEWER, Role.VIEWER])
-def test_client_roles_cannot_read_audit_log(client: TestClient, role: Role) -> None:
+@pytest.mark.parametrize("role", [Role.CLIENT_OWNER, Role.CLIENT_REVIEWER])
+def test_client_decision_roles_read_only_their_business_audit_log(
+    client: TestClient,
+    role: Role,
+) -> None:
     identity = create_identity(
         slug=f"audit-{role.value.casefold()}",
         email=f"audit-{role.value.casefold()}@example.com",
@@ -117,7 +120,40 @@ def test_client_roles_cannot_read_audit_log(client: TestClient, role: Role) -> N
         business_name=f"Audit {role.value}",
     )
     login(client, identity)
+    response = client.get("/api/v1/audit-logs")
+    assert response.status_code == 200, response.text
+    assert all(item["business_id"] == str(identity.business_id) for item in response.json())
+
+
+def test_viewer_cannot_read_audit_or_mark_notification_read(client: TestClient) -> None:
+    viewer = create_identity(
+        slug="audit-viewer",
+        email="audit-viewer@example.com",
+        role=Role.VIEWER,
+        business_name="Audit Viewer",
+    )
+    with get_session_factory()() as session:
+        notification = Notification(
+            organization_id=viewer.organization_id,
+            business_id=viewer.business_id,
+            recipient_user_id=viewer.user_id,
+            type="VIEWER_NOTICE",
+            title="Somente leitura",
+            message="A pessoa pode consultar, mas não alterar o estado.",
+        )
+        session.add(notification)
+        session.commit()
+        notification_id = notification.id
+    csrf = login(client, viewer)
     assert client.get("/api/v1/audit-logs").status_code == 403
+    assert client.get("/api/v1/notifications").status_code == 200
+    assert (
+        client.post(
+            f"/api/v1/notifications/{notification_id}/read",
+            headers=csrf_headers(csrf),
+        ).status_code
+        == 403
+    )
 
 
 def test_business_scope_isolated_inside_same_organization(client: TestClient) -> None:
@@ -163,7 +199,7 @@ def test_business_scope_isolated_inside_same_organization(client: TestClient) ->
     assert portal_a.get(f"/api/v1/contents/{content_b['id']}").status_code == 404
     assert (
         portal_a.post(
-            f"/api/v1/contents/{content_b['id']}/approve",
+            f"/api/v1/contents/{content_b['id']}/decisions/TEXT/approve",
             json={},
             headers=csrf_headers(csrf_a),
         ).status_code
@@ -171,7 +207,7 @@ def test_business_scope_isolated_inside_same_organization(client: TestClient) ->
     )
     assert (
         portal_a.post(
-            f"/api/v1/contents/{content_b['id']}/request-changes",
+            f"/api/v1/contents/{content_b['id']}/decisions/TEXT/request-changes",
             json={"comment": "Tentativa cruzada"},
             headers=csrf_headers(csrf_a),
         ).status_code
@@ -186,7 +222,9 @@ def test_business_scope_isolated_inside_same_organization(client: TestClient) ->
         ).status_code
         == 404
     )
-    assert portal_a.get("/api/v1/audit-logs").status_code == 403
+    audit_a = portal_a.get("/api/v1/audit-logs")
+    assert audit_a.status_code == 200, audit_a.text
+    assert all(item["business_id"] == business_a["id"] for item in audit_a.json())
 
     portal_b = TestClient(client.app)
     login_b = portal_b.post("/api/v1/auth/login", json=reviewer_b)
