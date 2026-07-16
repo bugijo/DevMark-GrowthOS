@@ -7,6 +7,7 @@ from growthos.api.routes import (
     contents,
     health,
     invitations,
+    media,
     members,
     notifications,
     organizations,
@@ -17,6 +18,7 @@ api_router.include_router(health.router)
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(invitations.router, prefix="/auth", tags=["auth"])
 api_router.include_router(members.router, prefix="/members", tags=["members"])
+api_router.include_router(media.router, tags=["media"])
 api_router.include_router(organizations.router, prefix="/organizations", tags=["organizations"])
 api_router.include_router(businesses.router, prefix="/businesses", tags=["businesses"])
 api_router.include_router(contents.router, prefix="/contents", tags=["contents"])

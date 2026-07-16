@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000"
     ai_provider: str = "mock"
     mock_provider_seed: str = "devmark-growthos"
+    storage_provider: str = "minio"
+    s3_endpoint_url: str = "http://localhost:9000"
+    s3_public_endpoint_url: str = "http://localhost:9000"
+    s3_region: str = "us-east-1"
+    s3_bucket: str = "growthos-local"
+    s3_access_key_id: str = "growthos_minio_local"
+    s3_secret_access_key: str = "local-minio-only-change-before-shared-use"
+    s3_use_ssl: bool = False
+    max_upload_size_mb: int = Field(default=10, ge=1, le=50)
+    allowed_upload_mime_types: str = "image/jpeg,image/png,image/webp"
+    signed_url_ttl_seconds: int = Field(default=900, ge=60, le=3600)
     seed_demo_data: bool = False
     demo_organization_name: str = "DevMark Demo"
     demo_admin_email: str = "admin@devmark.local"
@@ -135,6 +146,14 @@ class Settings(BaseSettings):
     @property
     def effective_token_secret_key(self) -> str:
         return self.token_secret_key or self.auth_secret_key
+
+    @property
+    def upload_mime_types(self) -> frozenset[str]:
+        return frozenset(
+            value.strip().casefold()
+            for value in self.allowed_upload_mime_types.split(",")
+            if value.strip()
+        )
 
 
 @lru_cache
