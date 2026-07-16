@@ -6,7 +6,7 @@ VENV := .venv/bin
 
 .PHONY: help setup install up down reset logs status migrate seed \
 	test test-backend test-worker test-frontend lint lint-backend lint-worker lint-frontend \
-	e2e validate doctor backup backup-verify restore-test
+	e2e validate doctor backup backup-verify restore-test performance
 
 help: ## Lista os comandos disponíveis
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "%-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -43,6 +43,9 @@ backup-verify: ## Verifica checksums e integridade do backup local
 
 restore-test: ## Restaura um backup em ambiente Docker isolado e descartável
 	./scripts/restore-test.sh $(BACKUP)
+
+performance: ## Mede latência, respostas, bundle e memória da stack local
+	./scripts/performance-check.py $(PERFORMANCE_ARGS)
 
 migrate: ## Aplica migrations do backend
 	$(COMPOSE) exec backend alembic upgrade head
