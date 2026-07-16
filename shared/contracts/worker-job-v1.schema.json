@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://growthos.devmark.local/schemas/worker-job-v1.json",
+  "title": "GrowthOS worker job payload envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "data"],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "data": {
+      "type": "object"
+    }
+  }
+}
+

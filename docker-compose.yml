@@ -1,0 +1,213 @@
+name: ${COMPOSE_PROJECT_NAME:-devmark-growthos}
+
+x-backend-environment: &backend-environment
+  APP_ENV: ${APP_ENV:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://growthos_local:local-postgres-only-change-before-shared-use@postgres:5432/growthos}
+  AUTH_SECRET_KEY: ${AUTH_SECRET_KEY:-local-auth-key-change-before-shared-use-at-least-32-characters}
+  ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES:-30}
+  LOGIN_RATE_LIMIT_ATTEMPTS: ${LOGIN_RATE_LIMIT_ATTEMPTS:-10}
+  LOGIN_RATE_LIMIT_WINDOW_SECONDS: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS:-60}
+  LOGIN_RATE_LIMIT_ORIGIN_MULTIPLIER: ${LOGIN_RATE_LIMIT_ORIGIN_MULTIPLIER:-20}
+  SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+  SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-lax}
+  ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+  AI_PROVIDER: mock
+  IMAGE_PROVIDER: mock
+  EMAIL_PROVIDER: console
+  HERMES_ENABLED: "false"
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_BUCKET: ${S3_BUCKET:-growthos-local}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-growthos_minio_local}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-local-minio-only-change-before-shared-use}
+  S3_USE_SSL: "false"
+  SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+  DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@devmark.local}
+  DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-local-demo-only-change-before-use}
+  DEMO_CLIENT_EMAIL: ${DEMO_CLIENT_EMAIL:-client@clinicafeliz.local}
+  DEMO_CLIENT_PASSWORD: ${DEMO_CLIENT_PASSWORD:-local-demo-client-only-change-before-use}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-growthos}
+      POSTGRES_USER: ${POSTGRES_USER:-growthos_local}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-postgres-only-change-before-shared-use}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+    networks: [growthos]
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-growthos_minio_local}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-minio-only-change-before-shared-use}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+    networks: [growthos]
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-growthos_minio_local}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-minio-only-change-before-shared-use}
+      S3_BUCKET: ${S3_BUCKET:-growthos-local}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing "local/$${S3_BUCKET}" &&
+        mc anonymous set none "local/$${S3_BUCKET}"
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    networks: [growthos]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        alembic upgrade head &&
+        if [ "$${SEED_DEMO_DATA}" = "true" ]; then python -m growthos.seed; fi &&
+        exec uvicorn growthos.main:app --host 0.0.0.0 --port 8000
+    environment:
+      <<: *backend-environment
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    init: true
+    stop_grace_period: 20s
+    restart: unless-stopped
+    networks: [growthos]
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    environment:
+      <<: *backend-environment
+      JOB_POLL_INTERVAL_SECONDS: ${JOB_POLL_INTERVAL_SECONDS:-2}
+      JOB_BATCH_SIZE: ${JOB_BATCH_SIZE:-10}
+      JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS:-120}
+      JOB_RETRY_BASE_SECONDS: ${JOB_RETRY_BASE_SECONDS:-5}
+      JOB_RETRY_MAX_SECONDS: ${JOB_RETRY_MAX_SECONDS:-300}
+      MOCK_PROVIDER_SEED: ${MOCK_PROVIDER_SEED:-devmark-growthos}
+      MOCK_PROVIDER_LATENCY_MS: ${MOCK_PROVIDER_LATENCY_MS:-0}
+      WORKER_HEARTBEAT_FILE: /tmp/growthos-worker-heartbeat
+      WORKER_HEARTBEAT_MAX_AGE_SECONDS: 30
+      RUFF_CACHE_DIR: /tmp/ruff-cache
+      MYPY_CACHE_DIR: /tmp/mypy-cache
+      PYTHONPYCACHEPREFIX: /tmp/pycache
+      PYTEST_ADDOPTS: -q -p no:cacheprovider
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    init: true
+    stop_grace_period: 20s
+    restart: unless-stopped
+    networks: [growthos]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-DevMark GrowthOS}
+      NEXT_PUBLIC_API_URL: /api/v1
+      BACKEND_INTERNAL_URL: http://backend:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/api/health').then(r => {
+            if (!r.ok) process.exit(1)
+          }).catch(() => process.exit(1))
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+    init: true
+    stop_grace_period: 20s
+    restart: unless-stopped
+    networks: [growthos]
+
+  e2e:
+    profiles: [test]
+    build:
+      context: ./tests/e2e
+      dockerfile: Dockerfile
+    environment:
+      BASE_URL: http://frontend:3000
+      API_URL: http://backend:8000/api/v1
+      DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@devmark.local}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-local-demo-only-change-before-use}
+      DEMO_CLIENT_EMAIL: ${DEMO_CLIENT_EMAIL:-client@clinicafeliz.local}
+      DEMO_CLIENT_PASSWORD: ${DEMO_CLIENT_PASSWORD:-local-demo-client-only-change-before-use}
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    init: true
+    networks: [growthos]
+
+networks:
+  growthos:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  minio-data:
