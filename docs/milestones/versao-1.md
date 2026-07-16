@@ -10,14 +10,14 @@ Estados: `PLANNED`, `IN_PROGRESS`, `DONE` e `BLOCKED`.
 |---|---|---|---|
 | `M0` Documentação e decisões | `DONE` | Escopo, arquitetura e plano entendidos por outra pessoa | — |
 | `M1` Fundação executável | `DONE` | Monorepo sobe e valida código/testes em modo local | `M0` |
-| `M2` Identidade e isolamento | `IN_PROGRESS` | Login, sessão, organização e RBAC básico funcionam; convite seguro e recuperação estão pendentes | `M1` |
-| `M3` Cliente e Brand Kit | `IN_PROGRESS` | Cadastro e Brand Kit básico funcionam; onboarding e convite do cliente ainda são provisórios | `M2` |
-| `M4` Conteúdo mock versionado | `IN_PROGRESS` | Conteúdo mock e versões do fluxo mínimo funcionam; editor e geração ampliada ainda faltam | `M3` |
+| `M2` Identidade e isolamento | `DONE` | Sessão, convites, recuperação, oito papéis e escopo multiempresa funcionam | `M1` |
+| `M3` Cliente e Brand Kit | `IN_PROGRESS` | Marca, catálogos, preset e mídia funcionam; falta consolidar o checklist de onboarding | `M2` |
+| `M4` Conteúdo mock versionado | `IN_PROGRESS` | Conteúdo ligado ao planejamento e versões textuais/visuais funcionam; variações ampliadas permanecem | `M3` |
 | `M5` Fluxo vertical de aprovação | `DONE` | Cliente recebe, decide e a equipe é notificada com auditoria | `M4` mínimo |
-| `M6` Escopo completo da clínica piloto | `PLANNED` | Estratégia, calendário, visual, e-mail, publicação manual e relatório funcionam | `M5` |
+| `M6` Escopo completo da clínica piloto | `IN_PROGRESS` | A fatia da Fase 2 funciona; preferências, providers e integrações seguras ainda fecham o milestone | `M5` |
 | `M7` Hardening e release 1.0 | `PLANNED` | Os 25 critérios finais têm evidência e a release pode ser operada | `M6` |
 
-O trabalho foi priorizado por uma fatia vertical: os núcleos de `M2`, `M3` e `M4` necessários para `M5` foram implementados, mas esses milestones continuam abertos porque seus aceites mais amplos ainda não foram atendidos.
+O trabalho foi priorizado por uma fatia vertical: `M2` foi concluído e os núcleos de `M3` e `M4` necessários para `M5` foram implementados. `M3` e `M4` continuam abertos porque seus aceites mais amplos ainda não foram atendidos.
 
 ## Evidências do primeiro ciclo
 
@@ -40,7 +40,35 @@ Resultados automatizados:
 | Frontend | 15 testes aprovados |
 | E2E | 3 cenários aprovados |
 
-Ruff, mypy, ESLint, TypeScript, builds, Compose e auditorias passaram. A CI está configurada para repetir esses gates. A versão 1.0 não está pronta: convite/recuperação, presets, estratégia, calendário, imagens/upload, e-mail real, publicação manual, relatórios e os demais aceites de `M6`/`M7` permanecem pendentes.
+Ruff, mypy, ESLint, TypeScript, builds, Compose e auditorias passaram. A CI está
+configurada para repetir esses gates. A Fase 2 ampliou essa base sem declarar a
+versão 1.0 pronta; os aceites remanescentes de `M6` e o hardening de `M7`
+continuam visíveis.
+
+## Evidências da Fase 2
+
+- convite e recuperação usam tokens com hash, validade, uso único e rate limit;
+- os oito papéis usam uma matriz central de capacidades testada;
+- serviços, públicos, objetivos, presets e mídia privada são persistidos por cliente;
+- estratégia e conteúdo possuem versões imutáveis e fluxos de revisão;
+- calendário mensal/semanal vincula estratégia, pauta, preset e conteúdo;
+- texto e imagem recebem decisões independentes, notificações internas e e-mail local;
+- publicação é somente um registro manual, idempotente e auditado;
+- relatório usa dados reais e declara métricas externas indisponíveis;
+- seed fictício e idempotente demonstra a jornada sem API paga.
+
+Resultados automatizados do gate da Fase 2:
+
+| Área | Evidência |
+|---|---:|
+| Backend | 136 testes aprovados |
+| Worker | 28 testes aprovados |
+| Frontend | 30 testes aprovados |
+| E2E | 7 cenários aprovados |
+
+Também passaram lint, tipos, build das 20 rotas, Compose, auditorias de
+dependências, migrations de `base` a `0008`, compatibilidade da fundação e seed
+idempotente. Isso valida a fase, mas não antecipa o aceite de release de `M7`.
 
 Comandos oficiais:
 
@@ -200,7 +228,7 @@ make e2e
 - revisor vinculado vê somente sua empresa e não edita campos proibidos;
 - duplicidade e entradas inválidas retornam mensagem útil sem alteração parcial;
 - cadastro, alteração e vínculo são auditados;
-- CAV1-01, CAV1-03 e CAV1-04 têm evidência com os dados demo; CAV1-02 permanece pendente até existir convite seguro de uso único.
+- CAV1-01 a CAV1-04 têm evidência, incluindo convite seguro com token de uso único, validade e escopo da organização.
 
 **Demonstração:** pela interface, criar uma clínica fictícia e preencher sua identidade básica; usar o cliente demo já vinculado para comprovar a visualização limitada do revisor.
 
@@ -306,7 +334,7 @@ No primeiro ciclo, os 3 cenários Playwright passaram usando as credenciais demo
 1. completar serviços, públicos, objetivos, presets e uploads;
 2. gerar estratégia e calendário com o mock;
 3. completar ideias, legendas, roteiros, prompts, templates, híbrido e variações;
-4. entregar histórico, preferências, e-mail mock, lembretes e recuperação de senha;
+4. consolidar preferências, lembretes e resumos; histórico, SMTP local e recuperação de senha já foram entregues;
 5. entregar dashboards, calendário e telas obrigatórias integradas;
 6. permitir registro manual de publicação e gerar relatório básico sem inventar métrica;
 7. expor Centro de Integrações somente com providers seguros/mock;
@@ -316,7 +344,7 @@ No primeiro ciclo, os 3 cenários Playwright passaram usando as credenciais demo
 
 - onboarding aponta e conclui marca, serviços, público, preset, referências e aprovadores;
 - estratégia, calendário, conteúdo visual e variações são gerados/geridos com mock;
-- notificação por e-mail usa console/mock, retries e preferência do usuário;
+- notificação por e-mail usa SMTP local/Mailpit com retries; preferência individual do usuário permanece pendente;
 - conteúdo aprovado aparece no calendário e pode receber publicação manual auditada;
 - relatório usa somente dados existentes e deixa ausências claras;
 - todas as telas obrigatórias possuem backend, persistência e estado vazio útil;

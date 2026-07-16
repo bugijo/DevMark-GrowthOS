@@ -13,9 +13,16 @@ Este arquivo orienta pessoas e agentes de programação em todo o repositório. 
 
 ### Estado atual
 
-O primeiro ciclo vertical está executável: login, organização, cliente, Brand Kit básico, conteúdo mock, revisão, decisão do cliente, notificações e auditoria. Não trate isso como versão 1.0 concluída.
+A fundação e a Fase 2 estão executáveis: identidade segura, matriz de papéis,
+catálogos, presets, mídia privada, estratégia, calendário, conteúdo vinculado,
+aprovações separadas, e-mail local, publicação manual, relatório e auditoria.
+Não trate isso como release 1.0 concluída antes do gate final.
 
-Permanecem pendentes, entre outros: convite seguro, recuperação de senha, presets, estratégia, calendário, imagens/upload, e-mail real, preferências de notificação, publicação manual, relatórios, Centro de Integrações e hardening final. O cadastro direto de revisor existente é provisório, funciona somente em desenvolvimento/teste e não substitui convite de uso único.
+Permanecem pendentes, entre outros: preferências e resumos de notificação,
+administração de providers/Hermes opcional, controles operacionais de LGPD,
+revisão profissional automatizada, backup/restauração e hardening final. O
+cadastro direto de revisor existe somente para compatibilidade em
+desenvolvimento/teste e não substitui o convite de uso único.
 
 ## 2. Arquitetura
 
@@ -155,7 +162,9 @@ make e2e
 
 As imagens de aplicação são imagens de execução, não ambientes de desenvolvimento. Não instale nem execute pytest, Ruff, mypy, ESLint ou Vitest dentro dos contêineres de produção; use os alvos do Makefile e a CI.
 
-Linha de base da revisão final: backend 46 testes, worker 7, frontend 15 e E2E 3. Ruff, mypy, ESLint, TypeScript, builds e auditorias passaram. Preserve ou amplie essa evidência.
+A linha de base verificada fica registrada no `CHANGELOG.md` e no Pull Request da
+fase. Preserve ou amplie essa evidência; não mantenha contagens antigas neste
+arquivo normativo.
 
 ## 11. Migrações, seed e operação local
 

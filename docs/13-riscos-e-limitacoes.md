@@ -33,6 +33,7 @@ Escala usada: probabilidade e impacto `Baixo`, `Médio` ou `Alto`. Um risco alto
 | R-21 | Fluxo provisório de revisor revelar disponibilidade de e-mail ou conceder acesso sem convite verificável. | Média | Alto | Endpoint bloqueado fora de desenvolvimento/teste, mensagem genérica e substituição por convite de uso único antes de dados reais. | Endpoint provisório exposto em ambiente compartilhado. |
 | R-22 | Rate limit local divergir entre réplicas ou enxergar apenas o proxy do frontend. | Média | Alto | Limites por identidade/origem, armazenamento local limitado e store compartilhado com proxies confiáveis antes de escalar. | Bloqueio coletivo ou tentativas distribuídas sem contenção. |
 | R-23 | Escrita interna incoerente cruzar organização e empresa apesar dos filtros HTTP. | Baixa | Alto | Serviços escopados, testes negativos e evolução das FKs compostas/constraints antes de novos escritores internos. | Job, script ou integração grava IDs de tenants diferentes. |
+| R-24 | Ambiente compartilhado usar perfil ou storage local por erro de configuração. | Baixa | Alto | Valores de ambiente tipados, guardas fail-closed e credenciais/TLS gerenciados no gate M7. | Alias como `prod`, endpoint HTTP ou credencial MinIO local fora do desenvolvimento. |
 
 ## Riscos de autonomia
 
@@ -82,6 +83,7 @@ Qualquer mudança de nível exige ADR, revisão de segurança/LGPD, critérios d
 - O rate limiter em memória é limitado e adequado a uma única instância local; múltiplas réplicas exigem store compartilhado e configuração de proxy confiável.
 - A elevação excepcional de `SUPER_ADMIN`, com justificativa operacional própria, continua pendente; as rotas atuais ainda o mantêm dentro da membership e organização selecionadas.
 - As rotas validam tenant e empresa, mas constraints compostas de todas as relações serão ampliadas antes de permitir novos processos de escrita direta no banco.
+- O perfil atual endurece o valor exato `production`; aliases, storage remoto com TLS e credenciais gerenciadas serão fechados de forma fail-closed no gate M7 antes de qualquer ambiente compartilhado.
 
 ## Dependências e hipóteses
 

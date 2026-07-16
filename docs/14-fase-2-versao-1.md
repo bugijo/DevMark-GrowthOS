@@ -20,16 +20,25 @@ registrada manualmente e relatório baseado somente em dados persistidos.
 - Papéis de cliente permanecem limitados à empresa da membership ativa.
 - Tokens de convite e recuperação são imprevisíveis, armazenados somente como
   hash, expiram e são consumidos uma única vez.
-- Alterar senha incrementa a versão de sessão e invalida cookies emitidos antes
-  da alteração.
+- Alterar senha, papel, escopo ou estado de membership incrementa a versão de
+  sessão e invalida cookies emitidos antes da alteração.
 - Versões submetidas para revisão são imutáveis. Uma alteração cria nova versão.
 - Aprovações de texto e imagem são decisões independentes sobre a mesma versão.
+- A API aceita decisões somente pelos endpoints granulares; o atalho legado que
+  aprovava os dois componentes em uma chamada foi removido.
 - Aprovação não publica conteúdo. `PUBLISHED` representa somente confirmação
   manual, auditada e idempotente.
 - Arquivos ficam privados no storage. A API persiste a chave do objeto e produz
   URL assinada curta somente depois de autorizar o acesso.
 - Providers mock são determinísticos e não usam chaves ou APIs pagas.
 - O relatório nunca inventa alcance, impressões, cliques ou conversões.
+- O portal cliente recebe o conteúdo liberado, mas não recebe notas, prompts,
+  snapshots internos nem identificadores pessoais desnecessários.
+- O seed vincula um PNG fictício real no storage privado ao conteúdo publicado;
+  não cria aprovação visual apontando para um objeto inexistente.
+- A compatibilidade com a fundação não transforma uma aprovação antiga sem
+  mídia em aprovação visual: `0008` cancela esse componente, solicita revisão
+  e audita a normalização.
 
 ## Papéis e capacidades
 
@@ -44,7 +53,8 @@ implementa uma matriz central de capacidades com o seguinte recorte:
 | Editar marca, serviços e públicos | papéis internos conforme a matriz |
 | Criar/revisar estratégia e calendário | `SUPER_ADMIN`, `AGENCY_ADMIN`, `STRATEGIST`, com edição operacional por `CONTENT_EDITOR` |
 | Gerenciar preset e mídia | `SUPER_ADMIN`, `AGENCY_ADMIN`, `DESIGNER`; edição vinculada por `CONTENT_EDITOR` |
-| Criar conteúdo e versões | papéis internos autorizados |
+| Criar conteúdo textual | `SUPER_ADMIN`, `AGENCY_ADMIN`, `STRATEGIST`, `CONTENT_EDITOR` |
+| Gerar prompt/revisão visual | equipe interna autorizada, incluindo `DESIGNER` |
 | Decidir como cliente | somente `CLIENT_OWNER` e `CLIENT_REVIEWER` da empresa |
 | Registrar publicação manual | equipe interna autorizada |
 | Consultar relatório | papéis com leitura no próprio escopo |
@@ -90,24 +100,28 @@ Os contratos seguem o prefixo `/api/v1` e exigem sessão + CSRF em mutações,
 exceto os endpoints públicos de solicitar/consumir recuperação e aceitar
 convite.
 
-- identidade: `/auth/password-recovery`, `/auth/password-reset`, `/invites` e
-  `/members`;
+- identidade: `/auth/password-recovery`, `/auth/password-reset`,
+  `/auth/invitations/*`, `/members` e `/members/invitations`;
 - catálogos: `/businesses/{id}/services`, `/audiences` e `/objectives`;
 - planejamento: `/businesses/{id}/strategies`, `/strategies/{id}/versions`,
   transições de revisão, `/businesses/{id}/plans` e `/calendar`;
 - visual e mídia: `/businesses/{id}/visual-presets`, `/visual-prompts/generate`,
   `/businesses/{id}/media` e `/media/{id}/download-url`;
 - conteúdo: os contratos existentes permanecem compatíveis e recebem vínculos
-  opcionais; decisões granulares usam `/contents/{id}/decisions/{component}`;
-- operação: `/contents/{id}/publication` e `/reports/period`.
+  opcionais; decisões granulares usam
+  `/contents/{id}/decisions/{component}/{approve|request-changes}` e revisões
+  visuais usam `/contents/{id}/visual-revisions`;
+- operação: `/contents/{id}/publication` e
+  `/businesses/{id}/reports/period`.
 
 ## E-mail local
 
 O Compose inclui uma caixa SMTP local de teste. Jobs de notificação guardam
-somente destinatário e mensagem segura. Jobs de convite/recuperação guardam o
-identificador do registro; o worker deriva o token criptograficamente apenas ao
-montar o e-mail. O token puro não é gravado no banco, no audit log nem nos logs
-do processo.
+somente `notification_id`; antes do SMTP, o worker reconsulta notificação,
+usuário e membership ativa no mesmo tenant e escopo de empresa. Jobs de
+convite/recuperação também guardam somente o identificador do registro, e o
+worker deriva o token criptograficamente apenas ao montar o e-mail. O token
+puro não é gravado no banco, no audit log nem nos logs do processo.
 
 ## Upload seguro
 
@@ -132,7 +146,8 @@ arquivos fora do ambiente piloto.
 6. O mock produz prompt visual determinístico a partir do Brand Kit, preset e
    seleções do conteúdo.
 7. Conteúdo referencia estratégia, pauta e preset; texto e imagem podem ser
-   aprovados ou devolvidos separadamente.
+   aprovados ou devolvidos separadamente, e uma aprovação de imagem exige mídia
+   vinculada e visível por URL assinada.
 8. Notificações internas continuam sendo a fonte de verdade e os e-mails podem
    ser inspecionados na caixa local.
 9. Somente conteúdo aprovado/agendado recebe publicação manual; repetir a mesma

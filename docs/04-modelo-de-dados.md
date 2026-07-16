@@ -143,6 +143,12 @@ Campos: `id`, `organization_id`, `business_id` opcional, `email_normalized`, `ro
 
 O token puro existe apenas no envio; o banco guarda hash. Convites expirados ou revogados não podem ser reutilizados.
 
+### `password_reset_tokens`
+
+Solicitação de redefinição vinculada ao usuário e à organização usada para
+auditoria. Guarda somente hash, validade, consumo e revogação. A troca válida
+incrementa `users.session_version`, invalidando sessões emitidas antes dela.
+
 ### `user_sessions`
 
 Sessão revogável/rotacionável.
@@ -205,11 +211,23 @@ Campos: tenant/empresa, `name`, `objective`, `positioning`, funil, canais, pilar
 
 Estados sugeridos: `DRAFT`, `INTERNAL_REVIEW`, `CLIENT_REVIEW`, `APPROVED`, `ARCHIVED`. Estratégia aprovada é versionada ou copiada antes de alteração material.
 
+### `strategy_versions`
+
+Snapshot numerado e imutável da estratégia, incluindo direção, funil, canais,
+pilares, indicadores e snapshots de marca/catálogos. `content_strategies`
+mantém referências separadas para a versão atual e a aprovada.
+
 ### `content_plans`
 
 Calendário/plano de um período. Campos: tenant/empresa, `strategy_id`, `name`, `starts_on`, `ends_on`, frequência, status, autor e timestamps.
 
 Uma data sugerida no conteúdo é planejamento; só vira registro de publicação quando explicitamente marcado.
+
+### `calendar_entries`
+
+Pautas por plano com data/hora sugerida, canal, formato, objetivo, público,
+preset e vínculo opcional ao conteúdo gerado. Consultas por intervalo permitem
+as visões mensal e semanal sem duplicar registros.
 
 ### `content_items`
 
@@ -218,6 +236,7 @@ Raiz do agregado editorial.
 Campos:
 
 - `id`, `organization_id`, `business_id`, `content_plan_id` opcional;
+- estratégia, versão da estratégia, pauta e preset opcionais;
 - `status` oficial;
 - `current_version_id`;
 - `scheduled_for`, `published_at`, `publication_reference` manual;
@@ -247,6 +266,10 @@ Campos:
 
 Constraints: único `(content_item_id, version_number)`. Depois de submetida para revisão, a versão não é alterada; nova edição cria a próxima versão.
 
+`notes`, prompts, snapshots de contexto e identificadores de autoria são campos
+internos. Os DTOs do portal cliente omitem esses campos tanto no conteúdo quanto
+em presets aninhados; não basta escondê-los na interface.
+
 ### `media_assets` e `content_version_media`
 
 `media_assets` guarda tenant/empresa, tipo, storage provider, object key, MIME detectado, bytes, checksum, dimensões, origem, status de processamento, autor e timestamps.
@@ -263,13 +286,14 @@ Campos:
 
 - tenant/empresa, `content_item_id`, `content_version_id`;
 - `stage`: `INTERNAL` ou `CLIENT`;
+- `component`: `TEXT` ou `IMAGE`;
 - `status`: `PENDING`, `APPROVED`, `CHANGES_REQUESTED`, `REJECTED`, `CANCELLED`;
 - `requested_by_user_id`, `requested_at`, `assigned_membership_id` opcional;
 - `decided_by_user_id`, `decided_at`, `reason`, timestamps.
 
 Regras:
 
-- apenas uma solicitação pendente por conteúdo/versão/etapa;
+- apenas uma solicitação por versão/etapa/componente;
 - decisão é permitida somente a membership ativa com papel e empresa adequados;
 - `CHANGES_REQUESTED` e `REJECTED` exigem justificativa;
 - uma versão nova cancela pendências obsoletas da anterior, mas nunca apaga decisões;
@@ -314,6 +338,11 @@ Uma geração registra a versão usada; alterar um template cria versão, preser
 ### `jobs`
 
 Campos: tenant, `type`, `status`, payload mínimo, `idempotency_key`, `attempts`, `max_attempts`, `available_at`, `locked_at`, `locked_by`, `timeout_at`, resultado/erro sanitizado e timestamps.
+
+Para e-mails operacionais, o payload guarda somente `notification_id`. O worker
+reconsulta a notificação, o usuário e uma membership ativa na mesma organização
+e empresa antes de resolver o endereço e o corpo da mensagem. E-mail, corpo,
+comentário e conteúdo não são copiados para o payload do job.
 
 Estados: `PENDING`, `RUNNING`, `RETRY_SCHEDULED`, `SUCCEEDED`, `FAILED`, `CANCELLED`.
 
@@ -411,4 +440,3 @@ Seeds locais devem criar dados claramente fictícios:
 - nenhuma chave real, e-mail de cliente real ou informação clínica.
 
 Seeds são idempotentes e nunca executados automaticamente em produção.
-

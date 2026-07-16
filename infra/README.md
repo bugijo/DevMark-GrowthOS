@@ -1,5 +1,10 @@
 # Infraestrutura
 
-Este diretório reserva decisões e configurações operacionais versionadas do DevMark GrowthOS.
+Este diretório registra complementos operacionais do DevMark GrowthOS. A
+topologia local executável permanece definida no `docker-compose.yml` da raiz,
+para que `make setup` e a CI usem exatamente o mesmo contrato.
 
-No ciclo atual, o ambiente local está integralmente definido em `docker-compose.yml`; não há Terraform, Kubernetes ou configuração de cloud ativa. Novos artefatos de infraestrutura só entram aqui com documentação de ambiente, rollback, segredos externos ao Git e validação correspondente na CI.
+Não coloque segredos, volumes, dumps ou arquivos `.env` aqui. Manifestações de
+homologação/produção só devem ser adicionadas quando houver ambiente e processo
+de deploy aprovados; elas não podem ativar publicação social, anúncios ou
+WhatsApp real por padrão.

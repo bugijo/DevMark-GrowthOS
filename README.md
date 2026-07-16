@@ -2,7 +2,11 @@
 
 Central operacional multiempresa da DevMark IA para criar, revisar e aprovar conteúdo com apoio de inteligência artificial e controle humano.
 
-> **Status:** primeiro ciclo executável concluído. O fluxo vertical mínimo funciona de ponta a ponta com provider mock, banco real, frontend, backend, worker, notificações e audit log. Isso ainda **não** significa que a versão 1.0 esteja pronta.
+> **Status:** fundação concluída e Fase 2 da versão 1.0 implementada e validada
+> nesta branch. Identidade,
+> planejamento, visual, conteúdo, aprovação, e-mail local, publicação manual e
+> relatório funcionam com banco real e providers mock. A versão 1.0 só será
+> declarada pronta depois do gate de hardening e operação.
 
 ## Repositório e limites
 
@@ -21,14 +25,25 @@ Continuam fora da versão 1.0:
 
 - stack local com frontend, backend, worker, PostgreSQL e MinIO por Docker Compose;
 - login e logout com sessão em cookie `HttpOnly`, proteção CSRF e limite de tentativas;
-- organização, papéis básicos e isolamento de dados no backend;
+- organização, matriz completa dos oito papéis e isolamento de dados no backend;
+- convites por e-mail com token expirável e de uso único;
+- recuperação de senha sem enumeração de conta e invalidação de sessões antigas;
+- gestão de membros, papéis, escopo por cliente e suspensão de acesso;
 - cadastro de cliente e Brand Kit básico;
-- criação provisória de revisor cliente no ambiente atual;
+- serviços, públicos, objetivos e presets visuais completos por cliente;
+- biblioteca privada de mídia com upload validado e URL assinada curta;
+- estratégia mensal versionada, revisão interna, decisão do cliente e histórico;
+- planos e calendário editorial consultável por mês ou semana;
 - provider de texto mock determinístico, sem chave ou API paga;
-- criação de conteúdo e histórico de versões;
+- prompt visual mock determinístico a partir do Brand Kit e preset;
+- conteúdo ligado a estratégia, plano, pauta, preset, catálogos e mídia;
+- histórico imutável de versões textuais e visuais;
 - fluxo `DRAFT → INTERNAL_REVIEW → CLIENT_REVIEW → APPROVED`;
-- pedido de alteração com feedback, edição real e preservação da versão anterior;
+- aprovação independente de texto e imagem, com correção versionada após feedback;
 - notificações internas para cliente e equipe;
+- e-mails locais capturados pelo Mailpit, com worker, retries e idempotência;
+- registro manual de publicação, sem chamada a rede social;
+- relatório por período com dados persistidos e métricas indisponíveis explícitas;
 - audit log das etapas relevantes;
 - portal responsivo em português, incluindo aprovação em viewport móvel;
 - worker PostgreSQL com claim seguro, retries, backoff, timeout e handlers mock/console;
@@ -37,21 +52,15 @@ Continuam fora da versão 1.0:
 
 ## O que ainda falta para a versão 1.0
 
-O primeiro ciclo prova a fundação e a aprovação, mas o escopo obrigatório ainda possui lacunas:
+A Fase 2 cobre a operação solicitada, mas não substitui o gate final. Permanecem:
 
-- convite seguro, de uso único, e recuperação de senha;
-- gestão completa de memberships, papéis e onboarding;
-- serviços, públicos e objetivos como módulos completos;
-- presets visuais;
-- estratégia e calendário editorial;
-- geração de ideias, roteiros e variações além do fluxo mock mínimo;
-- imagens por template/híbrido, upload seguro e biblioteca de mídia;
-- configuração administrativa de providers e Hermes opcional;
-- entrega real de e-mail, preferências, lembretes e resumos; hoje há somente console/mock;
-- registro manual de publicação;
-- relatórios básicos e Centro de Integrações;
-- controles operacionais completos de LGPD, backup/restauração e hardening final;
-- fechamento dos 25 critérios de aceite da versão 1.0.
+- checklist consolidado de onboarding e comparação visual de versões;
+- preferências, lembretes e resumos de notificação;
+- painel administrativo de providers e Hermes opcional;
+- controles operacionais de LGPD para exportação/exclusão;
+- bloqueio automatizado de revisão profissional para conteúdo sensível;
+- ensaio documentado de backup/restauração, desempenho e acessibilidade ampliada;
+- evidência final dos 25 critérios, instalação limpa e decisão de release.
 
 Consulte o [backlog](docs/backlog/versao-1.md) e os [milestones](docs/milestones/versao-1.md) para a sequência restante.
 
@@ -61,7 +70,8 @@ Consulte o [backlog](docs/backlog/versao-1.md) e os [milestones](docs/milestones
 - **Backend:** FastAPI, Python, Pydantic, SQLAlchemy e Alembic.
 - **Banco:** PostgreSQL com migrações e vínculo explícito à organização.
 - **Worker:** Python e tabela de jobs PostgreSQL com `FOR UPDATE SKIP LOCKED`.
-- **Arquivos:** contrato S3 compatível e MinIO local; o upload de produto ainda será implementado.
+- **Arquivos:** storage S3 compatível e MinIO local, privado, com upload seguro e URL assinada.
+- **E-mail local:** SMTP capturado no Mailpit, sem entrega para a internet.
 - **Providers:** abstrações substituíveis, com mock como padrão e sem integração paga.
 - **Qualidade:** Ruff, mypy, ESLint, TypeScript, Vitest, pytest e Playwright.
 
@@ -125,6 +135,7 @@ Endereços locais:
 - API health: `http://localhost:8000/api/v1/health`;
 - frontend health: `http://localhost:3000/api/health`;
 - console do MinIO: `http://localhost:9001`.
+- caixa de e-mail local: `http://localhost:8025`.
 
 Para acompanhar logs ou encerrar:
 
@@ -151,13 +162,18 @@ Nunca reutilize essas senhas em homologação, produção ou conta real.
 1. Execute `make setup` e abra `http://localhost:3000`.
 2. Entre como agência com `admin@devmark.local`.
 3. Confira a organização e o cliente fictício **Clínica Veterinária Demo**. O cadastro de novos clientes e a edição do Brand Kit também estão disponíveis.
-4. No cliente demo, crie um conteúdo com o provider mock.
-5. Envie o conteúdo para revisão interna e depois para o cliente.
-6. Saia e entre como `client@clinicafeliz.local`.
-7. Abra a pendência e aprove ou peça alteração.
-8. Entre novamente como agência e confira a decisão em Notificações e Logs.
+4. Confira os catálogos, o preset, a estratégia e o calendário fictícios do seed.
+5. Envie um convite em **Equipe** e abra a mensagem em `http://localhost:8025`.
+6. Faça upload de uma imagem em **Mídia** e crie um conteúdo vinculado ao planejamento.
+7. Envie o conteúdo para revisão interna e depois para o cliente.
+8. Saia e entre como `client@clinicafeliz.local`.
+9. Abra a pendência e decida texto e imagem separadamente.
+10. Entre novamente como agência, registre a publicação manual e abra o relatório.
+11. Confira notificações, e-mails locais e registros de auditoria.
 
-O cliente demo já possui revisor vinculado. Para testar rapidamente a aprovação, use esse cliente; o fluxo atual de criação direta de revisor existe somente em `development/test`, fica bloqueado em produção e será substituído por convite seguro.
+O cliente demo já possui revisor vinculado para o caminho rápido. Convites são o
+fluxo normal para novos acessos; a criação direta de revisor continua disponível
+somente como compatibilidade de desenvolvimento/teste e é bloqueada em produção.
 
 ## Qualidade e testes
 
@@ -182,32 +198,38 @@ O E2E usa somente Docker e pode ser executado independentemente da instalação 
 make e2e
 ```
 
-Resultados verificados no primeiro ciclo:
+Resultados verificados no gate final da Fase 2:
 
 | Área | Resultado |
 |---|---:|
-| Backend | 46 testes aprovados |
-| Worker | 7 testes aprovados |
-| Frontend | 15 testes aprovados |
-| E2E | 3 cenários aprovados |
+| Backend | 136 testes aprovados |
+| Worker | 28 testes aprovados |
+| Frontend | 30 testes aprovados |
+| E2E | 7 cenários aprovados |
 
-Ruff, mypy, ESLint, checagem TypeScript, builds Docker/Next.js e auditorias de dependências executadas passaram.
+Ruff, mypy, ESLint, checagem TypeScript, builds Docker/Next.js e auditorias de
+dependências executadas passaram. As migrations foram validadas de `base` até
+`0008`, com downgrade/upgrade em banco isolado, atualização de uma base da
+fundação e seed executado duas vezes sem duplicação.
 
 ## Providers e segurança
 
-O ambiente local força texto/imagem em modo mock, Hermes desligado e e-mail em console. Nenhuma publicação, mensagem ou gasto externo é realizado.
+O ambiente local força texto/imagem em modo mock, Hermes desligado e e-mail no
+Mailpit local. Nenhuma publicação, mensagem ou gasto externo é realizado.
 
 - autorização e isolamento são validados no backend;
 - senhas usam biblioteca mantida e não são armazenadas em claro;
 - sessão, CSRF e escopo da organização são verificados nas mutações;
-- o portal não recebe rascunhos, revisão interna ou notas internas da marca;
+- o portal não recebe rascunhos, revisão interna, notas, prompts ou snapshots internos;
 - configuração de produção insegura e seed demo em produção falham no início;
-- jobs carregam organização e usam lease transacional;
+- jobs carregam organização, usam lease transacional e revalidam o destinatário
+  ativo antes do SMTP;
 - segredos ficam fora do Git;
 - dados demo não contêm informação clínica real;
 - conteúdo veterinário ou de saúde continua sujeito a revisão profissional.
 
-Providers remotos, uploads e canais reais só podem ser adicionados com adaptador, autorização, isolamento, logs seguros e testes.
+Providers remotos e canais reais só podem ser adicionados com adaptador,
+autorização, isolamento, logs seguros e testes.
 
 ## Documentação
 

@@ -4,7 +4,10 @@
 
 O fluxo de aprovação garante que nenhum conteúdo saia do controle da equipe e do cliente. A versão em análise, a decisão, o autor e o momento da ação devem ser inequívocos e auditáveis.
 
-No primeiro fluxo vertical, são obrigatórios revisão interna, envio ao cliente, aprovação pelo cliente, notificação interna e audit log. Comentários, pedido de alteração, e-mail e preferências completas evoluem dentro do escopo da versão 1.0.
+O primeiro fluxo vertical entregou revisão interna, decisão do cliente,
+notificação interna e audit log. A Fase 2 acrescenta decisão independente de
+texto/imagem e e-mail pelo Mailpit local. Preferências e resumos permanecem para
+uma etapa posterior da versão 1.0.
 
 ## Estados oficiais do conteúdo
 
@@ -43,6 +46,7 @@ A decisão sempre aponta para um `content_item` e para uma `content_version` esp
 
 - `organization_id` e `business_id`;
 - versão avaliada;
+- componente avaliado (`TEXT` ou `IMAGE`);
 - decisão (`APPROVED`, `CHANGES_REQUESTED` ou `REJECTED`, quando adotada);
 - autor e papel no momento da decisão;
 - data e hora;
@@ -50,7 +54,12 @@ A decisão sempre aponta para um `content_item` e para uma `content_version` esp
 - snapshot ou hash do conteúdo avaliado;
 - origem da ação e identificador de correlação.
 
-Após o envio ao cliente, aquela versão fica imutável. Qualquer alteração cria nova versão e invalida a decisão pendente anterior de forma explícita. A API deve evitar decisões duplicadas com transação, controle de concorrência e chave de idempotência quando necessário.
+Após o envio ao cliente, aquela versão fica imutável. Texto e imagem possuem
+decisões próprias; o conteúdo só chega a `APPROVED` quando os dois componentes
+da versão atual estão aprovados. Qualquer alteração cria nova versão e invalida
+a decisão pendente anterior de forma explícita. A API evita decisões duplicadas
+com transação, controle de concorrência e unicidade por
+`(versão, etapa, componente)`.
 
 ## Fluxo de revisão
 
@@ -72,7 +81,7 @@ Após o envio ao cliente, aquela versão fica imutável. Qualquer alteração cr
 ### Canais
 
 - **Interno:** obrigatório e persistido no banco, com contador de não lidas.
-- **E-mail:** previsto na versão 1.0 por adaptador; em desenvolvimento pode usar caixa local ou provider mock.
+- **E-mail:** executado pelo worker; desenvolvimento usa SMTP local capturado no Mailpit.
 - **WhatsApp, push, Telegram e Slack:** futuros e desativados.
 
 ### Eventos mínimos
@@ -95,6 +104,8 @@ O alvo da versão 1.0 permite aviso imediato, resumo diário, resumo semanal ou 
 - Criar a notificação na mesma transação lógica da mudança de estado ou por padrão outbox, evitando estado alterado sem evento registrado.
 - Processar e-mail no worker, com tentativas limitadas, atraso crescente e status visível.
 - Não repetir e-mail por reprocessamento do mesmo evento; usar chave idempotente.
+- Persistir no job somente a referência da notificação; o worker revalida
+  organização, empresa, usuário e membership ativa antes de resolver o e-mail.
 - Falha de e-mail não desfaz uma aprovação válida, mas gera alerta interno e possibilidade de nova tentativa.
 - Não incluir segredo, conteúdo clínico, token de sessão ou dado excessivo no e-mail.
 - Links por e-mail direcionam ao login; tokens de convite ou recuperação têm uso único e expiração.
@@ -113,7 +124,12 @@ Registrar, no mínimo:
 - registro manual de publicação;
 - mudança de responsável ou permissão.
 
-O audit log é append-only para usuários comuns. Não deve armazenar senha, token, segredo ou corpo completo desnecessário. Dados sensíveis devem ser mascarados.
+O audit log é append-only para usuários comuns e respeita capacidades: agência
+consulta a organização, papéis internos veem recursos autorizados e papéis de
+cliente ficam limitados à própria empresa; `VIEWER` não acessa esse histórico.
+Não deve armazenar senha, token, segredo, URL assinada ou corpo completo
+desnecessário. Comentários livres ficam na decisão, não são duplicados nos
+metadados do audit log.
 
 ## Política de autonomia
 

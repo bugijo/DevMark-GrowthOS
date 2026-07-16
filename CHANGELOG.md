@@ -24,6 +24,18 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - CI para Ruff, mypy, pytest, ESLint, TypeScript, Vitest, build, Compose e E2E obrigatório;
 - fluxo Playwright com agência e cliente reais do seed, aprovação, notificações, auditoria e verificação móvel;
 - criação de revisão pela agência com feedback do cliente e alteração real de título, legenda ou CTA.
+- convites de organização e recuperação de senha com token expirável, hash e uso único;
+- gestão de membros e matriz central de capacidades para os oito papéis da versão 1.0;
+- serviços, públicos, objetivos e presets visuais completos por cliente;
+- biblioteca privada de mídia com upload de imagem validado e URLs assinadas;
+- estratégia mensal versionada, revisão, aprovação, planos e calendário editorial;
+- geração determinística de prompts visuais com provider mock;
+- conteúdo ligado a estratégia, pauta, preset, catálogos e mídia;
+- aprovações independentes de texto e imagem e revisão visual imutável pelo designer;
+- Mailpit local e jobs SMTP para convites, recuperação, estratégia e conteúdo;
+- registro manual e idempotente de publicação, sem integração social;
+- relatório por período com exportação simples e indicação das métricas indisponíveis;
+- seed ampliado com dados fictícios da jornada da Fase 2.
 
 ### Corrigido
 
@@ -49,16 +61,49 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - setup e E2E passaram a exigir também o healthcheck do worker e proteger `.env` local com modo restrito quando suportado.
 - provisionamento direto de revisor ficou restrito a desenvolvimento/teste e trata duplicidade concorrente sem erro interno.
 - dashboard móvel deixou de expandir horizontalmente quando conteúdos têm títulos longos.
+- troca de senha passou a revogar sessões anteriores por versão de sessão;
+- vínculos de conteúdo e arquivos agora validam organização e cliente em todas as referências;
+- decisões parciais não aprovam o conteúdo até texto e imagem estarem aprovados;
+- confirmação repetida de publicação manual não duplica evento nem altera o registro original.
+- portal cliente deixou de receber prompts, snapshots, notas e IDs internos;
+- jobs de notificação passaram a guardar somente a referência e revalidar o
+  acesso do destinatário antes do SMTP;
+- `DESIGNER` ficou restrito a preset, mídia, prompt e revisão visual, sem geração
+  textual nem edição integral do Brand Kit;
+- mudanças de papel, escopo ou suspensão revogam definitivamente sessões antigas;
+- capacidades de audit log e notificação passaram a ser aplicadas nas próprias rotas;
+- URL assinada de mídia passou a gerar evento auditável sem persistir URL ou chave;
+- conteúdo ligado diretamente a estratégia preserva a versão exata, e imagem
+  sem mídia vinculada não pode ser aprovada.
+- endpoints legados de decisão conjunta foram removidos; texto e imagem agora
+  passam exclusivamente pelos contratos granulares;
+- o seed passou a gravar e reparar uma imagem fictícia real no storage privado,
+  mantendo o vínculo visual idempotente;
+- configuração local deixou de anunciar variáveis sem efeito e separou a porta
+  SMTP interna da porta publicada do Mailpit;
+- o E2E passou a exigir que a imagem privada tenha sido efetivamente carregada,
+  além de verificar a presença do elemento visual.
+- aprovações visuais legadas sem mídia deixaram de herdar um estado aprovado;
+  a migration cancela o estado inválido, devolve o conteúdo para revisão e
+  registra a normalização no audit log;
+- a área de equipe deixou de criar uma coluna móvel implícita maior que 360 px;
+- localizadores e sincronização do E2E foram alinhados aos labels acessíveis e
+  ao carregamento assíncrono dos vínculos de mídia.
 
 ### Validação
 
-- 46 testes do backend aprovados;
-- 7 testes do worker aprovados;
-- 15 testes do frontend aprovados;
-- 3 cenários E2E aprovados, incluindo o fluxo completo pela interface;
+- 136 testes do backend aprovados;
+- 28 testes do worker aprovados;
+- 30 testes do frontend aprovados;
+- 7 cenários E2E aprovados, incluindo identidade, fluxo editorial completo e
+  verificações em viewport de 360 px;
 - Ruff, mypy, ESLint, TypeScript e builds aprovados;
 - auditorias de dependências executadas sem vulnerabilidade pendente no gate adotado;
 - Docker Compose validado com serviços de aplicação, banco, storage e profile de teste.
+- migrations validadas de `base` a `0008`, com ciclo completo em banco isolado,
+  compatibilidade de dados legados e ausência de diferença para os modelos;
+- seed fictício executado duas vezes sem duplicar registros ou perder o objeto
+  de mídia privado.
 
 ### Segurança
 
@@ -69,14 +114,21 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - produção rejeita segredo conhecido, cookie inseguro, origem CORS curinga, `SameSite` inválido e seed demo;
 - proibição de segredos no repositório e de uso cruzado de dados entre clientes;
 - revisão profissional para conteúdo veterinário ou de saúde preservada como requisito; o bloqueio automatizado completo ainda é pendente.
+- tokens puros de convite e recuperação não são persistidos nem enviados em query string;
+- arquivos são normalizados para remover metadados, recebem chave aleatória por tenant e permanecem privados;
+- e-mails e logs omitem senha, token, prompt, legenda e comentário de aprovação.
+- e-mails operacionais são resolvidos por notificação e membership ativa no worker.
+- criação de notificação e tentativa de entrega por e-mail possuem eventos de
+  auditoria próprios, com metadados mínimos e sem corpo ou destinatário.
 
 ### Limites conhecidos
 
 - a versão 1.0 não publica automaticamente em redes sociais;
 - Meta Ads, Google Ads, WhatsApp oficial e gasto automático permanecem fora do escopo;
 - providers externos e Hermes são opcionais; o funcionamento local depende apenas do provider mock;
-- convite seguro, recuperação de senha, presets, estratégia, calendário, imagens/upload, e-mail real, publicação manual e relatórios ainda não foram entregues;
-- o primeiro ciclo executável não representa a conclusão da versão 1.0.
+- preferências e resumos de notificação, painel de providers/Hermes e Centro de Integrações ainda não foram entregues;
+- controles operacionais de LGPD, bloqueio profissional automatizado, backup/restauração e hardening final permanecem;
+- a conclusão da Fase 2 não representa, sozinha, a aprovação da release 1.0.
 
 <!-- Ao criar uma versão, mova os itens de "Não lançado" para uma seção como:
 ## [0.1.0] - AAAA-MM-DD
