@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from growthos.client_ip import request_client_ip
 from growthos.config import Settings, get_settings
 from growthos.database import get_session
 from growthos.dependencies import (
@@ -39,7 +40,7 @@ def login(
     settings: Settings = Depends(get_settings),
 ) -> AuthResponse:
     normalized_email = normalize_email(payload.email)
-    client_ip = request.client.host if request.client is not None else "unknown"
+    client_ip = request_client_ip(request, settings)
     identity_rate_limit_key = f"identity:{normalized_email}"
     origin_rate_limit_key = f"origin:{client_ip}"
     rate_limits = (

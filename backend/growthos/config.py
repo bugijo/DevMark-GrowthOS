@@ -4,6 +4,8 @@ from typing import Self
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from growthos.client_ip import parse_trusted_proxy_cidrs
+
 
 class UnsafeConfigurationError(RuntimeError):
     """Raised without echoing secret values when runtime configuration is unsafe."""
@@ -50,6 +52,8 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = False
     session_cookie_same_site: str = "lax"
     allowed_origins: str = "http://localhost:3000"
+    trusted_proxy_cidrs: str = ""
+    log_level: str = "INFO"
     ai_provider: str = "mock"
     mock_provider_seed: str = "devmark-growthos"
     storage_provider: str = "minio"
@@ -93,6 +97,23 @@ class Settings(BaseSettings):
         normalized = value.strip().casefold()
         if normalized not in {"lax", "strict", "none"}:
             raise ValueError("SESSION_COOKIE_SAME_SITE deve ser lax, strict ou none")
+        return normalized
+
+    @field_validator("trusted_proxy_cidrs")
+    @classmethod
+    def validate_trusted_proxy_cidrs(cls, value: str) -> str:
+        try:
+            parse_trusted_proxy_cidrs(value)
+        except ValueError as exc:
+            raise ValueError("TRUSTED_PROXY_CIDRS contém uma rede inválida") from exc
+        return value
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, value: str) -> str:
+        normalized = value.upper()
+        if normalized not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise ValueError("LOG_LEVEL deve ser DEBUG, INFO, WARNING, ERROR ou CRITICAL")
         return normalized
 
     @model_validator(mode="after")
