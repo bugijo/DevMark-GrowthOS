@@ -11,10 +11,12 @@ from growthos.dependencies import (
     AuthContext,
     get_current_context,
     get_scoped_business,
+    require_capability,
     require_csrf,
     require_role,
 )
 from growthos.domain.enums import BUSINESS_SCOPED_ROLES, Role
+from growthos.domain.permissions import Capability, has_capability
 from growthos.models import BrandProfile, Business, Membership, User
 from growthos.schemas import (
     BrandProfileRead,
@@ -49,6 +51,7 @@ def list_businesses(
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> list[Business]:
+    require_capability(context, Capability.BUSINESS_VIEW)
     query = select(Business).where(
         Business.organization_id == context.organization.id,
         Business.is_active.is_(True),
@@ -98,6 +101,7 @@ def get_business(
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> Business:
+    require_capability(context, Capability.BUSINESS_VIEW)
     return get_scoped_business(session, context, business_id)
 
 
@@ -169,7 +173,7 @@ def update_business(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
 ) -> Business:
-    require_role(context, *_AGENCY_WRITERS)
+    require_capability(context, Capability.BUSINESS_MANAGE)
     business = get_scoped_business(session, context, business_id)
     changes = payload.model_dump(exclude_unset=True)
     if "name" in changes:
@@ -223,6 +227,7 @@ def get_brand_profile(
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> BrandProfileRead:
+    require_capability(context, Capability.BRAND_VIEW)
     business = get_scoped_business(session, context, business_id)
     profile = session.scalar(
         select(BrandProfile).where(
@@ -242,7 +247,11 @@ def upsert_brand_profile(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
 ) -> BrandProfile:
-    require_role(context, *_AGENCY_WRITERS)
+    if not (
+        has_capability(context.membership.role, Capability.BRAND_MANAGE)
+        or has_capability(context.membership.role, Capability.BRAND_VISUAL_MANAGE)
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Você não pode realizar esta ação")
     business = get_scoped_business(session, context, business_id)
     profile = session.scalar(
         select(BrandProfile).where(
