@@ -253,6 +253,7 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
   test.setTimeout(90_000);
   const objective = `Fluxo UI E2E ${crypto.randomUUID()}: orientar sobre consulta preventiva`;
   const setupAdmin = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
+  let setupBusinessId: string | undefined;
   let setupMedia: MediaAsset | undefined;
   try {
     const businessesResponse = await setupAdmin.context.get("businesses");
@@ -262,6 +263,7 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
       (item) => item.name === "Clínica Veterinária Demo",
     );
     expect(business).toBeTruthy();
+    setupBusinessId = business!.id;
     const mediaResponse = await setupAdmin.context.post(
       `businesses/${business!.id}/media`,
       {
@@ -281,6 +283,7 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
   } finally {
     await setupAdmin.context.dispose();
   }
+  expect(setupBusinessId).toBeTruthy();
   expect(setupMedia).toBeTruthy();
 
   await loginThroughUi(page, ADMIN_EMAIL, ADMIN_PASSWORD);
@@ -289,7 +292,7 @@ test("fluxo vertical completo funciona pela interface da agência e do cliente",
   await page.getByRole("link", { name: "Conteúdos", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Conteúdos" })).toBeVisible();
   await expect(page.getByText("Carregando conteúdos…", { exact: true })).toBeHidden();
-  await page.getByLabel(/^Cliente/).selectOption({ label: "Clínica Veterinária Demo" });
+  await expect(page.getByLabel(/^Cliente/)).toHaveValue(setupBusinessId!);
   await page.getByLabel("Imagem principal").selectOption(setupMedia!.id);
   await page.getByLabel("Objetivo do conteúdo").fill(objective);
 
