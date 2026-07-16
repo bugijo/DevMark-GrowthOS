@@ -70,6 +70,11 @@ Também passaram lint, tipos, build das 20 rotas, Compose, auditorias de
 dependências, migrations de `base` a `0008`, compatibilidade da fundação e seed
 idempotente. Isso valida a fase, mas não antecipa o aceite de release de `M7`.
 
+A Fase 2 foi integrada à `main` pelo PR #2 em 2026-07-16. Após o squash, a
+stack foi reconstruída, o banco confirmou `0008_legacy_visual_approvals` como
+head e `make status`, `make test`, `make e2e` e a CI passaram novamente. Essa
+integração não fecha os aceites ainda visíveis de `M3`, `M4`, `M6` e `M7`.
+
 Comandos oficiais:
 
 ```bash

@@ -104,6 +104,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
   compatibilidade de dados legados e ausência de diferença para os modelos;
 - seed fictício executado duas vezes sem duplicar registros ou perder o objeto
   de mídia privado.
+- Fase 2 integrada à `main` por squash em 2026-07-16; stack, migration `0008`,
+  `make status`, `make test`, `make e2e` e CI foram revalidados após o merge.
 
 ### Segurança
 

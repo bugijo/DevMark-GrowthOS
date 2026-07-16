@@ -2,11 +2,11 @@
 
 Central operacional multiempresa da DevMark IA para criar, revisar e aprovar conteúdo com apoio de inteligência artificial e controle humano.
 
-> **Status:** fundação concluída e Fase 2 da versão 1.0 implementada e validada
-> nesta branch. Identidade,
-> planejamento, visual, conteúdo, aprovação, e-mail local, publicação manual e
-> relatório funcionam com banco real e providers mock. A versão 1.0 só será
-> declarada pronta depois do gate de hardening e operação.
+> **Status:** fundação e Fase 2 da versão 1.0 implementadas, validadas e
+> integradas à `main`. Identidade, planejamento, visual, conteúdo, aprovação,
+> e-mail local, publicação manual e relatório funcionam com banco real e
+> providers mock. A versão 1.0 só será declarada pronta depois do gate de
+> hardening e operação.
 
 ## Repositório e limites
 

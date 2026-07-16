@@ -20,7 +20,7 @@ A versão 1.0 também precisa continuar utilizável por clientes de API e por te
 6. O backend validará a membership e o contexto da organização a cada requisição. Papel e organização não serão aceitos como autoridade apenas por estarem no token.
 7. Logout removerá os cookies de sessão e CSRF. Expiração ou token inválido produzirá resposta `401` sem revelar detalhes internos.
 8. Login terá limites independentes por identidade e origem. O adaptador local mantém memória limitada e usa um limiar de origem maior porque o proxy do frontend pode ser compartilhado; produção com múltiplas réplicas exige armazenamento compartilhado e configuração explícita da cadeia de proxies confiáveis.
-9. Recuperação de senha, rotação de sessão, revogação central e MFA permanecem no backlog da versão 1.0 e devem usar tokens de uso único e bibliotecas mantidas.
+9. Recuperação de senha e revogação por versão de sessão estão implementadas com token de uso único e estado persistido. MFA permanece no backlog da versão 1.0 e deverá usar bibliotecas mantidas e política própria.
 
 ## Consequências
 

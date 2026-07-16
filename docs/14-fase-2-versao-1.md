@@ -1,5 +1,10 @@
 # Fase 2 da versão 1.0
 
+**Status:** integrada à `main` em 2026-07-16 pelo squash
+`3be89a7f8d62eecb7b29bdd665698ed2fbf2903c`, com stack, migrations, testes e CI
+revalidados após o merge. Os critérios desta fase têm evidência, mas a release
+1.0 ainda depende dos aceites remanescentes de `M6` e do hardening de `M7`.
+
 ## Objetivo
 
 Completar o fluxo da clínica piloto sobre a fundação já aprovada, sem mudar a
