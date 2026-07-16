@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Literal, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -143,6 +143,8 @@ def save_onboarding_step(
             "O onboarding foi atualizado em outra sessão. Recarregue antes de continuar."
         )
 
+    was_completed = onboarding.status == "COMPLETED"
+    previous_step_data = dict(onboarding.step_data).get(str(payload.step), {})
     stored_data = _apply_step(
         session,
         organization_id=organization_id,
@@ -150,16 +152,46 @@ def save_onboarding_step(
         business=business,
         payload=payload,
     )
+    _archive_removed_onboarding_catalog_items(
+        session,
+        organization_id=organization_id,
+        business_id=business.id,
+        step=payload.step,
+        previous_step_data=previous_step_data,
+        stored_data=stored_data,
+    )
     step_data = dict(onboarding.step_data)
+    if was_completed and payload.step != 15:
+        # A confirmação final descreve exatamente os dados revisados. Qualquer
+        # alteração posterior precisa de uma nova confirmação humana.
+        step_data.pop("15", None)
     step_data[str(payload.step)] = stored_data
     completed_steps = set(onboarding.completed_steps)
+    if was_completed and payload.step != 15:
+        completed_steps.discard(15)
     completed_steps.add(payload.step)
     onboarding.step_data = step_data
     onboarding.completed_steps = sorted(completed_steps)
     onboarding.current_step = max(onboarding.current_step, min(15, payload.step + 1))
     onboarding.updated_by_user_id = actor_user_id
     onboarding.revision += 1
-    if onboarding.status != "COMPLETED":
+    if was_completed:
+        onboarding.status = "IN_PROGRESS"
+        onboarding.completed_by_user_id = None
+        onboarding.completed_at = None
+        business.onboarding_status = "IN_PROGRESS"
+        business.onboarding_completed_at = None
+        add_audit_log(
+            session,
+            organization_id=organization_id,
+            business_id=business.id,
+            actor_user_id=actor_user_id,
+            action="onboarding.reopened",
+            resource_type="business_onboarding",
+            resource_id=onboarding.id,
+            details={"step": payload.step, "revision": onboarding.revision},
+        )
+    else:
         onboarding.status = "IN_PROGRESS"
         business.onboarding_status = "IN_PROGRESS"
     session.flush()
@@ -236,7 +268,7 @@ def serialize_onboarding(
         id=onboarding.id,
         organization_id=onboarding.organization_id,
         business_id=onboarding.business_id,
-        status=onboarding.status,
+        status=cast(Literal["IN_PROGRESS", "COMPLETED"], onboarding.status),
         current_step=onboarding.current_step,
         completed_steps=completed_steps,
         missing_steps=_missing_steps(session, onboarding, business, summary=summary),
@@ -553,6 +585,51 @@ def _upsert_objectives(
         session.flush()
         result.append(item.id)
     return result
+
+
+def _archive_removed_onboarding_catalog_items(
+    session: Session,
+    *,
+    organization_id: UUID,
+    business_id: UUID,
+    step: int,
+    previous_step_data: dict[str, Any],
+    stored_data: dict[str, Any],
+) -> None:
+    """Arquiva somente itens que esta etapa já gerenciava e agora omitiu."""
+
+    catalog_by_step: dict[int, tuple[Any, str]] = {
+        3: (Service, "services"),
+        4: (AudienceSegment, "audiences"),
+        5: (MarketingObjective, "objectives"),
+    }
+    catalog = catalog_by_step.get(step)
+    if catalog is None:
+        return
+    model, collection_key = catalog
+    previous_ids = _catalog_ids(previous_step_data.get(collection_key))
+    current_ids = _catalog_ids(stored_data.get(collection_key))
+    removed_ids = previous_ids.difference(current_ids)
+    if not removed_ids:
+        return
+
+    removed_items = session.scalars(
+        select(model).where(
+            model.id.in_(removed_ids),
+            model.organization_id == organization_id,
+            model.business_id == business_id,
+        )
+    ).all()
+    archived_at = utcnow()
+    for item in removed_items:
+        item.is_active = False
+        item.archived_at = archived_at
+
+
+def _catalog_ids(value: Any) -> set[UUID]:
+    if not isinstance(value, list):
+        return set()
+    return set(_uuid_values([item.get("id") for item in value if isinstance(item, dict)]))
 
 
 def _catalog_item(

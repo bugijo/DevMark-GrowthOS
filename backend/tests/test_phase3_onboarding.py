@@ -265,6 +265,152 @@ def test_onboarding_persists_real_data_resumes_and_completes_idempotently(
         assert {"onboarding.started", "onboarding.step_saved", "onboarding.completed"} <= actions
 
 
+def test_editing_completed_onboarding_requires_a_new_final_review(
+    client: TestClient,
+) -> None:
+    admin = create_identity(
+        slug="phase3-onboarding-reopen",
+        email="onboarding-reopen-admin@example.test",
+        role=Role.AGENCY_ADMIN,
+        business_name="Cliente concluído",
+    )
+    reviewer = add_user_to_identity(
+        admin,
+        email="onboarding-reopen-reviewer@example.test",
+        role=Role.CLIENT_REVIEWER,
+    )
+    logo_id = create_ready_media(admin, display_name="logo-reopen.png")
+    reference_id = create_ready_media(admin, display_name="reference-reopen.png")
+    csrf, ready = _complete_all_steps(client, admin, reviewer, logo_id, reference_id)
+    response = client.post(
+        f"/api/v1/businesses/{admin.business_id}/onboarding/complete",
+        headers=csrf_headers(csrf),
+        json={"revision": ready["revision"]},
+    )
+    assert response.status_code == 200, response.text
+    completed = response.json()
+
+    reopened = _save(
+        client,
+        admin,
+        csrf,
+        completed["revision"],
+        2,
+        {"segment": "Hospital veterinário fictício"},
+    )
+
+    assert reopened["status"] == "IN_PROGRESS"
+    assert reopened["completed_at"] is None
+    assert reopened["completed_by_user_id"] is None
+    assert 15 not in reopened["completed_steps"]
+    assert reopened["missing_steps"] == [15]
+    assert "15" not in reopened["step_data"]
+
+    premature = client.post(
+        f"/api/v1/businesses/{admin.business_id}/onboarding/complete",
+        headers=csrf_headers(csrf),
+        json={"revision": reopened["revision"]},
+    )
+    assert premature.status_code == 409
+
+    reviewed = _save(
+        client,
+        admin,
+        csrf,
+        reopened["revision"],
+        15,
+        {"confirmed": True, "notes": "Alteração revisada novamente."},
+    )
+    concluded_again = client.post(
+        f"/api/v1/businesses/{admin.business_id}/onboarding/complete",
+        headers=csrf_headers(csrf),
+        json={"revision": reviewed["revision"]},
+    )
+    assert concluded_again.status_code == 200, concluded_again.text
+    assert concluded_again.json()["status"] == "COMPLETED"
+
+    with get_session_factory()() as session:
+        business = session.get(Business, admin.business_id)
+        assert business is not None
+        assert business.onboarding_status == "COMPLETED"
+        assert business.onboarding_completed_at is not None
+        reopened_events = session.scalars(
+            select(AuditLog).where(
+                AuditLog.business_id == admin.business_id,
+                AuditLog.action == "onboarding.reopened",
+            )
+        ).all()
+        assert len(reopened_events) == 1
+        assert reopened_events[0].details["step"] == 2
+
+
+def test_onboarding_archives_only_managed_catalog_items_omitted_by_an_edit(
+    client: TestClient,
+) -> None:
+    admin = create_identity(
+        slug="phase3-onboarding-catalog-removal",
+        email="onboarding-catalog-removal@example.test",
+        role=Role.AGENCY_ADMIN,
+        business_name="Cliente com catálogo",
+    )
+    csrf = login(client, admin)
+    state = _start(client, admin, csrf)
+    state = _save(
+        client,
+        admin,
+        csrf,
+        state["revision"],
+        3,
+        {
+            "services": [
+                {"name": "Consulta", "description": "A", "category": "A"},
+                {"name": "Vacinação", "description": "B", "category": "B"},
+            ]
+        },
+    )
+    first, removed = state["step_data"]["3"]["services"]
+    with get_session_factory()() as session:
+        unmanaged = Service(
+            organization_id=admin.organization_id,
+            business_id=admin.business_id,
+            name="Serviço criado fora do onboarding",
+        )
+        session.add(unmanaged)
+        session.commit()
+        unmanaged_id = unmanaged.id
+
+    edited = _save(
+        client,
+        admin,
+        csrf,
+        state["revision"],
+        3,
+        {
+            "services": [
+                {
+                    "id": first["id"],
+                    "name": first["name"],
+                    "description": "Atualizada",
+                    "category": first["category"],
+                }
+            ]
+        },
+    )
+
+    assert [item["id"] for item in edited["step_data"]["3"]["services"]] == [first["id"]]
+    assert removed["id"] not in edited["summary"]["service_ids"]
+    assert str(unmanaged_id) in edited["summary"]["service_ids"]
+    with get_session_factory()() as session:
+        removed_service = session.get(Service, UUID(removed["id"]))
+        unmanaged_service = session.get(Service, unmanaged_id)
+        assert removed_service is not None
+        assert removed_service.is_active is False
+        assert removed_service.archived_at is not None
+        assert unmanaged_service is not None
+        assert unmanaged_service.is_active is True
+        assert unmanaged_service.archived_at is None
+
+
 def test_onboarding_validates_payload_and_optimistic_revision(client: TestClient) -> None:
     admin = create_identity(
         slug="phase3-onboarding-validation",
