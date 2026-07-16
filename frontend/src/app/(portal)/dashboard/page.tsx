@@ -146,7 +146,7 @@ export default function DashboardPage() {
             }
           />
         ) : (
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {recent.map((item) => (
               <Card key={item.id}>
                 <div className="flex items-start justify-between gap-3">
