@@ -36,6 +36,12 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - registro manual e idempotente de publicação, sem integração social;
 - relatório por período com exportação simples e indicação das métricas indisponíveis;
 - seed ampliado com dados fictícios da jornada da Fase 2.
+- onboarding persistido de 15 etapas e preferências/resumos de notificação;
+- comparação de versões de conteúdo, imagem e estratégia com metadados e controles acessíveis;
+- painel organizacional de providers com mock obrigatório, Hermes opcional, fallback e teste seguro;
+- classificação sensível e revisão profissional obrigatória antes da aprovação;
+- controles LGPD para consentimento, finalidade, retenção, exportação, exclusão e anonimização;
+- migrations `0009` a `0013`, diagnóstico, backup verificável, restauração isolada e medição de desempenho.
 
 ### Corrigido
 
@@ -51,6 +57,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - pedido de alteração deixou de criar uma cópia fictícia atribuída ao cliente;
 - envio concorrente protegido por lock e unicidade da aprovação por versão;
 - provider mock limita título e CTA ao contrato persistido no PostgreSQL.
+- modelo de providers alinhado à restrição única da migration 0012, eliminando drift no Alembic;
+- dependências vulneráveis do frontend atualizadas sem `--force`, incluindo Next.js, Sharp, PostCSS e Brace Expansion.
 - memberships ativas do portal agora exigem empresa válida no banco e na sessão;
 - arquivar um cliente revoga o portal e remove seus conteúdos das rotas ativas;
 - `VIEWER` deixou de receber acesso divergente ao audit log;
@@ -92,11 +100,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Validação
 
-- 136 testes do backend aprovados;
-- 28 testes do worker aprovados;
-- 30 testes do frontend aprovados;
-- 7 cenários E2E aprovados, incluindo identidade, fluxo editorial completo e
-  verificações em viewport de 360 px;
+- 209 testes do backend, 41 do worker, 52 do frontend e 9 cenários E2E aprovados;
 - Ruff, mypy, ESLint, TypeScript e builds aprovados;
 - auditorias de dependências executadas sem vulnerabilidade pendente no gate adotado;
 - Docker Compose validado com serviços de aplicação, banco, storage e profile de teste.
@@ -106,6 +110,13 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
   de mídia privado.
 - Fase 2 integrada à `main` por squash em 2026-07-16; stack, migration `0008`,
   `make status`, `make test`, `make e2e` e CI foram revalidados após o merge.
+- migrations validadas no ciclo `base → 0011 → 0013 → base → 0013` e de uma
+  base da Fase 2 em `0008` até `0013`, sem drift;
+- `npm audit --audit-level=high` sem vulnerabilidades e `pip-audit` sem
+  vulnerabilidade conhecida nas dependências instaladas; pacotes locais não
+  publicados no PyPI foram ignorados pelo scanner;
+- backup, checksum, catálogo PostgreSQL, objetos MinIO e restauração isolada aprovados;
+- performance local aprovada com enforcement; lista de conteúdos teve p95 de 337 ms.
 
 ### Segurança
 
@@ -115,7 +126,7 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - imagens de backend e worker executadas como usuário sem privilégios e sem dependências de teste;
 - produção rejeita segredo conhecido, cookie inseguro, origem CORS curinga, `SameSite` inválido e seed demo;
 - proibição de segredos no repositório e de uso cruzado de dados entre clientes;
-- revisão profissional para conteúdo veterinário ou de saúde preservada como requisito; o bloqueio automatizado completo ainda é pendente.
+- revisão profissional para conteúdo veterinário ou de saúde bloqueia o avanço e é auditada;
 - tokens puros de convite e recuperação não são persistidos nem enviados em query string;
 - arquivos são normalizados para remover metadados, recebem chave aleatória por tenant e permanecem privados;
 - e-mails e logs omitem senha, token, prompt, legenda e comentário de aprovação.
@@ -127,10 +138,11 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 - a versão 1.0 não publica automaticamente em redes sociais;
 - Meta Ads, Google Ads, WhatsApp oficial e gasto automático permanecem fora do escopo;
-- providers externos e Hermes são opcionais; o funcionamento local depende apenas do provider mock;
-- preferências e resumos de notificação, painel de providers/Hermes e Centro de Integrações ainda não foram entregues;
-- controles operacionais de LGPD, bloqueio profissional automatizado, backup/restauração e hardening final permanecem;
-- a conclusão da Fase 2 não representa, sozinha, a aprovação da release 1.0.
+- Hermes e providers externos permanecem opcionais; o mock cobre todo o caminho obrigatório;
+- a instalação por uma segunda pessoa (`CAV1-23`) e a CI/revisão do Draft PR
+  permanecem como bloqueios para declarar a release 1.0;
+- neste host, o volume `fuseblk` mantém o `.env` com modo `777`; dados reais
+  exigem filesystem Linux/secret manager com permissão efetivamente restrita.
 
 <!-- Ao criar uma versão, mova os itens de "Não lançado" para uma seção como:
 ## [0.1.0] - AAAA-MM-DD

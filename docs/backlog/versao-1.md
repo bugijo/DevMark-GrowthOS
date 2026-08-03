@@ -164,6 +164,12 @@ Um item só pode entrar em `DONE` quando:
 
 Estes critérios são obrigatórios e não podem ser substituídos por porcentagem de progresso:
 
+**Fechamento da Fase 3:** os itens funcionais e técnicos estão implementados e
+validados localmente. A situação individual dos 25 critérios está registrada em
+[`docs/18-matriz-evidencias-v1.md`](../18-matriz-evidencias-v1.md). `CAV1-23`
+permanece `BLOCKED` até uma segunda pessoa concluir a instalação limpa; portanto
+`V1-REL-001` ainda não deve ser marcado como concluído.
+
 | ID | Evidência de aceite da versão 1.0 |
 |---|---|
 | `CAV1-01` | Uma agência consegue criar um cliente. |

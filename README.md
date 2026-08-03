@@ -2,11 +2,10 @@
 
 Central operacional multiempresa da DevMark IA para criar, revisar e aprovar conteúdo com apoio de inteligência artificial e controle humano.
 
-> **Status:** fundação e Fase 2 da versão 1.0 implementadas, validadas e
-> integradas à `main`. Identidade, planejamento, visual, conteúdo, aprovação,
-> e-mail local, publicação manual e relatório funcionam com banco real e
-> providers mock. A versão 1.0 só será declarada pronta depois do gate de
-> hardening e operação.
+> **Status:** Fase 3 implementada na branch `agent/fechamento-v1` e em validação
+> para o piloto. O gate técnico local está verde; a versão 1.0 ainda não está
+> declarada concluída porque o aceite independente de instalação (`CAV1-23`)
+> depende de uma segunda pessoa seguindo apenas este README.
 
 ## Repositório e limites
 
@@ -38,6 +37,8 @@ Continuam fora da versão 1.0:
 - prompt visual mock determinístico a partir do Brand Kit e preset;
 - conteúdo ligado a estratégia, plano, pauta, preset, catálogos e mídia;
 - histórico imutável de versões textuais e visuais;
+- comparação acessível de título, legenda, CTA, objetivo, prompt visual,
+  imagem e estratégia, com autor, data, comentário, lado a lado, alternância e zoom;
 - fluxo `DRAFT → INTERNAL_REVIEW → CLIENT_REVIEW → APPROVED`;
 - aprovação independente de texto e imagem, com correção versionada após feedback;
 - notificações internas para cliente e equipe;
@@ -49,18 +50,22 @@ Continuam fora da versão 1.0:
 - worker PostgreSQL com claim seguro, retries, backoff, timeout e handlers mock/console;
 - CI para lint, tipos, testes, builds, Compose e E2E obrigatório;
 - dados fictícios e idempotentes para demonstração local.
+- onboarding persistido de 15 etapas, retomável e editável;
+- preferências e resumos diário/semanal de notificações;
+- classificação de conteúdo sensível e revisão profissional obrigatória;
+- Centro de Integrações com mock obrigatório, Hermes opcional e configuração
+  organizacional sem exposição de segredos;
+- consentimentos versionados, inventário de finalidades, retenção, exportação,
+  solicitação de exclusão e anonimização auditada;
+- diagnóstico, backup verificado, restauração isolada e medição de desempenho.
 
-## O que ainda falta para a versão 1.0
+## O que ainda falta para declarar a versão 1.0
 
-A Fase 2 cobre a operação solicitada, mas não substitui o gate final. Permanecem:
-
-- checklist consolidado de onboarding e comparação visual de versões;
-- preferências, lembretes e resumos de notificação;
-- painel administrativo de providers e Hermes opcional;
-- controles operacionais de LGPD para exportação/exclusão;
-- bloqueio automatizado de revisão profissional para conteúdo sensível;
-- ensaio documentado de backup/restauração, desempenho e acessibilidade ampliada;
-- evidência final dos 25 critérios, instalação limpa e decisão de release.
+- uma segunda pessoa executar a instalação limpa e o roteiro usando somente o README (`CAV1-23`);
+- revisar o Draft PR e confirmar a CI remota;
+- antes de dados reais, definir infraestrutura, base legal, contratos, prazos de
+  retenção, e-mail transacional e profissional habilitado;
+- hospedar segredos em filesystem/secret manager que permita permissões restritas.
 
 Consulte o [backlog](docs/backlog/versao-1.md) e os [milestones](docs/milestones/versao-1.md) para a sequência restante.
 
@@ -198,19 +203,21 @@ O E2E usa somente Docker e pode ser executado independentemente da instalação 
 make e2e
 ```
 
-Resultados verificados no gate final da Fase 2:
+Resultados verificados na Fase 3 devem ser consultados na
+[matriz de evidências](docs/18-matriz-evidencias-v1.md), que registra também
+qualquer gate ainda bloqueado.
 
 | Área | Resultado |
 |---|---:|
-| Backend | 136 testes aprovados |
-| Worker | 28 testes aprovados |
-| Frontend | 30 testes aprovados |
-| E2E | 7 cenários aprovados |
+| Backend | 209 testes aprovados |
+| Worker | 41 testes aprovados |
+| Frontend | 52 testes aprovados |
+| E2E | 9 cenários aprovados |
 
 Ruff, mypy, ESLint, checagem TypeScript, builds Docker/Next.js e auditorias de
 dependências executadas passaram. As migrations foram validadas de `base` até
-`0008`, com downgrade/upgrade em banco isolado, atualização de uma base da
-fundação e seed executado duas vezes sem duplicação.
+`0013`, com downgrade/upgrade em banco isolado e atualização de uma base da
+Fase 2 em `0008`.
 
 ## Providers e segurança
 

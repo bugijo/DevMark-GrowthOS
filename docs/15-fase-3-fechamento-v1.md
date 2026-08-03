@@ -1,6 +1,8 @@
 # Fase 3 — fechamento da versão 1.0
 
-**Status:** em implementação na branch `agent/fechamento-v1`.
+**Status:** implementação concluída e gate técnico local validado na branch
+`agent/fechamento-v1`; release bloqueada somente pelo aceite independente
+`CAV1-23` e pela revisão/CI do Draft PR.
 
 ## Objetivo
 
@@ -87,21 +89,19 @@ perde dados ao navegar para trás.
 - testes automatizados WCAG 2.1 AA nos fluxos críticos;
 - instalação limpa, suíte completa, E2E mobile e matriz final de evidências.
 
-## Evolução de dados planejada
+## Evolução de dados entregue
 
-As migrations desta fase serão aditivas e sequenciais. Elas deverão cobrir, sem
+As migrations desta fase são aditivas e sequenciais. Elas cobrem, sem
 editar as revisões `0001` a `0008`:
 
-1. progresso de onboarding e campos ampliados da marca;
-2. preferências, entregas e resumos de notificação;
-3. metadados de comparação, sensibilidade e revisão profissional;
-4. configurações e saúde dos providers;
-5. consentimentos, retenção e solicitações de privacidade;
-6. estado operacional compartilhado quando necessário.
+1. `0009`: progresso de onboarding e campos ampliados da marca;
+2. `0010`: preferências, entregas e resumos de notificação;
+3. `0011`: sensibilidade e revisão profissional;
+4. `0012`: configurações e saúde dos providers;
+5. `0013`: consentimentos, finalidades, retenção e solicitações de privacidade.
 
-Cada migration precisa subir desde banco vazio, manter compatibilidade com a
-Fase 2 e ter downgrade seguro ou limitação explícita quando restaurar o estado
-anterior reintroduziria inconsistência.
+O ciclo `base → 0011 → 0013 → base → 0013` e a atualização `0008 → 0013`
+passaram em bancos isolados, com `alembic check` sem drift.
 
 ## Gates da Fase 3
 
@@ -139,3 +139,9 @@ com a respectiva evidência. A versão 1.0 só será declarada concluída se tod
 sem risco alto oculto. Dependências externas de go-live — infraestrutura,
 contratos, base legal e profissional habilitado — continuarão explicitadas
 mesmo quando o software estiver tecnicamente apto ao piloto.
+
+A decisão e as evidências atuais estão em
+[Matriz final da versão 1.0](./18-matriz-evidencias-v1.md). O software está
+tecnicamente apto ao piloto local com dados fictícios, mas a versão 1.0 não deve
+ser declarada concluída até outra pessoa validar `CAV1-23` e a CI do Draft PR
+permanecer verde.

@@ -6,6 +6,19 @@ Integrações externas devem ficar atrás de contratos estáveis. Regras de cont
 
 A versão 1.0 funciona integralmente com providers mock e sem API paga. Providers reais são opcionais e só podem ser ativados por configuração explícita e segura.
 
+## Implementação da Fase 3
+
+O Centro de Integrações persiste configuração por organização para texto,
+imagem, e-mail, storage e orquestração. A API e a interface exibem estado,
+ativação, última verificação, erro sanitizado, prioridade, fallback, timeout,
+tentativas e modo de teste. `MOCK` permanece disponível; `HERMES` só verifica a
+URL definida em `HERMES_BASE_URL`; `EXTERNAL_FUTURE` é estrutural e não executa
+OAuth, publicação, anúncio ou gasto.
+
+Valores secretos nunca são persistidos nem devolvidos ao frontend. Quando um
+provider futuro precisar de segredo, a configuração guarda apenas o nome da
+variável de ambiente. Alterações e testes geram audit log escopado ao tenant.
+
 ## Arquitetura de portas e adaptadores
 
 O domínio chama interfaces próprias; adaptadores traduzem essas chamadas para serviços externos. A seleção ocorre em uma fábrica ou registro de providers, nunca por condicionais espalhadas pelas regras de negócio.
@@ -147,4 +160,3 @@ Nenhum provider pode promover uma ação para outro nível de autonomia.
 - geração automática de vídeo;
 - cobrança por consumo;
 - autonomia total ou otimização financeira automática.
-
