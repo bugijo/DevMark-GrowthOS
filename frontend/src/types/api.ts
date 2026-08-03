@@ -748,6 +748,46 @@ export interface ProviderTestResult {
   message: string;
 }
 
+export interface ConsentRecord {
+  id: string;
+  purpose_code: string;
+  policy_version: string;
+  accepted: boolean;
+  source: string;
+  created_at: string;
+}
+
+export interface DataPurpose {
+  id: string;
+  code: string;
+  name: string;
+  purpose: string;
+  legal_basis: string;
+  data_categories: string;
+  retention_days: number;
+  is_active: boolean;
+}
+
+export interface PrivacyRequest {
+  id: string;
+  request_type: "EXPORT" | "DELETION";
+  status: string;
+  reason: string;
+  subject_user_id: string;
+  resolution_notes: string | null;
+  processed_at: string | null;
+  created_at: string;
+}
+
+export interface RetentionPolicy {
+  id: string;
+  resource_type: string;
+  retention_days: number;
+  legal_hold: boolean;
+  justification: string;
+  updated_at: string;
+}
+
 export interface ListEnvelope<T> {
   items: T[];
   total?: number;

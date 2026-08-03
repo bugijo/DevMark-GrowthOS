@@ -21,6 +21,7 @@ from growthos.models.notification_preferences import (
 from growthos.models.onboarding import BusinessOnboarding
 from growthos.models.operations import AuditLog, Job, Notification
 from growthos.models.planning import CalendarEntry, ContentPlan, ContentStrategy, StrategyVersion
+from growthos.models.privacy import ConsentRecord, DataPurpose, PrivacyRequest, RetentionPolicy
 from growthos.models.professional_review import ProfessionalContentReview
 from growthos.models.provider_config import ProviderConfig
 
@@ -33,11 +34,13 @@ __all__ = [
     "Business",
     "BusinessOnboarding",
     "CalendarEntry",
+    "ConsentRecord",
     "ContentItem",
     "ContentPlan",
     "ContentStrategy",
     "ContentVersion",
     "ContentVersionMedia",
+    "DataPurpose",
     "Job",
     "MarketingObjective",
     "MediaAsset",
@@ -51,8 +54,10 @@ __all__ = [
     "Organization",
     "OrganizationInvite",
     "PasswordResetToken",
+    "PrivacyRequest",
     "ProfessionalContentReview",
     "ProviderConfig",
+    "RetentionPolicy",
     "Service",
     "StrategyVersion",
     "User",
