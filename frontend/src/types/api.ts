@@ -555,6 +555,91 @@ export interface ContentItem {
   updated_at?: string;
 }
 
+export interface ComparisonActor {
+  name: string;
+}
+
+export interface VersionDecision {
+  status: string;
+  component: string | null;
+  comment: string | null;
+  decided_at: string | null;
+  decided_by: ComparisonActor | null;
+}
+
+export interface VersionSummary {
+  id: string;
+  version_number: number;
+  created_at: string;
+  author: ComparisonActor;
+  is_current: boolean;
+  is_approved: boolean;
+  decisions: VersionDecision[];
+}
+
+export interface ContentVersionHistory {
+  content_id: string;
+  business_id: string;
+  current_version_id: string;
+  versions: VersionSummary[];
+}
+
+export interface ContentComparisonSide extends VersionSummary {
+  text: {
+    title: string;
+    caption: string;
+    objective: string;
+    audience: string;
+    cta: string;
+    script: string;
+  };
+  visual: {
+    channel: string;
+    format: string;
+    visual_prompt: string | null;
+    preset: Record<string, unknown>;
+    media_asset_ids: string[];
+  };
+}
+
+export interface ContentVersionComparison {
+  content_id: string;
+  business_id: string;
+  base: ContentComparisonSide;
+  target: ContentComparisonSide;
+  changed_fields: string[];
+}
+
+export interface StrategyVersionHistory {
+  strategy_id: string;
+  business_id: string;
+  current_version_id: string;
+  approved_version_id: string | null;
+  versions: VersionSummary[];
+}
+
+export interface StrategyComparisonSide extends VersionSummary {
+  strategy: {
+    objective: string;
+    positioning: string;
+    funnel: string[];
+    channels: string[];
+    pillars: Array<string | Record<string, unknown>>;
+    planned_indicators: string[];
+    services: Array<Record<string, unknown>>;
+    audiences: Array<Record<string, unknown>>;
+    marketing_objectives: Array<Record<string, unknown>>;
+  };
+}
+
+export interface StrategyVersionComparison {
+  strategy_id: string;
+  business_id: string;
+  base: StrategyComparisonSide;
+  target: StrategyComparisonSide;
+  changed_fields: string[];
+}
+
 export interface ContentRevisionInput {
   title: string;
   caption: string;

@@ -39,6 +39,7 @@ class ContentTextFieldsRead(BaseModel):
 class ContentVisualFieldsRead(BaseModel):
     channel: str
     format: str
+    visual_prompt: str | None = None
     preset: dict[str, Any] = Field(default_factory=dict)
     media_asset_ids: list[UUID] = Field(default_factory=list)
 

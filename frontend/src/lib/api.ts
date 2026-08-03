@@ -9,6 +9,8 @@ import type {
   CalendarEntry,
   ContentGenerateInput,
   ContentItem,
+  ContentVersionComparison,
+  ContentVersionHistory,
   ContentPlan,
   ContentRevisionInput,
   ContentStrategy,
@@ -33,6 +35,8 @@ import type {
   SecurityMessage,
   Service,
   StrategyInput,
+  StrategyVersionComparison,
+  StrategyVersionHistory,
   StrategyVersionInput,
   User,
   VisualPreset,
@@ -451,6 +455,15 @@ export const api = {
           method: "POST",
           body: JSON.stringify({ decision, comment }),
         }),
+      history: (id: string) =>
+        apiRequest<StrategyVersionHistory>(`/strategies/${id}/history`),
+      compare: (id: string, baseVersionId: string, targetVersionId: string) =>
+        apiRequest<StrategyVersionComparison>(
+          `/strategies/${id}/compare${query({
+            base_version_id: baseVersionId,
+            target_version_id: targetVersionId,
+          })}`,
+        ),
     },
     plans: {
       list: (businessId: string) =>
@@ -548,6 +561,15 @@ export const api = {
         `/contents${query({ business_id: businessId })}`,
       ),
     get: (id: string) => apiRequest<ContentItem>(`/contents/${id}`),
+    history: (id: string) =>
+      apiRequest<ContentVersionHistory>(`/contents/${id}/history`),
+    compare: (id: string, baseVersionId: string, targetVersionId: string) =>
+      apiRequest<ContentVersionComparison>(
+        `/contents/${id}/compare${query({
+          base_version_id: baseVersionId,
+          target_version_id: targetVersionId,
+        })}`,
+      ),
     generate: (input: ContentGenerateInput) =>
       apiRequest<ContentItem>("/contents/generate", {
         method: "POST",

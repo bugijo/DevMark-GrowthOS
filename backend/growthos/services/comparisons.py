@@ -255,6 +255,8 @@ def _content_side(
     media_asset_ids: list[UUID],
     approvals: list[Approval],
     actor_names: dict[UUID, str],
+    *,
+    include_internal_prompt: bool,
 ) -> ContentVersionComparisonSideRead:
     summary = _content_summary(content, version, approvals, actor_names)
     return ContentVersionComparisonSideRead(
@@ -270,6 +272,7 @@ def _content_side(
         visual=ContentVisualFieldsRead(
             channel=version.channel,
             format=version.format,
+            visual_prompt=version.visual_prompt if include_internal_prompt else None,
             preset=_safe_mapping(version.visual_preset_snapshot, _SAFE_PRESET_FIELDS),
             media_asset_ids=media_asset_ids,
         ),
@@ -349,6 +352,8 @@ def compare_content_versions(
         media[base_version_id],
         approvals[base_version_id],
         names,
+        include_internal_prompt=context.membership.role
+        not in {Role.CLIENT_OWNER, Role.CLIENT_REVIEWER, Role.VIEWER},
     )
     target = _content_side(
         content,
@@ -356,6 +361,8 @@ def compare_content_versions(
         media[target_version_id],
         approvals[target_version_id],
         names,
+        include_internal_prompt=context.membership.role
+        not in {Role.CLIENT_OWNER, Role.CLIENT_REVIEWER, Role.VIEWER},
     )
     fields = (
         ("text.title", base.text.title, target.text.title),
@@ -366,6 +373,7 @@ def compare_content_versions(
         ("text.script", base.text.script, target.text.script),
         ("visual.channel", base.visual.channel, target.visual.channel),
         ("visual.format", base.visual.format, target.visual.format),
+        ("visual.visual_prompt", base.visual.visual_prompt, target.visual.visual_prompt),
         ("visual.preset", base.visual.preset, target.visual.preset),
         (
             "visual.media_asset_ids",

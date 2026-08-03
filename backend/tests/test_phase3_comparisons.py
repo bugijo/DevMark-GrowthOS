@@ -374,13 +374,14 @@ def test_content_history_and_comparison_are_exact_and_sanitized(
     assert payload["target"]["visual"]["media_asset_ids"] == [str(fixture.content_media_ids[1])]
     assert payload["changed_fields"] == [
         "text.caption",
+        "visual.visual_prompt",
         "visual.preset",
         "visual.media_asset_ids",
     ]
+    assert payload["base"]["visual"]["visual_prompt"] == "prompt-interno-nao-pode-sair"
     serialized = compared.text.casefold()
     for internal_value in (
         "nota-interna",
-        "prompt-interno",
         "negative-prompt",
         "base-prompt",
         "provider-reference",
@@ -474,6 +475,13 @@ def test_client_comparisons_fail_closed_outside_its_business(
     assert client.get(f"/api/v1/strategies/{external_strategy_id}/history").status_code == 404
     assert client.get(f"/api/v1/contents/{fixture.content_id}/history").status_code == 200
     assert client.get(f"/api/v1/strategies/{fixture.strategy_id}/history").status_code == 200
+    comparison = client.get(
+        f"/api/v1/contents/{fixture.content_id}/compare",
+        params=_comparison_params(fixture.content_version_ids),
+    )
+    assert comparison.status_code == 200
+    assert comparison.json()["base"]["visual"]["visual_prompt"] is None
+    assert "visual.visual_prompt" not in comparison.json()["changed_fields"]
 
 
 @pytest.mark.parametrize(
