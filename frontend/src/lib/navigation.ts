@@ -85,6 +85,12 @@ export const NAVIGATION: NavigationItem[] = [
     shortLabel: "Equipe",
     roles: ["SUPER_ADMIN", "AGENCY_ADMIN", "CLIENT_OWNER"],
   },
+  {
+    href: "/integracoes",
+    label: "Integrações e providers",
+    shortLabel: "Integrações",
+    roles: ["SUPER_ADMIN", "AGENCY_ADMIN"],
+  },
 ];
 
 export function navigationForRoles(roles: Role[]): NavigationItem[] {

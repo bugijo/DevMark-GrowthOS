@@ -32,6 +32,8 @@ import type {
   OnboardingStepPayload,
   Organization,
   PeriodReport,
+  ProviderConfig,
+  ProviderTestResult,
   SecurityMessage,
   Service,
   StrategyInput,
@@ -536,6 +538,24 @@ export const api = {
       apiRequest<{ url: string; expires_at: string }>(`/media/${id}/download-url`),
     archive: (id: string) =>
       apiRequest<void>(`/media/${id}`, { method: "DELETE" }),
+  },
+  providers: {
+    list: () => apiRequest<ProviderConfig[]>("/providers"),
+    update: (config: ProviderConfig) =>
+      apiRequest<ProviderConfig>(`/providers/${config.kind}/${config.provider}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          is_active: config.is_active,
+          priority: config.priority,
+          fallback_provider: config.fallback_provider,
+          timeout_seconds: config.timeout_seconds,
+          max_attempts: config.max_attempts,
+          test_mode: config.test_mode,
+          secret_environment_key: config.secret_environment_key,
+        }),
+      }),
+    test: (config: ProviderConfig) =>
+      apiRequest<ProviderTestResult>(`/providers/${config.kind}/${config.provider}/test`, { method: "POST" }),
   },
   members: {
     list: () => apiRequest<OrganizationMembership[]>("/members"),

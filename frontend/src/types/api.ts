@@ -722,6 +722,32 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface ProviderConfig {
+  id: string | null;
+  kind: "TEXT" | "IMAGE" | "EMAIL" | "STORAGE" | "ORCHESTRATION";
+  provider: "MOCK" | "HERMES" | "EXTERNAL_FUTURE" | "SMTP" | "MINIO";
+  is_active: boolean;
+  is_required: boolean;
+  configured_by_environment: boolean;
+  priority: number;
+  fallback_provider: string | null;
+  timeout_seconds: number;
+  max_attempts: number;
+  test_mode: boolean;
+  secret_environment_key: string | null;
+  last_checked_at: string | null;
+  last_status: string;
+  last_error: string | null;
+}
+
+export interface ProviderTestResult {
+  kind: string;
+  provider: string;
+  status: string;
+  checked_at: string;
+  message: string;
+}
+
 export interface ListEnvelope<T> {
   items: T[];
   total?: number;
