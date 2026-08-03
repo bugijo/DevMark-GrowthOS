@@ -10,6 +10,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,6 +24,9 @@ class ProviderConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         CheckConstraint("priority >= 0", name="ck_provider_config_priority"),
         CheckConstraint("timeout_seconds BETWEEN 1 AND 120", name="ck_provider_config_timeout"),
         CheckConstraint("max_attempts BETWEEN 1 AND 10", name="ck_provider_config_attempts"),
+        UniqueConstraint(
+            "organization_id", "kind", "provider", name="uq_provider_config_org_kind_provider"
+        ),
         Index("ix_provider_configs_org_kind_priority", "organization_id", "kind", "priority"),
     )
 
