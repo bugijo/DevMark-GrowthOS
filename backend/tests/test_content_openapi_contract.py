@@ -19,6 +19,22 @@ def test_content_paths_methods_and_operation_ids_remain_stable() -> None:
             "get_content_api_v1_contents__content_id__get",
             _DEFAULT_RESPONSES,
         ),
+        ("/api/v1/contents/{content_id}/history", "get"): (
+            "content_version_history_api_v1_contents__content_id__history_get",
+            _DEFAULT_RESPONSES,
+        ),
+        ("/api/v1/contents/{content_id}/compare", "get"): (
+            "compare_content_versions_api_v1_contents__content_id__compare_get",
+            _DEFAULT_RESPONSES,
+        ),
+        ("/api/v1/contents/{content_id}/professional-reviews", "get"): (
+            "list_professional_reviews_api_v1_contents__content_id__professional_reviews_get",
+            _DEFAULT_RESPONSES,
+        ),
+        ("/api/v1/contents/{content_id}/professional-reviews", "post"): (
+            "review_content_professionally_api_v1_contents__content_id__professional_reviews_post",
+            frozenset({"201", "422"}),
+        ),
         ("/api/v1/contents/{content_id}/submit-internal", "post"): (
             "submit_internal_api_v1_contents__content_id__submit_internal_post",
             _DEFAULT_RESPONSES,
