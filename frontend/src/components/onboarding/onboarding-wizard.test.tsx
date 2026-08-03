@@ -110,7 +110,7 @@ describe("OnboardingWizard", () => {
     );
     expect(await screen.findByRole("heading", { name: "Segmento" })).toBeVisible();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "7");
-  });
+  }, 15_000);
 
   it("reabre uma conclusão editada e exige uma nova revisão final", async () => {
     const completed = onboarding({

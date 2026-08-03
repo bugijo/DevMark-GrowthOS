@@ -27,6 +27,7 @@ describe("navigationForRoles", () => {
       "Relatórios",
       "Notificações",
       "Registros",
+      "Privacidade e dados",
     ]);
   });
 
