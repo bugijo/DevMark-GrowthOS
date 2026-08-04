@@ -373,10 +373,10 @@ qualquer gate ainda bloqueado.
 
 | Área | Resultado |
 |---|---:|
-| Backend | 209 testes aprovados |
+| Backend | 214 testes aprovados |
 | Worker | 41 testes aprovados |
 | Frontend | 52 testes aprovados |
-| E2E | 9 cenários aprovados |
+| E2E | 10 cenários aprovados |
 
 Ruff, mypy, ESLint, checagem TypeScript, builds Docker/Next.js e auditorias de
 dependências executadas passaram. As migrations foram validadas de `base` até

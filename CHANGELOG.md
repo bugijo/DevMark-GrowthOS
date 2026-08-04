@@ -108,6 +108,9 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Validação
 
+- camada de IA validada com 214 testes backend, 41 worker, 52 frontend e 10 E2E;
+- E2E do Growth Agent aprovado sem internet, usando provider mock e confirmando ausência de
+  publicação e aprovação automáticas;
 - 209 testes do backend, 41 do worker, 52 do frontend e 9 cenários E2E aprovados;
 - Ruff, mypy, ESLint, TypeScript e builds aprovados;
 - auditorias de dependências executadas sem vulnerabilidade pendente no gate adotado;
