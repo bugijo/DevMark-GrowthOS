@@ -1,5 +1,7 @@
 import type {
   ApiProblem,
+  AIGeneration,
+  AIGenerationInput,
   ApprovalComponent,
   AudienceSegment,
   AuditLog,
@@ -206,6 +208,24 @@ function query(params: Record<string, string | undefined>): string {
 }
 
 export const api = {
+  ai: {
+    generate: (businessId: string, input: AIGenerationInput) =>
+      apiRequest<AIGeneration>(`/businesses/${businessId}/ai/generations`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    list: (businessId: string) =>
+      apiRequest<AIGeneration[]>(`/businesses/${businessId}/ai/generations`),
+    regenerate: (id: string) =>
+      apiRequest<AIGeneration>(`/ai/generations/${id}/regenerate`, {
+        method: "POST",
+      }),
+    feedback: (id: string, rating: "HELPFUL" | "NOT_HELPFUL", comment = "") =>
+      apiRequest<void>(`/ai/generations/${id}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({ rating, comment }),
+      }),
+  },
   auth: {
     login: (input: { email: string; password: string }) =>
       apiRequest<LoginResponse>("/auth/login", {

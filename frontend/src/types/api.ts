@@ -666,6 +666,56 @@ export interface ContentGenerateInput {
   script?: string;
 }
 
+export type AITask =
+  | "AUDIT"
+  | "MONTHLY_STRATEGY"
+  | "EDITORIAL_CALENDAR"
+  | "CONTENT_IDEAS"
+  | "CAPTION"
+  | "TITLE"
+  | "CTA"
+  | "SCRIPT"
+  | "VISUAL_PROMPT"
+  | "CONTENT_REPURPOSE"
+  | "TONE_REVIEW"
+  | "SENSITIVITY_CLASSIFICATION";
+
+export interface AIGenerationInput {
+  task: AITask;
+  instruction: string;
+  alternatives: 1 | 3;
+  source_text?: string;
+}
+
+export interface AIAlternative {
+  id: string;
+  position: number;
+  payload: Record<string, unknown>;
+  is_sensitive: boolean;
+  sensitivity_codes: string[];
+  created_at: string;
+}
+
+export interface AIGeneration {
+  id: string;
+  business_id: string;
+  task: AITask;
+  status: string;
+  instruction: string;
+  provider: string;
+  model: string;
+  used_fallback: boolean;
+  duration_ms: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number | null;
+  alternatives: AIAlternative[];
+  simulated: boolean;
+  requires_approval: true;
+  can_publish_automatically: false;
+  created_at: string;
+}
+
 export interface VisualRevisionInput {
   visual_preset_id?: string | null;
   media_asset_id?: string | null;

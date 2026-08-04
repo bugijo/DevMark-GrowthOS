@@ -11,6 +11,8 @@ import { Card, PageHeader } from "@/components/ui/page";
 import { useAuth } from "@/contexts/auth-context";
 import { api, extractItems } from "@/lib/api";
 import type {
+  AIGeneration,
+  AITask,
   AudienceSegment,
   Business,
   CalendarEntry,
@@ -77,6 +79,11 @@ export default function ContentsPage() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [aiTask, setAiTask] = useState<AITask>("CONTENT_IDEAS");
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [aiAlternatives, setAiAlternatives] = useState<1 | 3>(1);
+  const [aiHistory, setAiHistory] = useState<AIGeneration[]>([]);
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   const canCreate = roles.some((role) =>
     ["SUPER_ADMIN", "AGENCY_ADMIN", "STRATEGIST", "CONTENT_EDITOR"].includes(role),
@@ -305,6 +312,51 @@ export default function ContentsPage() {
     }
   }
 
+  async function generateWithAI() {
+    if (selectedBusiness === "all") {
+      setError("Escolha um cliente antes de gerar com IA.");
+      return;
+    }
+    setAiGenerating(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const generated = await api.ai.generate(selectedBusiness, {
+        task: aiTask,
+        instruction: aiInstruction,
+        alternatives: aiAlternatives,
+        source_text: objective,
+      });
+      setAiHistory((current) => [generated, ...current]);
+      setSuccess(
+        generated.simulated
+          ? "Resposta simulada pelo mock. Revise antes de criar qualquer conteúdo."
+          : "Alternativas geradas. Revisão e aprovação continuam obrigatórias.",
+      );
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Não foi possível gerar com IA.",
+      );
+    } finally {
+      setAiGenerating(false);
+    }
+  }
+
+  async function regenerateWithAI(generation: AIGeneration) {
+    setAiGenerating(true);
+    setError(null);
+    try {
+      const regenerated = await api.ai.regenerate(generation.id);
+      setAiHistory((current) => [regenerated, ...current]);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Falha ao regenerar.");
+    } finally {
+      setAiGenerating(false);
+    }
+  }
+
   async function transition(content: ContentItem, action: "internal" | "client") {
     setActionId(content.id);
     setError(null);
@@ -344,7 +396,90 @@ export default function ContentsPage() {
       {canCreate ? (
         <Card>
           <div className="mb-5">
-            <h2 className="text-lg font-bold text-slate-950">Criar conteúdo mock</h2>
+            <h2 className="text-lg font-bold text-slate-950">Growth Agent</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Usa o contexto autorizado do cliente. Nada é publicado ou aprovado automaticamente.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Tipo de geração">
+              <Select value={aiTask} onChange={(event) => setAiTask(event.target.value as AITask)}>
+                <option value="CONTENT_IDEAS">Ideias de conteúdo</option>
+                <option value="MONTHLY_STRATEGY">Estratégia mensal</option>
+                <option value="EDITORIAL_CALENDAR">Calendário editorial</option>
+                <option value="CAPTION">Legenda</option>
+                <option value="TITLE">Título</option>
+                <option value="CTA">CTA</option>
+                <option value="SCRIPT">Roteiro</option>
+                <option value="VISUAL_PROMPT">Prompt visual</option>
+                <option value="CONTENT_REPURPOSE">Reaproveitamento</option>
+                <option value="TONE_REVIEW">Revisão de tom</option>
+                <option value="AUDIT">Auditoria</option>
+                <option value="SENSITIVITY_CLASSIFICATION">Conteúdo sensível</option>
+              </Select>
+            </Field>
+            <Field label="Alternativas">
+              <Select
+                value={String(aiAlternatives)}
+                onChange={(event) => setAiAlternatives(event.target.value === "3" ? 3 : 1)}
+              >
+                <option value="1">1 alternativa</option>
+                <option value="3">3 alternativas</option>
+              </Select>
+            </Field>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                busy={aiGenerating}
+                disabled={selectedBusiness === "all"}
+                onClick={() => void generateWithAI()}
+              >
+                {aiGenerating ? "Gerando…" : "Gerar com IA"}
+              </Button>
+            </div>
+          </div>
+          <div className="mt-4">
+            <Field label="Instrução adicional (opcional)">
+              <Textarea
+                rows={3}
+                value={aiInstruction}
+                onChange={(event) => setAiInstruction(event.target.value)}
+                maxLength={2000}
+                placeholder="Ex.: priorize uma linguagem acolhedora e educativa"
+              />
+            </Field>
+          </div>
+          {aiHistory.map((generation) => (
+            <section key={generation.id} className="mt-5 rounded-xl border border-slate-200 p-4" aria-label="Resultado da geração com IA">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-900">
+                  {generation.provider} · {generation.model} · {generation.duration_ms} ms
+                </p>
+                <Button type="button" variant="secondary" onClick={() => void regenerateWithAI(generation)}>
+                  Gerar outra versão
+                </Button>
+              </div>
+              {generation.simulated ? <Alert tone="info">Resposta simulada pelo provider mock.</Alert> : null}
+              {generation.used_fallback ? <Alert tone="info">Foi necessário usar fallback.</Alert> : null}
+              <p className="mt-2 text-xs text-slate-600">Revisão humana obrigatória · sem publicação automática</p>
+              <div className="mt-3 grid gap-3 lg:grid-cols-3">
+                {generation.alternatives.map((alternative) => (
+                  <article key={alternative.id} className="rounded-lg bg-slate-50 p-3">
+                    <h3 className="font-semibold text-slate-950">{String(alternative.payload.title ?? `Alternativa ${alternative.position}`)}</h3>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{String(alternative.payload.caption ?? alternative.payload.strategy ?? "")}</p>
+                    {alternative.is_sensitive ? <p className="mt-2 text-sm font-semibold text-amber-800">Conteúdo sensível: exige revisão profissional.</p> : null}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </Card>
+      ) : null}
+
+      {canCreate ? (
+        <Card>
+          <div className="mb-5">
+            <h2 className="text-lg font-bold text-slate-950">Criar rascunho vinculado</h2>
             <p className="mt-1 text-sm text-slate-600">
               Os vínculos são opcionais, mas preservam o contexto aprovado em snapshots.
             </p>
