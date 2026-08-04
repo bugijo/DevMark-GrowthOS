@@ -19,6 +19,8 @@ from growthos.models import (
     AudienceSegment,
     BrandProfile,
     BusinessOnboarding,
+    ContentItem,
+    ContentVersion,
     MarketingObjective,
     Service,
 )
@@ -68,6 +70,17 @@ def _context(session: Session, organization_id: UUID, business_id: UUID) -> dict
             MarketingObjective.is_active.is_(True),
         )
     ).all()
+    approved_content = session.execute(
+        select(ContentVersion.title, ContentVersion.caption, ContentVersion.cta)
+        .join(ContentItem, ContentItem.current_version_id == ContentVersion.id)
+        .where(
+            ContentItem.organization_id == organization_id,
+            ContentItem.business_id == business_id,
+            ContentItem.status.in_(("APPROVED", "SCHEDULED", "PUBLISHED")),
+        )
+        .order_by(ContentVersion.created_at.desc())
+        .limit(10)
+    ).all()
     return {
         "brand": {
             "name": brand.brand_name if brand else "",
@@ -90,6 +103,10 @@ def _context(session: Session, organization_id: UUID, business_id: UUID) -> dict
             for row in audiences
         ],
         "objectives": [{"name": row.name, "description": row.description} for row in objectives],
+        "approved_history": [
+            {"title": title, "caption": caption, "cta": cta}
+            for title, caption, cta in approved_content
+        ],
     }
 
 
@@ -270,7 +287,12 @@ def generate(
     generation.estimated_cost_usd = chosen.estimated_cost_usd
     if usage is None:
         usage = AIUsageDaily(
-            organization_id=context.organization.id, usage_date=today, updated_at=utcnow()
+            organization_id=context.organization.id,
+            usage_date=today,
+            generation_count=0,
+            input_tokens=0,
+            output_tokens=0,
+            updated_at=utcnow(),
         )
         session.add(usage)
     usage.generation_count += 1

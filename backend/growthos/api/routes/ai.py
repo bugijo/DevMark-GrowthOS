@@ -124,7 +124,7 @@ def regenerate(
     payload = AIGenerationCreate(
         task=AITask(previous.task),
         instruction=previous.instruction,
-        alternatives=previous.alternative_count,
+        alternatives=3 if previous.alternative_count == 3 else 1,
     )
     return growth_agent.generate(
         session, context, previous.business_id, payload, settings, parent_id=previous.id
