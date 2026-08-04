@@ -107,6 +107,7 @@ export default function ContentsPage() {
       setAudiences([]);
       setObjectives([]);
       setMedia([]);
+      setAiHistory([]);
       setLinks(EMPTY_LINKS);
       return;
     }
@@ -114,7 +115,7 @@ export default function ContentsPage() {
     setError(null);
     const bounds = calendarYearBounds();
     try {
-      const [nextStrategies, nextPlans, nextCalendar, nextPresets, nextServices, nextAudiences, nextObjectives, nextMedia] =
+      const [nextStrategies, nextPlans, nextCalendar, nextPresets, nextServices, nextAudiences, nextObjectives, nextMedia, nextAiHistory] =
         await Promise.all([
           api.planning.strategies.list(businessId),
           api.planning.plans.list(businessId),
@@ -124,6 +125,7 @@ export default function ContentsPage() {
           api.catalogs.audiences.list(businessId),
           api.catalogs.objectives.list(businessId),
           api.media.list(businessId),
+          api.ai.list(businessId),
         ]);
       setStrategies(nextStrategies);
       setPlans(nextPlans);
@@ -133,6 +135,7 @@ export default function ContentsPage() {
       setAudiences(nextAudiences);
       setObjectives(nextObjectives);
       setMedia(nextMedia);
+      setAiHistory(nextAiHistory);
 
       const requestedEntry = new URLSearchParams(window.location.search).get("calendar_entry_id");
       const entry = nextCalendar.find(
