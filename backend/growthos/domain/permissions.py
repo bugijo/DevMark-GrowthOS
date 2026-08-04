@@ -28,6 +28,8 @@ class Capability(StrEnum):
     BRAND_VIEW = "brand.view"
     BRAND_MANAGE = "brand.manage"
     BRAND_VISUAL_MANAGE = "brand.manage_visual"
+    ONBOARDING_VIEW = "onboarding.view"
+    ONBOARDING_MANAGE = "onboarding.manage"
     SERVICE_MANAGE = "service.manage"
     AUDIENCE_MANAGE = "audience.manage"
     OBJECTIVE_MANAGE = "objective.manage"
@@ -56,9 +58,12 @@ class Capability(StrEnum):
     CONTENT_SEND_CLIENT = "content.send_client"
     CONTENT_DECIDE_CLIENT = "content.decide_client"
     CONTENT_COMMENT = "content.comment"
+    CONTENT_REVIEW_PROFESSIONAL = "content.review_professional"
+    PROFESSIONAL_REVIEW_GRANT_MANAGE = "content.review_professional_grant_manage"
 
     NOTIFICATION_VIEW_OWN = "notification.view_own"
     NOTIFICATION_UPDATE_OWN = "notification.update_own"
+    NOTIFICATION_PREFERENCE_UPDATE_OWN = "notification.preference_update_own"
     PUBLICATION_RECORD = "publication.record"
     REPORT_VIEW = "report.view"
 
@@ -74,6 +79,7 @@ READ_ONLY_CAPABILITIES: Final[frozenset[Capability]] = frozenset(
         Capability.MEMBERSHIP_VIEW,
         Capability.BUSINESS_VIEW,
         Capability.BRAND_VIEW,
+        Capability.ONBOARDING_VIEW,
         Capability.STRATEGY_VIEW,
         Capability.CALENDAR_VIEW,
         Capability.PRESET_VIEW,
@@ -109,6 +115,8 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.BRAND_VIEW,
             Capability.BRAND_MANAGE,
             Capability.BRAND_VISUAL_MANAGE,
+            Capability.ONBOARDING_VIEW,
+            Capability.ONBOARDING_MANAGE,
             Capability.SERVICE_MANAGE,
             Capability.AUDIENCE_MANAGE,
             Capability.OBJECTIVE_MANAGE,
@@ -131,8 +139,11 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_REVIEW_INTERNAL,
             Capability.CONTENT_SEND_CLIENT,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
+            Capability.PROFESSIONAL_REVIEW_GRANT_MANAGE,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
+            Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.PUBLICATION_RECORD,
             Capability.REPORT_VIEW,
             Capability.PROVIDER_CONFIG_VIEW,
@@ -147,6 +158,8 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.BUSINESS_MANAGE,
             Capability.BRAND_VIEW,
             Capability.BRAND_MANAGE,
+            Capability.ONBOARDING_VIEW,
+            Capability.ONBOARDING_MANAGE,
             Capability.SERVICE_MANAGE,
             Capability.AUDIENCE_MANAGE,
             Capability.OBJECTIVE_MANAGE,
@@ -165,8 +178,10 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_REVIEW_INTERNAL,
             Capability.CONTENT_SEND_CLIENT,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
+            Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.PUBLICATION_RECORD,
             Capability.REPORT_VIEW,
             Capability.PROVIDER_CONFIG_VIEW,
@@ -195,8 +210,10 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_EDIT_TEXT,
             Capability.CONTENT_SUBMIT_INTERNAL,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
+            Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.PUBLICATION_RECORD,
             Capability.REPORT_VIEW,
             Capability.AUDIT_VIEW_SCOPED,
@@ -220,8 +237,10 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_EDIT_VISUAL,
             Capability.CONTENT_SUBMIT_INTERNAL,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
+            Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.REPORT_VIEW,
             Capability.AUDIT_VIEW_SCOPED,
         }
@@ -242,8 +261,10 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_VIEW,
             Capability.CONTENT_DECIDE_CLIENT,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
+            Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.REPORT_VIEW,
             Capability.AUDIT_VIEW_SCOPED,
         }
@@ -261,8 +282,10 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.CONTENT_VIEW,
             Capability.CONTENT_DECIDE_CLIENT,
             Capability.CONTENT_COMMENT,
+            Capability.CONTENT_REVIEW_PROFESSIONAL,
             Capability.NOTIFICATION_VIEW_OWN,
             Capability.NOTIFICATION_UPDATE_OWN,
+            Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.REPORT_VIEW,
             Capability.AUDIT_VIEW_SCOPED,
         }
@@ -278,6 +301,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.MEDIA_VIEW,
             Capability.CONTENT_VIEW,
             Capability.NOTIFICATION_VIEW_OWN,
+            Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.REPORT_VIEW,
         }
     ),

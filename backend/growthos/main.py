@@ -7,6 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from growthos.api.router import api_router
 from growthos.config import get_settings
 from growthos.database import get_engine
+from growthos.logging_config import configure_logging
+from growthos.request_context import RequestContextMiddleware
+from growthos.security_headers import SecurityHeadersMiddleware
 
 
 @asynccontextmanager
@@ -18,6 +21,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    logger = configure_logging(settings.log_level)
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
@@ -36,7 +40,14 @@ def create_app() -> FastAPI:
             "X-Organization-ID",
             "X-Request-ID",
         ],
+        expose_headers=["X-Request-ID"],
     )
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        environment=settings.app_env,
+        api_prefix=settings.api_v1_prefix,
+    )
+    app.add_middleware(RequestContextMiddleware, settings=settings, logger=logger)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
     return app

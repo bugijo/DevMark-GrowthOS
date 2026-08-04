@@ -20,6 +20,11 @@ from growthos.services.content.read_models import (
     serialize_content,
 )
 from growthos.services.content.snapshots import preset_snapshot
+from growthos.services.sensitivity import (
+    VeterinarySensitivityClassifier,
+    assessment_fields,
+    content_document,
+)
 from growthos.services.visual_prompts import MockVisualPromptProvider, VisualPromptRequest
 
 
@@ -54,6 +59,19 @@ def create_revision(
         )
 
     previous = transition(content, ContentStatus.DRAFT)
+    sensitivity = VeterinarySensitivityClassifier().assess(
+        content_document(
+            title=title,
+            caption=caption,
+            objective=current.objective,
+            audience=current.audience,
+            cta=cta,
+            notes=notes,
+            script=script,
+            visual_prompt=current.visual_prompt,
+            negative_prompt=current.negative_prompt,
+        )
+    )
     new_version = ContentVersion(
         organization_id=content.organization_id,
         business_id=content.business_id,
@@ -77,6 +95,7 @@ def create_revision(
         visual_preset_snapshot=dict(current.visual_preset_snapshot),
         provider_name="manual_revision",
         created_by_user_id=context.user.id,
+        **assessment_fields(sensitivity),
     )
     session.add(new_version)
     session.flush()
@@ -116,6 +135,9 @@ def create_revision(
             "previous_version_id": str(current.id),
             "new_version_id": str(new_version.id),
             "version": new_version.version_number,
+            "sensitive": sensitivity.is_sensitive,
+            "sensitivity_codes": list(sensitivity.codes),
+            "sensitivity_provider_version": sensitivity.provider_version,
         },
     )
     session.commit()
@@ -223,6 +245,19 @@ def create_visual_revision(
         )
 
     previous_status = transition(content, ContentStatus.DRAFT)
+    sensitivity = VeterinarySensitivityClassifier().assess(
+        content_document(
+            title=current.title,
+            caption=current.caption,
+            objective=current.objective,
+            audience=current.audience,
+            cta=current.cta,
+            notes=current.notes,
+            script=current.script,
+            visual_prompt=visual_prompt,
+            negative_prompt=negative_prompt,
+        )
+    )
     new_version = ContentVersion(
         organization_id=content.organization_id,
         business_id=content.business_id,
@@ -248,6 +283,7 @@ def create_visual_revision(
             "mock_visual_revision" if prompt_source.startswith("mock") else "manual_visual_revision"
         ),
         created_by_user_id=context.user.id,
+        **assessment_fields(sensitivity),
     )
     session.add(new_version)
     session.flush()
@@ -282,6 +318,9 @@ def create_visual_revision(
             "visual_preset_id": str(new_preset_id) if new_preset_id else None,
             "media_asset_ids": [str(media_id) for media_id, _, _ in next_media],
             "prompt_source": prompt_source,
+            "sensitive": sensitivity.is_sensitive,
+            "sensitivity_codes": list(sensitivity.codes),
+            "sensitivity_provider_version": sensitivity.provider_version,
         },
     )
     session.commit()

@@ -6,16 +6,61 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from growthos.dependencies import AuthContext
-from growthos.domain.enums import ContentStatus
-from growthos.models import CalendarEntry, ContentItem
+from growthos.domain.enums import ContentStatus, NotificationCategory, Role
+from growthos.models import CalendarEntry, ContentItem, Membership, User
 from growthos.schemas import ContentRead, ManualPublicationCreate
 from growthos.services.audit import add_audit_log
 from growthos.services.content.common import transition
+from growthos.services.content.professional_reviews import ensure_professional_approval
 from growthos.services.content.read_models import (
     get_content,
     get_current_version,
     serialize_content,
 )
+from growthos.services.email_jobs import enqueue_notification_email
+from growthos.services.notifications import create_notification
+
+
+def _notify_client_reviewers(
+    session: Session,
+    context: AuthContext,
+    content: ContentItem,
+    *,
+    idempotency_key: str,
+    channel: str,
+) -> None:
+    reviewers = session.execute(
+        select(User, Membership)
+        .join(Membership, Membership.user_id == User.id)
+        .where(
+            Membership.organization_id == context.organization.id,
+            Membership.business_id == content.business_id,
+            Membership.role.in_((Role.CLIENT_OWNER, Role.CLIENT_REVIEWER)),
+            Membership.is_active.is_(True),
+            User.is_active.is_(True),
+        )
+    ).all()
+    for user, membership in reviewers:
+        notification = create_notification(
+            session,
+            organization_id=context.organization.id,
+            business_id=content.business_id,
+            actor_user_id=context.user.id,
+            recipient_user_id=user.id,
+            notification_type="PUBLICATION_RECORDED",
+            category=NotificationCategory.PUBLICATION_RECORDED,
+            title="Publicação registrada",
+            message=f"A publicação manual no canal {channel} foi registrada no GrowthOS.",
+            resource_type="content_item",
+            resource_id=content.id,
+        )
+        enqueue_notification_email(
+            session,
+            notification,
+            idempotency_key=(
+                f"publication-recorded:{content.id}:{idempotency_key}:{membership.id}"
+            ),
+        )
 
 
 def record_manual_publication(
@@ -55,6 +100,7 @@ def record_manual_publication(
             status.HTTP_409_CONFLICT,
             "Somente conteúdo aprovado ou agendado pode ser registrado como publicado",
         )
+    ensure_professional_approval(session, content, get_current_version(session, content))
     calendar_entry: CalendarEntry | None = None
     if content.calendar_entry_id is not None:
         calendar_entry = session.scalar(
@@ -100,6 +146,13 @@ def record_manual_publication(
             "has_reference": bool(content.publication_reference),
             "automatic_publication": False,
         },
+    )
+    _notify_client_reviewers(
+        session,
+        context,
+        content,
+        idempotency_key=idempotency_key,
+        channel=channel,
     )
     try:
         session.commit()

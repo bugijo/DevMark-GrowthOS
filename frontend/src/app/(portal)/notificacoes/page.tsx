@@ -126,7 +126,7 @@ export default function NotificationsPage() {
                   <p className="mt-2 text-sm leading-6 text-slate-700">
                     {notification.message}
                   </p>
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-xs text-slate-600">
                     {formatDateTime(notification.created_at)}
                   </p>
                 </div>

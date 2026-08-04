@@ -59,8 +59,10 @@ def test_client_decision_roles_can_decide_but_not_edit_drafts(role: Role) -> Non
     assert not has_capability(role, Capability.CONTENT_EDIT_VISUAL)
 
 
-def test_viewer_has_no_mutating_capability() -> None:
-    assert capabilities_for(Role.VIEWER).isdisjoint(MUTATING_CAPABILITIES)
+def test_viewer_only_mutates_own_notification_preference() -> None:
+    assert capabilities_for(Role.VIEWER).intersection(MUTATING_CAPABILITIES) == {
+        Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN
+    }
     assert has_capability(Role.VIEWER, Capability.CONTENT_VIEW)
     assert not has_capability(Role.VIEWER, Capability.CONTENT_COMMENT)
 

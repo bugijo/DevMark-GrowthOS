@@ -133,6 +133,14 @@ Consentimento deve ser específico quando for a base aplicável, registrando tex
 
 O processo operacional deve permitir localizar, confirmar, corrigir, exportar, anonimizar ou excluir dados conforme obrigação e base aplicável. Solicitações exigem verificação de identidade, protocolo, prazo e audit log. Dados sujeitos a retenção legal ou defesa de direitos podem ser bloqueados em vez de apagados, com justificativa.
 
+Na Fase 3, a tela **Privacidade** e as rotas `/api/v1/privacy` implementam
+consentimento versionado com histórico/revogação, inventário de finalidades,
+políticas de retenção por organização, exportação do titular e protocolos de
+exportação ou exclusão. A resolução administrativa de exclusão revoga o acesso
+à organização e anonimiza a conta global somente quando não existe outra
+membership ativa. Audit logs obrigatórios são preservados e a resolução fica
+auditada com justificativa.
+
 ### Retenção e descarte
 
 Prazos devem ser configurados e documentados por categoria. Conta encerrada não significa exclusão imediata indiscriminada: dados ativos são removidos ou anonimizados, backups expiram conforme ciclo e registros necessários são preservados com acesso reduzido. O descarte deve ser verificável.

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, LoadingState } from "@/components/ui/feedback";
 import { Field, Input, Textarea } from "@/components/ui/form-controls";
 import { Card, PageHeader } from "@/components/ui/page";
+import { useAuth } from "@/contexts/auth-context";
 import { ApiError, api } from "@/lib/api";
 import { joinCommaSeparated, splitCommaSeparated } from "@/lib/format";
 import type { BrandProfile, Business } from "@/types/api";
@@ -93,6 +94,7 @@ function formToBrand(form: BrandFormState): BrandProfile {
 
 export default function BusinessProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const { roles } = useAuth();
   const [business, setBusiness] = useState<Business | null>(null);
   const [form, setForm] = useState<BrandFormState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -169,6 +171,10 @@ export default function BusinessProfilePage() {
 
   if (!business || !form) return null;
 
+  const canManageOnboarding = roles.some((role) =>
+    ["SUPER_ADMIN", "AGENCY_ADMIN", "STRATEGIST"].includes(role),
+  );
+
   return (
     <>
       <PageHeader
@@ -176,12 +182,24 @@ export default function BusinessProfilePage() {
         title={business.name}
         description="Mantenha as orientações da marca claras para a equipe e para o provider de conteúdo."
         action={
-          <Link
-            href={`/conteudos?business_id=${business.id}`}
-            className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
-          >
-            Ver conteúdos
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {canManageOnboarding ? (
+              <Link
+                href={`/clientes/${business.id}/onboarding`}
+                className="inline-flex min-h-11 items-center rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800"
+              >
+                {business.onboarding_status === "COMPLETED"
+                  ? "Revisar onboarding"
+                  : "Continuar onboarding"}
+              </Link>
+            ) : null}
+            <Link
+              href={`/conteudos?business_id=${business.id}`}
+              className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
+            >
+              Ver conteúdos
+            </Link>
+          </div>
         }
       />
 

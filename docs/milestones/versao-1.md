@@ -11,13 +11,15 @@ Estados: `PLANNED`, `IN_PROGRESS`, `DONE` e `BLOCKED`.
 | `M0` Documentação e decisões | `DONE` | Escopo, arquitetura e plano entendidos por outra pessoa | — |
 | `M1` Fundação executável | `DONE` | Monorepo sobe e valida código/testes em modo local | `M0` |
 | `M2` Identidade e isolamento | `DONE` | Sessão, convites, recuperação, oito papéis e escopo multiempresa funcionam | `M1` |
-| `M3` Cliente e Brand Kit | `IN_PROGRESS` | Marca, catálogos, preset e mídia funcionam; falta consolidar o checklist de onboarding | `M2` |
-| `M4` Conteúdo mock versionado | `IN_PROGRESS` | Conteúdo ligado ao planejamento e versões textuais/visuais funcionam; variações ampliadas permanecem | `M3` |
+| `M3` Cliente e Brand Kit | `DONE` | Marca, catálogos, preset, mídia e onboarding persistido funcionam | `M2` |
+| `M4` Conteúdo mock versionado | `DONE` | Conteúdo, imagem, estratégia e comparação de versões funcionam com mock | `M3` |
 | `M5` Fluxo vertical de aprovação | `DONE` | Cliente recebe, decide e a equipe é notificada com auditoria | `M4` mínimo |
-| `M6` Escopo completo da clínica piloto | `IN_PROGRESS` | A fatia da Fase 2 funciona; preferências, providers e integrações seguras ainda fecham o milestone | `M5` |
-| `M7` Hardening e release 1.0 | `PLANNED` | Os 25 critérios finais têm evidência e a release pode ser operada | `M6` |
+| `M6` Escopo completo da clínica piloto | `DONE` | Notificações, providers seguros, conteúdo sensível e LGPD operacional foram entregues | `M5` |
+| `M7` Hardening e release 1.0 | `IN_PROGRESS` | Gate técnico local verde; aceite independente CAV1-23 e CI/revisão do Draft PR pendentes | `M6` |
 
-O trabalho foi priorizado por uma fatia vertical: `M2` foi concluído e os núcleos de `M3` e `M4` necessários para `M5` foram implementados. `M3` e `M4` continuam abertos porque seus aceites mais amplos ainda não foram atendidos.
+Os milestones funcionais `M0` a `M6` estão concluídos. `M7` permanece aberto
+por um aceite que não pode ser autoatestado: uma segunda pessoa precisa instalar
+e executar o sistema seguindo apenas o README.
 
 ## Evidências do primeiro ciclo
 

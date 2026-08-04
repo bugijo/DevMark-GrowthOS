@@ -4,6 +4,8 @@ from typing import Self
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from growthos.client_ip import parse_trusted_proxy_cidrs
+
 
 class UnsafeConfigurationError(RuntimeError):
     """Raised without echoing secret values when runtime configuration is unsafe."""
@@ -50,6 +52,8 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = False
     session_cookie_same_site: str = "lax"
     allowed_origins: str = "http://localhost:3000"
+    trusted_proxy_cidrs: str = ""
+    log_level: str = "INFO"
     ai_provider: str = "mock"
     mock_provider_seed: str = "devmark-growthos"
     storage_provider: str = "minio"
@@ -70,10 +74,20 @@ class Settings(BaseSettings):
     demo_client_email: str = "client@clinicafeliz.local"
     demo_client_password: str = "local-demo-client-only-change-before-use"
 
-    @field_validator("app_env", "ai_provider", mode="before")
+    antimalware_provider: str = "mock"
+    antimalware_fail_closed: bool = True
+
+    @field_validator("app_env", "ai_provider", "antimalware_provider", mode="before")
     @classmethod
     def normalize_mode(cls, value: object) -> object:
         return value.strip().casefold() if isinstance(value, str) else value
+
+    @field_validator("antimalware_provider")
+    @classmethod
+    def validate_antimalware_provider(cls, value: str) -> str:
+        if value not in {"mock", "disabled"}:
+            raise ValueError("ANTIMALWARE_PROVIDER deve ser mock ou disabled")
+        return value
 
     @field_validator("session_cookie_same_site", mode="before")
     @classmethod
@@ -83,6 +97,23 @@ class Settings(BaseSettings):
         normalized = value.strip().casefold()
         if normalized not in {"lax", "strict", "none"}:
             raise ValueError("SESSION_COOKIE_SAME_SITE deve ser lax, strict ou none")
+        return normalized
+
+    @field_validator("trusted_proxy_cidrs")
+    @classmethod
+    def validate_trusted_proxy_cidrs(cls, value: str) -> str:
+        try:
+            parse_trusted_proxy_cidrs(value)
+        except ValueError as exc:
+            raise ValueError("TRUSTED_PROXY_CIDRS contém uma rede inválida") from exc
+        return value
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, value: str) -> str:
+        normalized = value.upper()
+        if normalized not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise ValueError("LOG_LEVEL deve ser DEBUG, INFO, WARNING, ERROR ou CRITICAL")
         return normalized
 
     @model_validator(mode="after")
@@ -108,6 +139,10 @@ class Settings(BaseSettings):
                 problems.append("SESSION_COOKIE_SECURE deve ser true")
             if self.ai_provider != "mock":
                 problems.append("AI_PROVIDER deve ser mock nesta versão")
+            if self.antimalware_provider == "disabled":
+                problems.append("ANTIMALWARE_PROVIDER não pode ser disabled")
+            if not self.antimalware_fail_closed:
+                problems.append("ANTIMALWARE_FAIL_CLOSED deve ser true")
             if self.seed_demo_data:
                 problems.append("SEED_DEMO_DATA deve ser false")
             if not self.cors_origins or any("*" in origin for origin in self.cors_origins):

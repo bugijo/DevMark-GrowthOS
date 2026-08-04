@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { StrategyVersionComparisonPanel } from "@/components/planning/strategy-version-comparison";
 import { Alert, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Field, Input, Select, Textarea } from "@/components/ui/form-controls";
 import { Card, PageHeader } from "@/components/ui/page";
@@ -489,6 +490,7 @@ export default function PlanningPage() {
                       {["DRAFT", "APPROVED"].includes(strategy.status) ? <Button variant="secondary" onClick={() => startVersion(strategy)}>Criar nova versão</Button> : null}
                     </div>
                   ) : null}
+                  <StrategyVersionComparisonPanel strategyId={strategy.id} />
                 </Card>
               ))}
             </div>

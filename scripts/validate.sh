@@ -10,11 +10,14 @@ python3 -m json.tool shared/contracts/worker-job-v1.schema.json >/dev/null
 
 while IFS= read -r script; do
   bash -n "$script"
-done < <(find scripts -maxdepth 1 -type f -name '*.sh' -print | sort)
+done < <(find scripts -type f -name '*.sh' -print | sort)
+
+while IFS= read -r test_script; do
+  "$test_script"
+done < <(find scripts/tests -type f -name '*.test.sh' -print | sort)
 
 if command -v actionlint >/dev/null; then
   actionlint
 fi
 
 git diff --check
-

@@ -26,6 +26,9 @@ def test_settings_use_auth_secret_as_token_fallback(monkeypatch: pytest.MonkeyPa
         "auth-secret-with-at-least-thirty-two-characters"
     )
     assert settings.heartbeat_file == Path("/tmp/test-growthos-heartbeat")
+    assert settings.heartbeat_max_age_seconds > settings.job_timeout_seconds
+    assert settings.stop_grace_period_seconds > settings.job_timeout_seconds
+    assert settings.cleanup_batch_size == 500
     assert "auth-secret" not in repr(settings)
 
 
@@ -74,4 +77,33 @@ def test_smtp_provider_requires_host(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SMTP_HOST", "")
 
     with pytest.raises(ValueError, match="SMTP_HOST"):
+        WorkerSettings.from_env()
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        (
+            "WORKER_HEARTBEAT_MAX_AGE_SECONDS",
+            "120",
+            "HEARTBEAT_MAX_AGE_SECONDS precisa ser maior",
+        ),
+        (
+            "WORKER_STOP_GRACE_PERIOD_SECONDS",
+            "120",
+            "STOP_GRACE_PERIOD_SECONDS precisa ser maior",
+        ),
+    ],
+)
+def test_worker_timing_guardrails_exceed_job_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    value: str,
+    message: str,
+) -> None:
+    set_minimum_environment(monkeypatch)
+    monkeypatch.setenv("JOB_TIMEOUT_SECONDS", "120")
+    monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValueError, match=message):
         WorkerSettings.from_env()

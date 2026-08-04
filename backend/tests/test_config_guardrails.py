@@ -41,6 +41,15 @@ def test_cookie_same_site_accepts_only_supported_values() -> None:
         )
 
 
+def test_antimalware_provider_accepts_only_local_mock_or_disabled() -> None:
+    with pytest.raises(ValueError, match="ANTIMALWARE_PROVIDER"):
+        Settings(
+            _env_file=None,
+            auth_secret_key=SAFE_PRODUCTION_SECRET,
+            antimalware_provider="unknown",
+        )
+
+
 @pytest.mark.parametrize(
     "secret",
     [
@@ -72,6 +81,8 @@ def test_auth_secret_minimum_length_is_enforced_without_echoing_value() -> None:
     [
         ({"session_cookie_secure": False}, "SESSION_COOKIE_SECURE"),
         ({"ai_provider": "external"}, "AI_PROVIDER"),
+        ({"antimalware_provider": "disabled"}, "ANTIMALWARE_PROVIDER"),
+        ({"antimalware_fail_closed": False}, "ANTIMALWARE_FAIL_CLOSED"),
         ({"seed_demo_data": True}, "SEED_DEMO_DATA"),
     ],
 )

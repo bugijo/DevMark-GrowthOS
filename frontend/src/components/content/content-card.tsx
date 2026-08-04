@@ -76,7 +76,7 @@ export function ContentCard({
               className="max-h-[32rem] w-full rounded-xl bg-slate-100 object-contain"
             />
           ) : (
-            <div className="flex aspect-video items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-500">
+            <div className="flex aspect-video items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-600">
               Prévia visual privada
             </div>
           )}

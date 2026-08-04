@@ -16,6 +16,9 @@ from growthos.domain.enums import (
     ApprovalStage,
     ApprovalStatus,
     ContentStatus,
+    NotificationCategory,
+    NotificationImportance,
+    ProfessionalReviewDecision,
     Role,
 )
 
@@ -50,6 +53,7 @@ class MembershipRead(BaseModel):
     organization_id: UUID
     role: Role
     business_id: UUID | None
+    professional_review_granted: bool
 
 
 class LoginRequest(BaseModel):
@@ -67,11 +71,13 @@ class AuthResponse(BaseModel):
 class BusinessCreate(BaseModel):
     name: str = Field(min_length=2, max_length=200)
     segment: str = Field(default="", max_length=120)
+    timezone: str = Field(default="America/Sao_Paulo", min_length=1, max_length=64)
 
 
 class BusinessUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=200)
     segment: str | None = Field(default=None, max_length=120)
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class BusinessRead(BaseModel):
@@ -80,6 +86,9 @@ class BusinessRead(BaseModel):
     organization_id: UUID
     name: str
     segment: str
+    timezone: str
+    onboarding_status: str
+    onboarding_completed_at: datetime | None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -103,6 +112,10 @@ class BrandProfileUpsert(BaseModel):
     segment: str = Field(default="", max_length=120)
     audience: str = ""
     primary_colors: list[str] = Field(default_factory=list)
+    secondary_colors: list[str] = Field(default_factory=list)
+    fonts: list[str] = Field(default_factory=list)
+    logo_media_asset_ids: list[str] = Field(default_factory=list)
+    visual_reference_media_asset_ids: list[str] = Field(default_factory=list)
     tone_of_voice: str = ""
     preferred_words: list[str] = Field(default_factory=list)
     forbidden_words: list[str] = Field(default_factory=list)
@@ -112,6 +125,11 @@ class BrandProfileUpsert(BaseModel):
     contacts: dict[str, Any] | str | None = None
     links: list[str] = Field(default_factory=list)
     calls_to_action: list[str] = Field(default_factory=list)
+    allowed_rules: list[str] = Field(default_factory=list)
+    forbidden_rules: list[str] = Field(default_factory=list)
+    required_terms: list[str] = Field(default_factory=list)
+    legal_rules: list[str] = Field(default_factory=list)
+    image_restrictions: list[str] = Field(default_factory=list)
     internal_notes: str = ""
 
 
@@ -120,6 +138,7 @@ class BrandProfileRead(BrandProfileUpsert):
     id: UUID
     organization_id: UUID
     business_id: UUID
+    version: int
     created_at: datetime
     updated_at: datetime
 
@@ -164,6 +183,13 @@ class ContentVersionRead(BaseModel):
     visual_preset_snapshot: dict[str, Any]
     media_asset_ids: list[UUID] = Field(default_factory=list)
     provider_name: str
+    is_sensitive: bool
+    sensitivity_categories: list[str]
+    sensitivity_codes: list[str]
+    sensitivity_score: int
+    sensitivity_provider: str
+    sensitivity_provider_version: str
+    sensitivity_assessed_at: datetime
     created_at: datetime
 
 
@@ -179,6 +205,28 @@ class ApprovalRead(BaseModel):
     decided_by_user_id: UUID | None
     decision_comment: str | None
     decided_at: datetime | None
+
+
+class ProfessionalReviewCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    decision: ProfessionalReviewDecision
+    justification: str = Field(min_length=3, max_length=4000)
+
+
+class ProfessionalReviewRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    organization_id: UUID
+    business_id: UUID
+    content_item_id: UUID
+    content_version_id: UUID
+    reviewer_user_id: UUID
+    reviewer_membership_id: UUID
+    decision: ProfessionalReviewDecision
+    justification: str
+    created_at: datetime
 
 
 class ContentRead(BaseModel):
@@ -199,6 +247,7 @@ class ContentRead(BaseModel):
     change_request_comment: str | None = None
     current_version: ContentVersionRead
     approvals: list[ApprovalRead] = Field(default_factory=list)
+    professional_reviews: list[ProfessionalReviewRead] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -254,6 +303,8 @@ class NotificationRead(BaseModel):
     organization_id: UUID
     business_id: UUID | None
     type: str
+    category: NotificationCategory
+    importance: NotificationImportance
     title: str
     message: str
     resource_type: str | None

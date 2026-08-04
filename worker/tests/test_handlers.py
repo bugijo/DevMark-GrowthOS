@@ -15,6 +15,7 @@ from growthos_worker.handlers import (
     IdentityInviteEmailHandler,
     IdentityPasswordResetEmailHandler,
     MockProviderHandler,
+    NotificationDigestEmailHandler,
     NotificationEmailHandler,
     SmtpEmailHandler,
     default_handlers,
@@ -276,6 +277,8 @@ def test_notification_email_revalidates_active_tenant_membership_before_smtp(
     assert "membership.organization_id = notification.organization_id" in query
     assert "membership.is_active IS TRUE" in query
     assert "membership.business_id = notification.business_id" in query
+    assert "preference.email_enabled IS FALSE" in query
+    assert "category_preference.delivery_mode = 'URGENT_ONLY'" in query
     assert parameters == (NOTIFICATION_ID, ORGANIZATION_ID)
     audit_query, audit_parameters = database.queries[1]
     assert "INSERT INTO audit_logs" in audit_query
@@ -286,18 +289,19 @@ def test_notification_email_revalidates_active_tenant_membership_before_smtp(
     assert "'notification_id'" in audit_query
     assert "'job_id'" in audit_query
     assert "'attempt'" in audit_query
-    assert audit_parameters[1:] == (
-        "notification-job-1",
-        1,
-        NOTIFICATION_ID,
-        ORGANIZATION_ID,
-    )
-    assert isinstance(audit_parameters[0], UUID)
+    assert audit_parameters[:2] == (NOTIFICATION_ID, ORGANIZATION_ID)
+    assert isinstance(audit_parameters[2], UUID)
+    assert audit_parameters[3:5] == (1, "notification-job-1")
+    assert isinstance(audit_parameters[5], UUID)
+    assert audit_parameters[6:] == ("notification-job-1", 1)
     assert all(
         term not in audit_query.casefold()
         for term in ("recipient.email", "notification.title", "notification.message", "comment")
     )
-    assert events == ["database", "database", "smtp"]
+    result_query, result_parameters = database.queries[2]
+    assert "UPDATE notification_deliveries" in result_query
+    assert "notification.email_delivered" in result_parameters
+    assert events == ["database", "database", "smtp", "database"]
     assert factory.messages[0]["To"] == "reviewer@example.com"
     assert "reviewer@example.com" not in caplog.text
     assert "Entre no GrowthOS para decidir." not in caplog.text
@@ -324,11 +328,11 @@ def test_notification_email_records_failed_smtp_attempt_before_retry() -> None:
     with pytest.raises(RetryableJobError, match=r"smtp delivery failed \(OSError\)"):
         handler(notification_job({"notification_id": str(NOTIFICATION_ID)}))
 
-    assert events == ["database", "database", "smtp"]
-    assert len(database.queries) == 2
+    assert events == ["database", "database", "smtp", "database"]
+    assert len(database.queries) == 3
     audit_query, audit_parameters = database.queries[1]
     assert "ON CONFLICT (id) DO NOTHING" in audit_query
-    assert audit_parameters[1:3] == ("notification-job-1", 1)
+    assert audit_parameters[3:5] == (1, "notification-job-1")
     assert all("private transport detail" not in str(value) for value in audit_parameters)
 
 
@@ -352,13 +356,13 @@ def test_notification_email_attempt_audit_is_idempotent_per_attempt() -> None:
     handler(notification_job(payload, attempts=1))
     handler(notification_job(payload, attempts=2))
 
-    first_audit_id = database.queries[1][1][0]
-    repeated_audit_id = database.queries[3][1][0]
-    retry_audit_id = database.queries[5][1][0]
+    first_audit_id = database.queries[1][1][5]
+    repeated_audit_id = database.queries[4][1][5]
+    retry_audit_id = database.queries[7][1][5]
     assert isinstance(first_audit_id, UUID)
     assert first_audit_id == repeated_audit_id
     assert retry_audit_id != first_audit_id
-    assert all("ON CONFLICT (id) DO NOTHING" in database.queries[index][0] for index in (1, 3, 5))
+    assert all("ON CONFLICT (id) DO NOTHING" in database.queries[index][0] for index in (1, 4, 7))
 
 
 def test_notification_email_does_not_send_when_attempt_audit_fails() -> None:
@@ -402,6 +406,66 @@ def test_notification_email_never_sends_after_access_is_unavailable() -> None:
 
     with pytest.raises(PermanentJobError, match="unavailable"):
         handler(notification_job({"notification_id": str(NOTIFICATION_ID)}))
+    assert factory.messages == []
+
+
+def test_notification_email_revalidates_changed_preference_and_skips_smtp() -> None:
+    events: list[str] = []
+    database = FakeDatabase(
+        {
+            "id": NOTIFICATION_ID,
+            "email": "reviewer@example.com",
+            "title": "Conteúdo aguardando revisão",
+            "message": "Entre no GrowthOS para decidir.",
+            "delivery_status": "PENDING",
+            "current_delivery_mode": "DAILY",
+            "email_allowed": False,
+        },
+        events=events,
+    )
+    factory = FakeSmtpFactory(events=events)
+    handler = NotificationEmailHandler(
+        connect=database.connect,
+        smtp=smtp_handler(factory, "test.notification.preference-change"),
+        logger=logging.getLogger("test.notification.preference-change"),
+    )
+
+    result = handler(notification_job({"notification_id": str(NOTIFICATION_ID)}))
+
+    assert result == {"provider": "none", "delivered": False, "skipped": True}
+    assert factory.messages == []
+    assert events == ["database", "database"]
+    skip_query, skip_parameters = database.queries[1]
+    assert "status = 'SKIPPED'" in skip_query
+    assert "notification.email_skipped_by_preference" in skip_query
+    assert "PREFERENCE_CHANGED" in skip_query
+    assert "reviewer@example.com" not in str(skip_parameters)
+    assert "Entre no GrowthOS" not in str(skip_parameters)
+
+
+def test_notification_email_never_reclassifies_an_already_delivered_message() -> None:
+    database = FakeDatabase(
+        {
+            "id": NOTIFICATION_ID,
+            "email": "reviewer@example.com",
+            "title": "Conteúdo já entregue",
+            "message": "Mensagem entregue antes da mudança de preferência.",
+            "delivery_status": "DELIVERED",
+            "current_delivery_mode": "DAILY",
+            "email_allowed": False,
+        }
+    )
+    factory = FakeSmtpFactory()
+    handler = NotificationEmailHandler(
+        connect=database.connect,
+        smtp=smtp_handler(factory, "test.notification.delivered-before-preference"),
+        logger=logging.getLogger("test.notification.delivered-before-preference"),
+    )
+
+    result = handler(notification_job({"notification_id": str(NOTIFICATION_ID)}))
+
+    assert result == {"provider": "smtp", "delivered": True, "idempotent": True}
+    assert len(database.queries) == 1
     assert factory.messages == []
 
 
@@ -565,6 +629,10 @@ def test_default_handlers_preserve_console_and_mock_and_register_identity() -> N
 
     assert isinstance(handlers["notification.email.console"], ConsoleEmailHandler)
     assert isinstance(handlers["notification.email.smtp"], NotificationEmailHandler)
+    assert isinstance(
+        handlers["notification.digest.prepare"],
+        NotificationDigestEmailHandler,
+    )
     assert isinstance(handlers["SEND_EMAIL"], SmtpEmailHandler)
     assert isinstance(handlers["provider.mock"], MockProviderHandler)
     assert isinstance(handlers["identity.invite.email"], IdentityInviteEmailHandler)

@@ -62,9 +62,9 @@ export function LoginForm() {
           <p className="text-sm font-bold tracking-[0.2em] text-emerald-200 uppercase">
             Growth Agent
           </p>
-          <h1 className="mt-4 text-5xl leading-tight font-bold tracking-tight">
+          <p className="mt-4 text-5xl leading-tight font-bold tracking-tight">
             Marketing organizado, com controle humano.
-          </h1>
+          </p>
           <p className="mt-6 text-lg leading-8 text-emerald-100">
             Crie, revise e aprove conteúdos em um fluxo simples, seguro e rastreável.
           </p>
@@ -84,9 +84,9 @@ export function LoginForm() {
           </div>
 
           <p className="text-sm font-bold text-emerald-700">Bem-vindo</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
             Entre na sua conta
-          </h2>
+          </h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             Use seu e-mail e senha para acessar sua organização.
           </p>

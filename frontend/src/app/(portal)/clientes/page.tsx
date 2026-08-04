@@ -11,10 +11,13 @@ import { api, extractItems } from "@/lib/api";
 import type { Business } from "@/types/api";
 
 export default function BusinessesPage() {
-  const { activeOrganizationId } = useAuth();
+  const { activeOrganizationId, roles } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const canManageOnboarding = roles.some((role) =>
+    ["SUPER_ADMIN", "AGENCY_ADMIN", "STRATEGIST"].includes(role),
+  );
 
   const load = useCallback(async () => {
     if (!activeOrganizationId) return;
@@ -82,9 +85,26 @@ export default function BusinessesPage() {
               <p className="mt-1 text-sm text-slate-600">
                 {business.segment || "Segmento ainda não informado"}
               </p>
+              <p className="mt-3 text-xs font-bold tracking-wide text-emerald-800 uppercase">
+                {business.onboarding_status === "COMPLETED"
+                  ? "Onboarding concluído"
+                  : business.onboarding_status === "IN_PROGRESS"
+                    ? "Onboarding em andamento"
+                    : "Onboarding não iniciado"}
+              </p>
+              {canManageOnboarding ? (
+                <Link
+                  href={`/clientes/${business.id}/onboarding`}
+                  className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-800"
+                >
+                  {business.onboarding_status === "COMPLETED"
+                    ? "Revisar onboarding"
+                    : "Continuar configuração"}
+                </Link>
+              ) : null}
               <Link
                 href={`/clientes/${business.id}`}
-                className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-800 hover:bg-slate-50"
+                className={`${canManageOnboarding ? "mt-2" : "mt-5"} inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-800 hover:bg-slate-50`}
               >
                 Abrir perfil e Brand Kit
               </Link>

@@ -114,9 +114,152 @@ export interface Business {
   organization_id?: string;
   name: string;
   segment: string;
+  timezone?: string;
+  onboarding_status?: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  onboarding_completed_at?: string | null;
   is_active?: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface OnboardingCatalogItem {
+  id?: string;
+  name: string;
+  description: string;
+}
+
+export interface OnboardingServiceInput extends OnboardingCatalogItem {
+  category: string;
+  warnings: string[];
+}
+
+export interface OnboardingAudienceInput extends OnboardingCatalogItem {
+  needs: string[];
+  objections: string[];
+  location: string;
+}
+
+export interface OnboardingObjectiveInput extends OnboardingCatalogItem {
+  planned_indicators: string[];
+}
+
+export type NotificationCategory =
+  | "CONTENT_AWAITING_APPROVAL"
+  | "CONTENT_CHANGES_REQUESTED"
+  | "CONTENT_APPROVED"
+  | "STRATEGY_AWAITING_APPROVAL"
+  | "INVITATION"
+  | "PROCESSING_FAILED"
+  | "PUBLICATION_RECORDED"
+  | "REPORT_AVAILABLE";
+
+export type OnboardingStepPayload =
+  | {
+      step: 1;
+      revision: number;
+      name: string;
+      brand_name: string;
+      public_name: string;
+      description: string;
+      timezone: string;
+    }
+  | { step: 2; revision: number; segment: string }
+  | { step: 3; revision: number; services: OnboardingServiceInput[] }
+  | { step: 4; revision: number; audiences: OnboardingAudienceInput[] }
+  | { step: 5; revision: number; objectives: OnboardingObjectiveInput[] }
+  | { step: 6; revision: number; differentiators: string[] }
+  | {
+      step: 7;
+      revision: number;
+      tone_of_voice: string;
+      preferred_words: string[];
+      forbidden_words: string[];
+    }
+  | { step: 8; revision: number; logo_media_asset_ids: string[] }
+  | {
+      step: 9;
+      revision: number;
+      primary_colors: string[];
+      secondary_colors: string[];
+      fonts: string[];
+    }
+  | {
+      step: 10;
+      revision: number;
+      visual_reference_media_asset_ids: string[];
+    }
+  | {
+      step: 11;
+      revision: number;
+      allowed_rules: string[];
+      forbidden_rules: string[];
+      required_terms: string[];
+      legal_rules: string[];
+      image_restrictions: string[];
+    }
+  | { step: 12; revision: number; membership_ids: string[] }
+  | {
+      step: 13;
+      revision: number;
+      email_enabled: boolean;
+      mode: "IMMEDIATE" | "DAILY" | "WEEKLY" | "URGENT_ONLY";
+      timezone: string;
+      digest_time: string;
+      weekly_day: number;
+      disabled_categories: NotificationCategory[];
+    }
+  | {
+      step: 14;
+      revision: number;
+      preset_id: string;
+    }
+  | {
+      step: 14;
+      revision: number;
+      preset: VisualPresetInput;
+    }
+  | { step: 15; revision: number; confirmed: true; notes: string };
+
+export interface OnboardingSummary {
+  business_id: string;
+  brand_profile_id: string | null;
+  service_ids: string[];
+  audience_ids: string[];
+  objective_ids: string[];
+  logo_media_asset_ids: string[];
+  visual_reference_media_asset_ids: string[];
+  approver_membership_ids: string[];
+  initial_preset_id: string | null;
+  notification_settings_configured: boolean;
+}
+
+export interface BusinessOnboarding {
+  id: string;
+  organization_id: string;
+  business_id: string;
+  status: "IN_PROGRESS" | "COMPLETED";
+  current_step: number;
+  completed_steps: number[];
+  missing_steps: number[];
+  progress_percent: number;
+  revision: number;
+  step_data: Record<string, Record<string, unknown>>;
+  summary: OnboardingSummary;
+  started_by_user_id: string;
+  updated_by_user_id: string;
+  completed_by_user_id: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OnboardingApprover {
+  membership_id: string;
+  user_id: string;
+  business_id: string;
+  name: string;
+  email: string;
+  role: "CLIENT_OWNER" | "CLIENT_REVIEWER";
 }
 
 export interface BrandProfile {
@@ -412,6 +555,91 @@ export interface ContentItem {
   updated_at?: string;
 }
 
+export interface ComparisonActor {
+  name: string;
+}
+
+export interface VersionDecision {
+  status: string;
+  component: string | null;
+  comment: string | null;
+  decided_at: string | null;
+  decided_by: ComparisonActor | null;
+}
+
+export interface VersionSummary {
+  id: string;
+  version_number: number;
+  created_at: string;
+  author: ComparisonActor;
+  is_current: boolean;
+  is_approved: boolean;
+  decisions: VersionDecision[];
+}
+
+export interface ContentVersionHistory {
+  content_id: string;
+  business_id: string;
+  current_version_id: string;
+  versions: VersionSummary[];
+}
+
+export interface ContentComparisonSide extends VersionSummary {
+  text: {
+    title: string;
+    caption: string;
+    objective: string;
+    audience: string;
+    cta: string;
+    script: string;
+  };
+  visual: {
+    channel: string;
+    format: string;
+    visual_prompt: string | null;
+    preset: Record<string, unknown>;
+    media_asset_ids: string[];
+  };
+}
+
+export interface ContentVersionComparison {
+  content_id: string;
+  business_id: string;
+  base: ContentComparisonSide;
+  target: ContentComparisonSide;
+  changed_fields: string[];
+}
+
+export interface StrategyVersionHistory {
+  strategy_id: string;
+  business_id: string;
+  current_version_id: string;
+  approved_version_id: string | null;
+  versions: VersionSummary[];
+}
+
+export interface StrategyComparisonSide extends VersionSummary {
+  strategy: {
+    objective: string;
+    positioning: string;
+    funnel: string[];
+    channels: string[];
+    pillars: Array<string | Record<string, unknown>>;
+    planned_indicators: string[];
+    services: Array<Record<string, unknown>>;
+    audiences: Array<Record<string, unknown>>;
+    marketing_objectives: Array<Record<string, unknown>>;
+  };
+}
+
+export interface StrategyVersionComparison {
+  strategy_id: string;
+  business_id: string;
+  base: StrategyComparisonSide;
+  target: StrategyComparisonSide;
+  changed_fields: string[];
+}
+
 export interface ContentRevisionInput {
   title: string;
   caption: string;
@@ -492,6 +720,72 @@ export interface AuditLog {
   result?: string;
   details?: Record<string, unknown>;
   created_at: string;
+}
+
+export interface ProviderConfig {
+  id: string | null;
+  kind: "TEXT" | "IMAGE" | "EMAIL" | "STORAGE" | "ORCHESTRATION";
+  provider: "MOCK" | "HERMES" | "EXTERNAL_FUTURE" | "SMTP" | "MINIO";
+  is_active: boolean;
+  is_required: boolean;
+  configured_by_environment: boolean;
+  priority: number;
+  fallback_provider: string | null;
+  timeout_seconds: number;
+  max_attempts: number;
+  test_mode: boolean;
+  secret_environment_key: string | null;
+  last_checked_at: string | null;
+  last_status: string;
+  last_error: string | null;
+}
+
+export interface ProviderTestResult {
+  kind: string;
+  provider: string;
+  status: string;
+  checked_at: string;
+  message: string;
+}
+
+export interface ConsentRecord {
+  id: string;
+  purpose_code: string;
+  policy_version: string;
+  accepted: boolean;
+  source: string;
+  created_at: string;
+}
+
+export interface DataPurpose {
+  id: string;
+  code: string;
+  name: string;
+  purpose: string;
+  legal_basis: string;
+  data_categories: string;
+  retention_days: number;
+  is_active: boolean;
+}
+
+export interface PrivacyRequest {
+  id: string;
+  request_type: "EXPORT" | "DELETION";
+  status: string;
+  reason: string;
+  subject_user_id: string;
+  resolution_notes: string | null;
+  processed_at: string | null;
+  created_at: string;
+}
+
+export interface RetentionPolicy {
+  id: string;
+  resource_type: string;
+  retention_days: number;
+  legal_hold: boolean;
+  justification: string;
+  updated_at: string;
 }
 
 export interface ListEnvelope<T> {

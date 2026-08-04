@@ -135,6 +135,22 @@ describe("apiRequest", () => {
     expect(body).not.toHaveProperty("ends_on");
     expect(body.objective).toBe("Aumentar a educação preventiva");
   });
+
+  it("busca aprovadores somente pelo endpoint escopado do onboarding", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await api.onboarding.approvers("business-1");
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/businesses/business-1/onboarding/approvers");
+    expect(init?.method).toBe("GET");
+    expect(String(url)).not.toContain("/members");
+  });
 });
 
 describe("extractItems", () => {

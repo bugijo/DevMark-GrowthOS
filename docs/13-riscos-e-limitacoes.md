@@ -34,6 +34,8 @@ Escala usada: probabilidade e impacto `Baixo`, `Médio` ou `Alto`. Um risco alto
 | R-22 | Rate limit local divergir entre réplicas ou enxergar apenas o proxy do frontend. | Média | Alto | Limites por identidade/origem, armazenamento local limitado e store compartilhado com proxies confiáveis antes de escalar. | Bloqueio coletivo ou tentativas distribuídas sem contenção. |
 | R-23 | Escrita interna incoerente cruzar organização e empresa apesar dos filtros HTTP. | Baixa | Alto | Serviços escopados, testes negativos e evolução das FKs compostas/constraints antes de novos escritores internos. | Job, script ou integração grava IDs de tenants diferentes. |
 | R-24 | Ambiente compartilhado usar perfil ou storage local por erro de configuração. | Baixa | Alto | Valores de ambiente tipados, guardas fail-closed e credenciais/TLS gerenciados no gate M7. | Alias como `prod`, endpoint HTTP ou credencial MinIO local fora do desenvolvimento. |
+| R-25 | Volume local não preservar permissão restrita do `.env`. | Alta neste host | Alto | Usar filesystem Linux ou secret manager; não operar dados reais no volume `fuseblk` atual. | `make doctor` informa modo `777` mesmo após `chmod 600`. |
+| R-26 | Documentação conter erro não percebido pelo implementador. | Média | Alto | Aceite `CAV1-23` obrigatório por segunda pessoa em instalação limpa. | Instalação só foi repetida por quem implementou. |
 
 ## Riscos de autonomia
 
@@ -82,8 +84,11 @@ Qualquer mudança de nível exige ADR, revisão de segurança/LGPD, critérios d
 - A criação direta de revisor e senha por um administrador é apenas um auxílio local; convite com aceite, uso único e resposta anti-enumeração é obrigatório antes de uso com pessoas reais.
 - O rate limiter em memória é limitado e adequado a uma única instância local; múltiplas réplicas exigem store compartilhado e configuração de proxy confiável.
 - A elevação excepcional de `SUPER_ADMIN`, com justificativa operacional própria, continua pendente; as rotas atuais ainda o mantêm dentro da membership e organização selecionadas.
-- As rotas validam tenant e empresa, mas constraints compostas de todas as relações serão ampliadas antes de permitir novos processos de escrita direta no banco.
-- O perfil atual endurece o valor exato `production`; aliases, storage remoto com TLS e credenciais gerenciadas serão fechados de forma fail-closed no gate M7 antes de qualquer ambiente compartilhado.
+- As rotas validam tenant e empresa; novos processos de escrita direta no banco
+  ainda exigem revisão específica das constraints compostas correspondentes.
+- O host auditado usa volume `fuseblk`, que não preservou `chmod 600` no `.env`.
+  O piloto com dados reais deve usar filesystem que suporte permissões POSIX ou
+  secret manager.
 
 ## Dependências e hipóteses
 

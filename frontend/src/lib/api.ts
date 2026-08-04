@@ -5,9 +5,14 @@ import type {
   AuditLog,
   BrandProfile,
   Business,
+  BusinessOnboarding,
   CalendarEntry,
   ContentGenerateInput,
   ContentItem,
+  ContentVersionComparison,
+  ContentVersionHistory,
+  ConsentRecord,
+  DataPurpose,
   ContentPlan,
   ContentRevisionInput,
   ContentStrategy,
@@ -25,11 +30,19 @@ import type {
   OrganizationMembership,
   OrganizationMembershipUpdate,
   Notification,
+  OnboardingApprover,
+  OnboardingStepPayload,
   Organization,
   PeriodReport,
+  ProviderConfig,
+  ProviderTestResult,
+  PrivacyRequest,
+  RetentionPolicy,
   SecurityMessage,
   Service,
   StrategyInput,
+  StrategyVersionComparison,
+  StrategyVersionHistory,
   StrategyVersionInput,
   User,
   VisualPreset,
@@ -262,6 +275,34 @@ export const api = {
         body: JSON.stringify(input),
       }),
   },
+  onboarding: {
+    approvers: (businessId: string) =>
+      apiRequest<OnboardingApprover[]>(
+        `/businesses/${businessId}/onboarding/approvers`,
+      ),
+    get: (businessId: string) =>
+      apiRequest<BusinessOnboarding>(`/businesses/${businessId}/onboarding`),
+    start: (businessId: string) =>
+      apiRequest<BusinessOnboarding>(`/businesses/${businessId}/onboarding`, {
+        method: "POST",
+      }),
+    saveStep: (businessId: string, payload: OnboardingStepPayload) =>
+      apiRequest<BusinessOnboarding>(
+        `/businesses/${businessId}/onboarding/steps/${payload.step}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        },
+      ),
+    complete: (businessId: string, revision: number) =>
+      apiRequest<BusinessOnboarding>(
+        `/businesses/${businessId}/onboarding/complete`,
+        {
+          method: "POST",
+          body: JSON.stringify({ revision }),
+        },
+      ),
+  },
   catalogs: {
     services: {
       list: (businessId: string) =>
@@ -420,6 +461,15 @@ export const api = {
           method: "POST",
           body: JSON.stringify({ decision, comment }),
         }),
+      history: (id: string) =>
+        apiRequest<StrategyVersionHistory>(`/strategies/${id}/history`),
+      compare: (id: string, baseVersionId: string, targetVersionId: string) =>
+        apiRequest<StrategyVersionComparison>(
+          `/strategies/${id}/compare${query({
+            base_version_id: baseVersionId,
+            target_version_id: targetVersionId,
+          })}`,
+        ),
     },
     plans: {
       list: (businessId: string) =>
@@ -493,6 +543,36 @@ export const api = {
     archive: (id: string) =>
       apiRequest<void>(`/media/${id}`, { method: "DELETE" }),
   },
+  providers: {
+    list: () => apiRequest<ProviderConfig[]>("/providers"),
+    update: (config: ProviderConfig) =>
+      apiRequest<ProviderConfig>(`/providers/${config.kind}/${config.provider}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          is_active: config.is_active,
+          priority: config.priority,
+          fallback_provider: config.fallback_provider,
+          timeout_seconds: config.timeout_seconds,
+          max_attempts: config.max_attempts,
+          test_mode: config.test_mode,
+          secret_environment_key: config.secret_environment_key,
+        }),
+      }),
+    test: (config: ProviderConfig) =>
+      apiRequest<ProviderTestResult>(`/providers/${config.kind}/${config.provider}/test`, { method: "POST" }),
+  },
+  privacy: {
+    purposes: () => apiRequest<DataPurpose[]>("/privacy/purposes"),
+    consents: () => apiRequest<ConsentRecord[]>("/privacy/consents"),
+    consent: (purposeCode: string, policyVersion: string, accepted: boolean) => apiRequest<ConsentRecord>("/privacy/consents", { method: "POST", body: JSON.stringify({ purpose_code: purposeCode, policy_version: policyVersion, accepted }) }),
+    export: () => apiRequest<Record<string, unknown>>("/privacy/export"),
+    requests: () => apiRequest<PrivacyRequest[]>("/privacy/requests"),
+    createRequest: (requestType: "EXPORT" | "DELETION", reason: string) => apiRequest<PrivacyRequest>("/privacy/requests", { method: "POST", body: JSON.stringify({ request_type: requestType, reason }) }),
+    adminRequests: () => apiRequest<PrivacyRequest[]>("/privacy/admin/requests"),
+    resolve: (id: string, decision: "COMPLETE" | "REJECT", notes: string) => apiRequest<PrivacyRequest>(`/privacy/admin/requests/${id}/resolve`, { method: "POST", body: JSON.stringify({ decision, notes }) }),
+    retention: () => apiRequest<RetentionPolicy[]>("/privacy/admin/retention"),
+    saveRetention: (resourceType: string, retentionDays: number, legalHold: boolean, justification: string) => apiRequest<RetentionPolicy>(`/privacy/admin/retention/${resourceType}`, { method: "PUT", body: JSON.stringify({ retention_days: retentionDays, legal_hold: legalHold, justification }) }),
+  },
   members: {
     list: () => apiRequest<OrganizationMembership[]>("/members"),
     update: (id: string, input: OrganizationMembershipUpdate) =>
@@ -517,6 +597,15 @@ export const api = {
         `/contents${query({ business_id: businessId })}`,
       ),
     get: (id: string) => apiRequest<ContentItem>(`/contents/${id}`),
+    history: (id: string) =>
+      apiRequest<ContentVersionHistory>(`/contents/${id}/history`),
+    compare: (id: string, baseVersionId: string, targetVersionId: string) =>
+      apiRequest<ContentVersionComparison>(
+        `/contents/${id}/compare${query({
+          base_version_id: baseVersionId,
+          target_version_id: targetVersionId,
+        })}`,
+      ),
     generate: (input: ContentGenerateInput) =>
       apiRequest<ContentItem>("/contents/generate", {
         method: "POST",

@@ -9,10 +9,23 @@ from growthos.domain.enums import (
     ApprovalStage,
     ApprovalStatus,
     ContentStatus,
+    ProfessionalReviewDecision,
     Role,
 )
-from growthos.models import Approval, Business, ContentItem, ContentVersion, ContentVersionMedia
-from growthos.schemas import ApprovalRead, ContentRead, ContentVersionRead
+from growthos.models import (
+    Approval,
+    Business,
+    ContentItem,
+    ContentVersion,
+    ContentVersionMedia,
+    ProfessionalContentReview,
+)
+from growthos.schemas import (
+    ApprovalRead,
+    ContentRead,
+    ContentVersionRead,
+    ProfessionalReviewRead,
+)
 
 _BUSINESS_PORTAL_ROLES = frozenset({Role.CLIENT_OWNER, Role.CLIENT_REVIEWER, Role.VIEWER})
 # Estes estados comprovam que o item atravessou a liberação para o portal. FAILED e
@@ -111,6 +124,17 @@ def serialize_content(
             .order_by(ContentVersionMedia.sort_order, ContentVersionMedia.created_at)
         ).all()
     )
+    professional_reviews = list(
+        session.scalars(
+            select(ProfessionalContentReview)
+            .where(
+                ProfessionalContentReview.organization_id == content.organization_id,
+                ProfessionalContentReview.business_id == content.business_id,
+                ProfessionalContentReview.content_item_id == content.id,
+            )
+            .order_by(ProfessionalContentReview.created_at, ProfessionalContentReview.id)
+        ).all()
+    )
     change_request_comment: str | None = None
     if content.status == ContentStatus.CHANGES_REQUESTED:
         change_request_comment = session.scalar(
@@ -124,6 +148,20 @@ def serialize_content(
             .order_by(Approval.decided_at.desc())
             .limit(1)
         )
+        if change_request_comment is None:
+            change_request_comment = session.scalar(
+                select(ProfessionalContentReview.justification)
+                .where(
+                    ProfessionalContentReview.organization_id == content.organization_id,
+                    ProfessionalContentReview.business_id == content.business_id,
+                    ProfessionalContentReview.content_item_id == content.id,
+                    ProfessionalContentReview.content_version_id == version.id,
+                    ProfessionalContentReview.decision
+                    == ProfessionalReviewDecision.CHANGES_REQUESTED,
+                )
+                .order_by(ProfessionalContentReview.created_at.desc())
+                .limit(1)
+            )
     version_read = ContentVersionRead.model_validate(version).model_copy(
         update={"media_asset_ids": media_asset_ids}
     )
@@ -162,6 +200,9 @@ def serialize_content(
         change_request_comment=change_request_comment,
         current_version=version_read,
         approvals=approval_reads,
+        professional_reviews=[
+            ProfessionalReviewRead.model_validate(review) for review in professional_reviews
+        ],
         created_at=content.created_at,
         updated_at=content.updated_at,
     )
@@ -171,6 +212,9 @@ def list_contents(
     session: Session,
     context: AuthContext,
     business_id: UUID | None,
+    *,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[ContentRead]:
     query = (
         select(ContentItem)
@@ -198,5 +242,9 @@ def list_contents(
     elif business_id is not None:
         get_scoped_business(session, context, business_id)
         query = query.where(ContentItem.business_id == business_id)
-    contents = session.scalars(query.order_by(ContentItem.created_at.desc())).all()
+    contents = session.scalars(
+        query.order_by(ContentItem.created_at.desc(), ContentItem.id.desc())
+        .limit(limit)
+        .offset(offset)
+    ).all()
     return [serialize_content(session, content, context) for content in contents]

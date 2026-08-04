@@ -10,6 +10,7 @@ from growthos.domain.enums import (
     ApprovalStage,
     ApprovalStatus,
     ContentStatus,
+    NotificationCategory,
     Role,
 )
 from growthos.models import (
@@ -24,6 +25,7 @@ from growthos.models.base import utcnow
 from growthos.schemas import ContentRead, DecisionRequest
 from growthos.services.audit import add_audit_log
 from growthos.services.content.common import transition
+from growthos.services.content.professional_reviews import ensure_professional_approval
 from growthos.services.content.read_models import (
     get_content,
     get_current_version,
@@ -85,6 +87,7 @@ def _notify_agency(
     *,
     actor_user_id: UUID,
     email_key: str,
+    category: NotificationCategory,
 ) -> None:
     recipients = session.execute(
         select(User, Membership)
@@ -120,6 +123,7 @@ def _notify_agency(
             message=message,
             resource_type="content_item",
             resource_id=content.id,
+            category=category,
         )
         enqueue_notification_email(
             session,
@@ -236,6 +240,7 @@ def approve_content_component(
     if context.membership.business_id != content.business_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Aprovação fora do cliente permitido")
     version = get_current_version(session, content)
+    ensure_professional_approval(session, content, version)
     if component == ApprovalComponent.IMAGE:
         media_id = session.scalar(
             select(ContentVersionMedia.media_asset_id).where(
@@ -275,6 +280,7 @@ def approve_content_component(
         email_key=(
             f"content-decision:{content.id}:{version.id}:approved:{component.value.lower()}"
         ),
+        category=NotificationCategory.CONTENT_APPROVED,
     )
     add_audit_log(
         session,
@@ -340,6 +346,7 @@ def request_component_changes(
         f"O cliente pediu uma alteração em {component.value.lower()}.",
         actor_user_id=context.user.id,
         email_key=(f"content-decision:{content.id}:{current.id}:changes:{component.value.lower()}"),
+        category=NotificationCategory.CONTENT_CHANGES_REQUESTED,
     )
     add_audit_log(
         session,

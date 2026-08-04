@@ -10,6 +10,11 @@ from growthos.services.content.generation_context import resolve_generation_link
 from growthos.services.content.read_models import serialize_content
 from growthos.services.content.snapshots import brand_snapshot, preset_snapshot
 from growthos.services.providers import MockTextProvider, TextGenerationRequest
+from growthos.services.sensitivity import (
+    VeterinarySensitivityClassifier,
+    assessment_fields,
+    content_document,
+)
 from growthos.services.visual_prompts import MockVisualPromptProvider, VisualPromptRequest
 
 
@@ -85,6 +90,19 @@ def generate_content(
     )
     session.add(content)
     session.flush()
+    sensitivity = VeterinarySensitivityClassifier().assess(
+        content_document(
+            title=result.title,
+            caption=result.caption,
+            objective=payload.objective,
+            audience=result.audience,
+            cta=result.cta,
+            notes=payload.notes.strip(),
+            script=payload.script.strip(),
+            visual_prompt=visual_prompt,
+            negative_prompt=negative_prompt,
+        )
+    )
     version = ContentVersion(
         organization_id=context.organization.id,
         business_id=business.id,
@@ -110,6 +128,7 @@ def generate_content(
         visual_preset_snapshot=visual_preset_snapshot,
         provider_name=result.provider_name,
         created_by_user_id=context.user.id,
+        **assessment_fields(sensitivity),
     )
     session.add(version)
     session.flush()
@@ -146,6 +165,9 @@ def generate_content(
             "calendar_entry_id": (str(links.calendar_entry.id) if links.calendar_entry else None),
             "visual_preset_id": str(links.preset.id) if links.preset else None,
             "media_asset_id": str(links.media_asset.id) if links.media_asset else None,
+            "sensitive": sensitivity.is_sensitive,
+            "sensitivity_codes": list(sensitivity.codes),
+            "sensitivity_provider_version": sensitivity.provider_version,
         },
     )
     session.commit()

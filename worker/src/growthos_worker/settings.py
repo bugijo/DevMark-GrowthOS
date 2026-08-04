@@ -60,8 +60,13 @@ class WorkerSettings:
     job_timeout_seconds: int
     retry_base_seconds: int
     retry_max_seconds: int
+    cleanup_interval_seconds: int
+    cleanup_batch_size: int
+    succeeded_retention_days: int
+    failed_retention_days: int
     heartbeat_file: Path
     heartbeat_max_age_seconds: int
+    stop_grace_period_seconds: int
     mock_seed: str
     mock_latency_ms: int
     email_provider: str
@@ -87,18 +92,34 @@ class WorkerSettings:
         ).strip()
         if "@" not in smtp_from or any(character in smtp_from for character in "\r\n"):
             raise ValueError("SMTP_FROM precisa ser um endereço de e-mail seguro")
+        job_timeout_seconds = _positive_int("JOB_TIMEOUT_SECONDS", 120)
+        heartbeat_max_age_seconds = _positive_int("WORKER_HEARTBEAT_MAX_AGE_SECONDS", 150)
+        stop_grace_period_seconds = _positive_int("WORKER_STOP_GRACE_PERIOD_SECONDS", 150)
+        if heartbeat_max_age_seconds <= job_timeout_seconds:
+            raise ValueError(
+                "WORKER_HEARTBEAT_MAX_AGE_SECONDS precisa ser maior que JOB_TIMEOUT_SECONDS"
+            )
+        if stop_grace_period_seconds <= job_timeout_seconds:
+            raise ValueError(
+                "WORKER_STOP_GRACE_PERIOD_SECONDS precisa ser maior que JOB_TIMEOUT_SECONDS"
+            )
         return cls(
             database_url=_database_url(),
             worker_id=worker_id[:120],
             poll_interval_seconds=_positive_int("JOB_POLL_INTERVAL_SECONDS", 2),
             batch_size=_positive_int("JOB_BATCH_SIZE", 10),
-            job_timeout_seconds=_positive_int("JOB_TIMEOUT_SECONDS", 120),
+            job_timeout_seconds=job_timeout_seconds,
             retry_base_seconds=_positive_int("JOB_RETRY_BASE_SECONDS", 5),
             retry_max_seconds=_positive_int("JOB_RETRY_MAX_SECONDS", 300),
+            cleanup_interval_seconds=_positive_int("JOB_CLEANUP_INTERVAL_SECONDS", 3600),
+            cleanup_batch_size=_positive_int("JOB_CLEANUP_BATCH_SIZE", 500),
+            succeeded_retention_days=_positive_int("JOB_RETENTION_SUCCEEDED_DAYS", 30),
+            failed_retention_days=_positive_int("JOB_RETENTION_FAILED_DAYS", 90),
             heartbeat_file=Path(
                 os.getenv("WORKER_HEARTBEAT_FILE", "/tmp/growthos-worker-heartbeat")
             ),
-            heartbeat_max_age_seconds=_positive_int("WORKER_HEARTBEAT_MAX_AGE_SECONDS", 30),
+            heartbeat_max_age_seconds=heartbeat_max_age_seconds,
+            stop_grace_period_seconds=stop_grace_period_seconds,
             mock_seed=os.getenv("MOCK_PROVIDER_SEED", "devmark-growthos"),
             mock_latency_ms=max(0, int(os.getenv("MOCK_PROVIDER_LATENCY_MS", "0"))),
             email_provider=email_provider,

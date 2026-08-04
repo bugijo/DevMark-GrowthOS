@@ -13,12 +13,94 @@ from growthos.dependencies import (
 )
 from growthos.domain.enums import BUSINESS_SCOPED_ROLES
 from growthos.domain.permissions import Capability
-from growthos.models import Notification
+from growthos.models import Notification, NotificationDelivery, NotificationDigest
 from growthos.models.base import utcnow
 from growthos.schemas import NotificationRead
+from growthos.schemas_notifications import (
+    NotificationDeliveryRead,
+    NotificationDigestRead,
+    NotificationPreferenceRead,
+    NotificationPreferenceUpdate,
+)
 from growthos.services.audit import add_audit_log
+from growthos.services.notification_preferences import (
+    read_notification_preference,
+    upsert_notification_preference,
+)
 
 router = APIRouter()
+
+
+@router.get("/preferences", response_model=NotificationPreferenceRead)
+def get_notification_preferences(
+    context: AuthContext = Depends(get_current_context),
+    session: Session = Depends(get_session),
+) -> NotificationPreferenceRead:
+    require_capability(context, Capability.NOTIFICATION_VIEW_OWN)
+    return read_notification_preference(
+        session,
+        organization_id=context.organization.id,
+        user_id=context.user.id,
+    )
+
+
+@router.put("/preferences", response_model=NotificationPreferenceRead)
+def update_notification_preferences(
+    payload: NotificationPreferenceUpdate,
+    context: AuthContext = Depends(require_csrf),
+    session: Session = Depends(get_session),
+) -> NotificationPreferenceRead:
+    require_capability(context, Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN)
+    preference = upsert_notification_preference(
+        session,
+        organization_id=context.organization.id,
+        user_id=context.user.id,
+        actor_user_id=context.user.id,
+        payload=payload,
+        business_id=context.membership.business_id,
+    )
+    session.commit()
+    return preference
+
+
+@router.get("/deliveries", response_model=list[NotificationDeliveryRead])
+def list_notification_deliveries(
+    limit: int = Query(default=50, ge=1, le=100),
+    context: AuthContext = Depends(get_current_context),
+    session: Session = Depends(get_session),
+) -> list[NotificationDelivery]:
+    require_capability(context, Capability.NOTIFICATION_VIEW_OWN)
+    return list(
+        session.scalars(
+            select(NotificationDelivery)
+            .where(
+                NotificationDelivery.organization_id == context.organization.id,
+                NotificationDelivery.user_id == context.user.id,
+            )
+            .order_by(NotificationDelivery.created_at.desc())
+            .limit(limit)
+        ).all()
+    )
+
+
+@router.get("/digests", response_model=list[NotificationDigestRead])
+def list_notification_digests(
+    limit: int = Query(default=50, ge=1, le=100),
+    context: AuthContext = Depends(get_current_context),
+    session: Session = Depends(get_session),
+) -> list[NotificationDigest]:
+    require_capability(context, Capability.NOTIFICATION_VIEW_OWN)
+    return list(
+        session.scalars(
+            select(NotificationDigest)
+            .where(
+                NotificationDigest.organization_id == context.organization.id,
+                NotificationDigest.user_id == context.user.id,
+            )
+            .order_by(NotificationDigest.period_end.desc())
+            .limit(limit)
+        ).all()
+    )
 
 
 @router.get("", response_model=list[NotificationRead])

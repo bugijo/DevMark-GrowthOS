@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -17,6 +18,13 @@ from growthos.dependencies import (
 from growthos.domain.permissions import Capability
 from growthos.models import MediaAsset
 from growthos.schemas_media import MediaAssetRead, SignedMediaUrlRead
+from growthos.services.antimalware import (
+    AntimalwareProvider,
+    AntimalwareUnavailable,
+    ScanResult,
+    ScanVerdict,
+    get_antimalware_provider,
+)
 from growthos.services.audit import add_audit_log
 from growthos.services.storage import (
     InvalidUpload,
@@ -82,6 +90,7 @@ async def upload_media(
     session: Session = Depends(get_session),
     settings: Settings = Depends(get_settings),
     storage: StorageProvider = Depends(get_storage_provider),
+    antimalware: AntimalwareProvider = Depends(get_antimalware_provider),
 ) -> MediaAsset:
     require_capability(context, Capability.MEDIA_UPLOAD)
     business = get_scoped_business(session, context, business_id)
@@ -98,6 +107,66 @@ async def upload_media(
     except InvalidUpload as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     asset_id = uuid4()
+    try:
+        scan = antimalware.scan(
+            raw,
+            mime_type=validated.mime_type,
+            checksum_sha256=validated.checksum_sha256,
+        )
+    except AntimalwareUnavailable as exc:
+        if settings.antimalware_fail_closed:
+            _quarantine_upload(
+                session,
+                storage=storage,
+                context=context,
+                business_id=business.id,
+                asset_id=asset_id,
+                raw=raw,
+                display_name=safe_display_name(file.filename, validated.extension),
+                mime_type=validated.mime_type,
+                width=validated.width,
+                height=validated.height,
+                status_value="FAILED",
+                action="media.scan_failed_closed",
+                scan=ScanResult(
+                    provider=antimalware.name,
+                    verdict=ScanVerdict.SKIPPED,
+                    reference="unavailable",
+                    reason_code="SCANNER_UNAVAILABLE",
+                ),
+            )
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "O arquivo ficou em quarentena porque a verificação de segurança falhou",
+            ) from exc
+        scan = ScanResult(
+            provider=antimalware.name,
+            verdict=ScanVerdict.SKIPPED,
+            reference="unavailable",
+            reason_code="FAIL_OPEN_DEVELOPMENT",
+        )
+
+    if scan.verdict == ScanVerdict.MALICIOUS:
+        _quarantine_upload(
+            session,
+            storage=storage,
+            context=context,
+            business_id=business.id,
+            asset_id=asset_id,
+            raw=raw,
+            display_name=safe_display_name(file.filename, validated.extension),
+            mime_type=validated.mime_type,
+            width=validated.width,
+            height=validated.height,
+            status_value="REJECTED",
+            action="media.quarantined",
+            scan=scan,
+        )
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "O arquivo foi bloqueado pela verificação de segurança",
+        )
+
     object_key = (
         f"organizations/{context.organization.id}/businesses/{business.id}/"
         f"media/{asset_id}.{validated.extension}"
@@ -118,7 +187,14 @@ async def upload_media(
         height=validated.height,
         origin="UPLOAD",
         processing_status="READY",
-        metadata_safe={},
+        metadata_safe={
+            "antimalware": {
+                "provider": scan.provider,
+                "verdict": scan.verdict,
+                "reference": scan.reference,
+                "reason_code": scan.reason_code,
+            }
+        },
         created_by_user_id=context.user.id,
     )
     session.add(asset)
@@ -130,7 +206,12 @@ async def upload_media(
         action="media.uploaded",
         resource_type="media_asset",
         resource_id=asset.id,
-        details={"mime_type": asset.mime_type, "byte_size": asset.byte_size},
+        details={
+            "mime_type": asset.mime_type,
+            "byte_size": asset.byte_size,
+            "antimalware_provider": scan.provider,
+            "antimalware_verdict": scan.verdict,
+        },
     )
     try:
         session.commit()
@@ -150,6 +231,8 @@ def media_download_url(
 ) -> SignedMediaUrlRead:
     require_capability(context, Capability.MEDIA_VIEW)
     asset = _scoped_asset(session, context, asset_id)
+    if asset.processing_status != "READY":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Arquivo não encontrado")
     expires_at = datetime.now(UTC) + timedelta(seconds=settings.signed_url_ttl_seconds)
     signed_url = storage.signed_get_url(asset.object_key, settings.signed_url_ttl_seconds)
     add_audit_log(
@@ -167,6 +250,74 @@ def media_download_url(
         url=signed_url,
         expires_at=expires_at,
     )
+
+
+def _quarantine_upload(
+    session: Session,
+    *,
+    storage: StorageProvider,
+    context: AuthContext,
+    business_id: UUID,
+    asset_id: UUID,
+    raw: bytes,
+    display_name: str,
+    mime_type: str,
+    width: int,
+    height: int,
+    status_value: str,
+    action: str,
+    scan: ScanResult,
+) -> None:
+    object_key = (
+        f"organizations/{context.organization.id}/businesses/{business_id}/"
+        f"quarantine/{asset_id}.bin"
+    )
+    storage.put(object_key, raw, "application/octet-stream")
+    asset = MediaAsset(
+        id=asset_id,
+        organization_id=context.organization.id,
+        business_id=business_id,
+        kind="QUARANTINE",
+        storage_provider=storage.name,
+        object_key=object_key,
+        display_name=display_name,
+        mime_type=mime_type,
+        byte_size=len(raw),
+        checksum_sha256=hashlib.sha256(raw).hexdigest(),
+        width=width,
+        height=height,
+        origin="UPLOAD",
+        processing_status=status_value,
+        metadata_safe={
+            "antimalware": {
+                "provider": scan.provider,
+                "verdict": scan.verdict,
+                "reference": scan.reference,
+                "reason_code": scan.reason_code,
+            }
+        },
+        created_by_user_id=context.user.id,
+    )
+    session.add(asset)
+    add_audit_log(
+        session,
+        organization_id=context.organization.id,
+        business_id=business_id,
+        actor_user_id=context.user.id,
+        action=action,
+        resource_type="media_asset",
+        resource_id=asset.id,
+        details={
+            "antimalware_provider": scan.provider,
+            "antimalware_verdict": scan.verdict,
+            "reason_code": scan.reason_code,
+        },
+    )
+    try:
+        session.commit()
+    except Exception:
+        storage.delete(object_key)
+        raise
 
 
 @router.delete("/media/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)

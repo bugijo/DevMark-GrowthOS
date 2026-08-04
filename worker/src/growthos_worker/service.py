@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import signal
-from collections.abc import Iterator, Mapping
+import time
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from typing import Any
 
@@ -47,28 +48,66 @@ class WorkerService:
         retry_base_seconds: int,
         retry_max_seconds: int,
         logger: logging.Logger,
+        cleanup_interval_seconds: int = 3600,
+        cleanup_batch_size: int = 500,
+        succeeded_retention_days: int = 30,
+        failed_retention_days: int = 90,
+        clock: Callable[[], float] = time.monotonic,
+        on_progress: Callable[[], None] | None = None,
+        should_stop: Callable[[], bool] | None = None,
     ) -> None:
         self._repository = repository
         self._handlers = handlers
         self._worker_id = worker_id
         self._batch_size = batch_size
         self._timeout_seconds = timeout_seconds
+        self._lease_timeout_seconds = timeout_seconds + 15
         self._retry_base_seconds = retry_base_seconds
         self._retry_max_seconds = retry_max_seconds
         self._logger = logger
+        self._cleanup_interval_seconds = cleanup_interval_seconds
+        self._cleanup_batch_size = cleanup_batch_size
+        self._succeeded_retention_days = succeeded_retention_days
+        self._failed_retention_days = failed_retention_days
+        self._clock = clock
+        self._next_cleanup_at = 0.0
+        self._on_progress = on_progress or (lambda: None)
+        self._should_stop = should_stop or (lambda: False)
 
     def run_once(self) -> int:
-        expired = self._repository.expire_exhausted(timeout_seconds=self._timeout_seconds)
+        expired = self._repository.expire_exhausted(timeout_seconds=self._lease_timeout_seconds)
         if expired:
             self._logger.warning("exhausted jobs marked failed", extra={"count": expired})
-        jobs = self._repository.claim(
-            worker_id=self._worker_id,
-            batch_size=self._batch_size,
-            timeout_seconds=self._timeout_seconds,
-        )
-        for job in jobs:
+        self._cleanup_terminal_jobs()
+        processed = 0
+        for _ in range(self._batch_size):
+            if self._should_stop():
+                break
+            jobs = self._repository.claim(
+                worker_id=self._worker_id,
+                batch_size=1,
+                timeout_seconds=self._lease_timeout_seconds,
+            )
+            if not jobs:
+                break
+            job = jobs[0]
             self._process(job)
-        return len(jobs)
+            processed += 1
+            self._on_progress()
+        return processed
+
+    def _cleanup_terminal_jobs(self) -> None:
+        now = self._clock()
+        if now < self._next_cleanup_at:
+            return
+        removed = self._repository.cleanup_terminal(
+            succeeded_retention_days=self._succeeded_retention_days,
+            failed_retention_days=self._failed_retention_days,
+            batch_size=self._cleanup_batch_size,
+        )
+        self._next_cleanup_at = now + self._cleanup_interval_seconds
+        if removed:
+            self._logger.info("terminal jobs cleaned", extra={"count": removed})
 
     def _process(self, job: ClaimedJob) -> None:
         handler = self._handlers.get(job.type)

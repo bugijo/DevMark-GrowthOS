@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { ContentCard } from "@/components/content/content-card";
+import { ContentVersionComparisonPanel } from "@/components/content/version-comparison";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Field, Select, Textarea } from "@/components/ui/form-controls";
@@ -407,6 +408,7 @@ export default function ContentsPage() {
               {canSubmit && content.status === "DRAFT" ? <Button variant="secondary" busy={actionId === content.id} onClick={() => void transition(content, "internal")}>Enviar para revisão interna</Button> : null}
               {canSend && content.status === "INTERNAL_REVIEW" ? <Button busy={actionId === content.id} onClick={() => void transition(content, "client")}>Enviar texto e imagem ao cliente</Button> : null}
               {!canCreate ? <p className="text-sm text-slate-600">Use Aprovações quando esta versão aguardar sua decisão.</p> : null}
+              <ContentVersionComparisonPanel contentId={content.id} />
             </ContentCard>
           ))}
         </div>

@@ -6,6 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from growthos.client_ip import request_client_ip
 from growthos.config import Settings, get_settings
 from growthos.database import get_session
 from growthos.domain.enums import JobStatus
@@ -50,12 +51,11 @@ def _database_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
-def _client_ip(request: Request) -> str:
-    return request.client.host if request.client is not None else "unknown"
-
-
 def _consume_rate_budget(request: Request, settings: Settings, key: str) -> None:
-    keys = (f"security:origin:{_client_ip(request)}", f"security:identity:{key}")
+    keys = (
+        f"security:origin:{request_client_ip(request, settings)}",
+        f"security:identity:{key}",
+    )
     retry_values = [
         retry
         for candidate in keys

@@ -21,9 +21,12 @@ from growthos.schemas import (
     ContentVisualRevisionCreate,
     DecisionRequest,
     ManualPublicationCreate,
+    ProfessionalReviewCreate,
+    ProfessionalReviewRead,
 )
 from growthos.services.content import approvals as content_approvals
 from growthos.services.content import generation as content_generation
+from growthos.services.content import professional_reviews as content_professional_reviews
 from growthos.services.content import publication as content_publication
 from growthos.services.content import read_models as content_reads
 from growthos.services.content import revisions as content_revisions
@@ -50,11 +53,19 @@ def generate_content(
 @router.get("", response_model=list[ContentRead])
 def list_contents(
     business_id: UUID | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=10_000),
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> list[ContentRead]:
     require_capability(context, Capability.CONTENT_VIEW)
-    return content_reads.list_contents(session, context, business_id)
+    return content_reads.list_contents(
+        session,
+        context,
+        business_id,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{content_id}", response_model=ContentRead)
@@ -66,6 +77,43 @@ def get_content(
     require_capability(context, Capability.CONTENT_VIEW)
     content = content_reads.get_content(session, context, content_id)
     return content_reads.serialize_content(session, content, context)
+
+
+@router.get(
+    "/{content_id}/professional-reviews",
+    response_model=list[ProfessionalReviewRead],
+)
+def list_professional_reviews(
+    content_id: UUID,
+    context: AuthContext = Depends(get_current_context),
+    session: Session = Depends(get_session),
+) -> list[ProfessionalReviewRead]:
+    require_capability(context, Capability.CONTENT_VIEW)
+    return content_professional_reviews.list_professional_reviews(
+        session,
+        context,
+        content_id,
+    )
+
+
+@router.post(
+    "/{content_id}/professional-reviews",
+    response_model=ContentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def review_content_professionally(
+    content_id: UUID,
+    payload: ProfessionalReviewCreate,
+    context: AuthContext = Depends(require_csrf),
+    session: Session = Depends(get_session),
+) -> ContentRead:
+    require_capability(context, Capability.CONTENT_REVIEW_PROFESSIONAL)
+    return content_professional_reviews.review_current_version(
+        session,
+        context,
+        content_id,
+        payload,
+    )
 
 
 @router.post("/{content_id}/submit-internal", response_model=ContentRead)
