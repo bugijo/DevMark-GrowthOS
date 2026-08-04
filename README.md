@@ -34,6 +34,8 @@ Continuam fora da versão 1.0:
 - estratégia mensal versionada, revisão interna, decisão do cliente e histórico;
 - planos e calendário editorial consultável por mês ou semana;
 - provider de texto mock determinístico, sem chave ou API paga;
+- Growth Agent com OpenRouter opcional, Ollama local opcional e fallback mock, sempre sujeito a
+  revisão humana e sem publicação automática;
 - prompt visual mock determinístico a partir do Brand Kit e preset;
 - conteúdo ligado a estratégia, plano, pauta, preset, catálogos e mídia;
 - histórico imutável de versões textuais e visuais;
@@ -383,8 +385,9 @@ Fase 2 em `0008`.
 
 ## Providers e segurança
 
-O ambiente local força texto/imagem em modo mock, Hermes desligado e e-mail no
-Mailpit local. Nenhuma publicação, mensagem ou gasto externo é realizado.
+O ambiente local mantém IA externa desligada e e-mail no Mailpit. Se Ollama não estiver disponível,
+o Growth Agent informa o fallback e usa o mock. Nenhuma publicação, mensagem ou gasto externo é
+realizado. Consulte [camada de IA](docs/14-camada-ia.md) para contrato, configuração e riscos.
 
 - autorização e isolamento são validados no backend;
 - senhas usam biblioteca mantida e não são armazenadas em claro;

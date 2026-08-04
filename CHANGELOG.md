@@ -8,6 +8,12 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- Growth Agent multiempresa para auditoria, estratégia, calendário, ideias, legendas, títulos,
+  CTAs, roteiros, prompts visuais, reaproveitamento, revisão de tom e classificação sensível;
+- providers OpenRouter opcional, Ollama local pelo adapter Hermes e mock obrigatório, com fallback,
+  modelo, duração, tokens, limite diário, feedback e histórico auditável;
+- migration `0014` para gerações, tentativas, alternativas, feedback e uso diário de IA.
+
 - documentação inicial de visão, escopo, arquitetura, dados, fluxos, providers, segurança, testes, operação e riscos da versão 1.0;
 - regras de contribuição e orientação para agentes de programação;
 - backlog priorizado e milestones executáveis para a clínica piloto;
