@@ -1,4 +1,11 @@
 from growthos.models.access import OrganizationInvite, PasswordResetToken
+from growthos.models.ai import (
+    AIGeneration,
+    AIGenerationAlternative,
+    AIGenerationAttempt,
+    AIGenerationFeedback,
+    AIUsageDaily,
+)
 from growthos.models.base import Base
 from growthos.models.business import BrandProfile, Business
 from growthos.models.catalog import (
@@ -26,6 +33,11 @@ from growthos.models.professional_review import ProfessionalContentReview
 from growthos.models.provider_config import ProviderConfig
 
 __all__ = [
+    "AIGeneration",
+    "AIGenerationAlternative",
+    "AIGenerationAttempt",
+    "AIGenerationFeedback",
+    "AIUsageDaily",
     "Approval",
     "AudienceSegment",
     "AuditLog",

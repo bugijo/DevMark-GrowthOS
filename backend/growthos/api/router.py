@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from growthos.api.routes import (
+    ai,
     audit_logs,
     auth,
     businesses,
@@ -22,6 +23,7 @@ from growthos.api.routes import (
 
 api_router = APIRouter()
 api_router.include_router(health.router)
+api_router.include_router(ai.router, tags=["ai"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(invitations.router, prefix="/auth", tags=["auth"])
 api_router.include_router(members.router, prefix="/members", tags=["members"])

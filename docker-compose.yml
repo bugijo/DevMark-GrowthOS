@@ -26,6 +26,19 @@ x-backend-environment: &backend-environment
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
   AI_PROVIDER: ${AI_PROVIDER:-mock}
   MOCK_PROVIDER_SEED: ${MOCK_PROVIDER_SEED:-devmark-growthos}
+  AI_EXTERNAL_ENABLED: ${AI_EXTERNAL_ENABLED:-false}
+  AI_DAILY_GENERATION_LIMIT: ${AI_DAILY_GENERATION_LIMIT:-50}
+  AI_MAX_INPUT_TOKENS: ${AI_MAX_INPUT_TOKENS:-6000}
+  AI_MAX_OUTPUT_TOKENS: ${AI_MAX_OUTPUT_TOKENS:-2000}
+  OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openrouter/free}
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  OPENROUTER_TIMEOUT_SECONDS: ${OPENROUTER_TIMEOUT_SECONDS:-30}
+  OPENROUTER_MAX_ATTEMPTS: ${OPENROUTER_MAX_ATTEMPTS:-2}
+  HERMES_BASE_URL: ${HERMES_BASE_URL:-http://host.docker.internal:11434}
+  HERMES_MODEL: ${HERMES_MODEL:-qwen3:4b-instruct}
+  HERMES_TIMEOUT_SECONDS: ${HERMES_TIMEOUT_SECONDS:-60}
+  HERMES_MAX_ATTEMPTS: ${HERMES_MAX_ATTEMPTS:-1}
   EMAIL_PROVIDER: ${EMAIL_PROVIDER:-smtp}
   EMAIL_FROM: ${EMAIL_FROM:-no-reply@devmark.local}
   SMTP_HOST: ${SMTP_HOST:-mailpit}
@@ -134,6 +147,8 @@ services:
         --no-server-header --timeout-graceful-shutdown 15
     environment:
       <<: *backend-environment
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -181,6 +196,8 @@ services:
       MYPY_CACHE_DIR: /tmp/mypy-cache
       PYTHONPYCACHEPREFIX: /tmp/pycache
       PYTEST_ADDOPTS: -q -p no:cacheprovider
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy

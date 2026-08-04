@@ -56,6 +56,19 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     ai_provider: str = "mock"
     mock_provider_seed: str = "devmark-growthos"
+    ai_external_enabled: bool = False
+    ai_daily_generation_limit: int = Field(default=50, ge=1, le=10_000)
+    ai_max_input_tokens: int = Field(default=6000, ge=256, le=100_000)
+    ai_max_output_tokens: int = Field(default=2000, ge=128, le=32_000)
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "openrouter/free"
+    openrouter_api_key: str | None = None
+    openrouter_timeout_seconds: int = Field(default=30, ge=1, le=120)
+    openrouter_max_attempts: int = Field(default=2, ge=1, le=5)
+    hermes_base_url: str = ""
+    hermes_model: str = "qwen3:4b-instruct"
+    hermes_timeout_seconds: int = Field(default=60, ge=1, le=180)
+    hermes_max_attempts: int = Field(default=1, ge=1, le=5)
     storage_provider: str = "minio"
     s3_endpoint_url: str = "http://localhost:9000"
     s3_public_endpoint_url: str = "http://localhost:9000"
@@ -137,8 +150,8 @@ class Settings(BaseSettings):
                     problems.append("TOKEN_SECRET_KEY não pode usar valor local, demo ou padrão")
             if not self.session_cookie_secure:
                 problems.append("SESSION_COOKIE_SECURE deve ser true")
-            if self.ai_provider != "mock":
-                problems.append("AI_PROVIDER deve ser mock nesta versão")
+            if self.ai_external_enabled and not self.openrouter_api_key:
+                problems.append("OPENROUTER_API_KEY é obrigatória quando IA externa está ativa")
             if self.antimalware_provider == "disabled":
                 problems.append("ANTIMALWARE_PROVIDER não pode ser disabled")
             if not self.antimalware_fail_closed:
