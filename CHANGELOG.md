@@ -42,6 +42,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - classificação sensível e revisão profissional obrigatória antes da aprovação;
 - controles LGPD para consentimento, finalidade, retenção, exportação, exclusão e anonimização;
 - migrations `0009` a `0013`, diagnóstico, backup verificável, restauração isolada e medição de desempenho.
+- pacote de validação independente CAV1-23 com instruções autocontidas,
+  checklist, modelo de relatório e verificador opcional que preserva falhas.
 
 ### Corrigido
 

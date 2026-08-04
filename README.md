@@ -49,7 +49,7 @@ Continuam fora da versão 1.0:
 - portal responsivo em português, incluindo aprovação em viewport móvel;
 - worker PostgreSQL com claim seguro, retries, backoff, timeout e handlers mock/console;
 - CI para lint, tipos, testes, builds, Compose e E2E obrigatório;
-- dados fictícios e idempotentes para demonstração local.
+- dados fictícios e idempotentes para demonstração local;
 - onboarding persistido de 15 etapas, retomável e editável;
 - preferências e resumos diário/semanal de notificações;
 - classificação de conteúdo sensível e revisão profissional obrigatória;
@@ -104,10 +104,16 @@ O frontend nunca é a única barreira de autorização. Toda consulta multiempre
 Para subir e testar o produto por Docker:
 
 - Git;
+- Bash 4 ou superior;
 - GNU Make;
+- GNU coreutils, incluindo `realpath` e `sha256sum`;
 - curl;
 - Docker Engine 24 ou superior;
-- Docker Compose v2.
+- Docker Compose v2;
+- pelo menos 4 GiB de memória disponível para o Docker;
+- pelo menos 10 GiB livres no disco do clone;
+- acesso à internet no primeiro build para baixar imagens e dependências;
+- portas locais `1025`, `3000`, `5432`, `8000`, `8025`, `9000` e `9001` livres.
 
 `make setup` e `make e2e` usam Docker e não exigem Python ou Node instalados no host.
 
@@ -115,6 +121,162 @@ Para executar lint e testes unitários diretamente no host, também são necess�
 
 - Python 3.12 com suporte a `venv` — em Debian/Ubuntu, normalmente o pacote `python3.12-venv`;
 - Node.js 22 e npm 10.
+
+## Validação independente CAV1-23
+
+Esta validação deve ser executada por uma pessoa que não participou da
+implementação, em um clone novo e sem reutilizar volumes Docker anteriores. O
+avaliador deve seguir apenas esta seção e registrar qualquer dúvida ou ajuda
+externa necessária. O script opcional não substitui o julgamento do avaliador.
+
+### 1. Requisitos mínimos
+
+- computador Linux, macOS ou Windows com WSL2; no macOS, Bash 4+ e GNU
+  coreutils precisam estar instalados e disponíveis no `PATH`;
+- Git, Bash 4+, GNU Make, GNU coreutils e curl;
+- Docker Engine 24+ com daemon iniciado e Docker Compose v2;
+- 4 GiB de memória disponíveis para o Docker e 10 GiB livres no disco;
+- internet para o primeiro build;
+- portas `1025`, `3000`, `5432`, `8000`, `8025`, `9000` e `9001` livres;
+- `ss` (Linux) ou `lsof` (macOS) se usar o verificador opcional.
+
+Python e Node.js não são necessários para `make setup` nem `make e2e`. Eles só
+são necessários para `make install`, `make lint` e `make test` no host.
+
+### 2. Clonar exatamente a versão em avaliação
+
+Escolha uma pasta que ainda não contenha `DevMark-GrowthOS` e execute:
+
+```bash
+git clone --branch agent/fechamento-v1 --single-branch https://github.com/bugijo/DevMark-GrowthOS.git
+cd DevMark-GrowthOS
+git status --short --branch
+git rev-parse HEAD
+```
+
+O `git status` não deve listar arquivos modificados ou novos. Guarde o hash
+mostrado por `git rev-parse HEAD` no relatório.
+
+### 3. Criar a configuração local
+
+```bash
+cp .env.example .env
+chmod 600 .env
+git check-ignore .env
+```
+
+Não coloque credenciais reais no arquivo. `git check-ignore .env` deve imprimir
+`.env`. Em filesystems que não preservam `chmod`, registre o aviso no relatório
+e não utilize dados reais.
+
+### 4. Diagnosticar e instalar
+
+Com o Docker iniciado, execute na raiz do clone:
+
+```bash
+make setup
+make doctor
+make status
+```
+
+`make setup` constrói as imagens, sobe os serviços, aplica as migrations e
+carrega o seed fictício. No diagnóstico final, não deve haver `ERRO`; todos os
+serviços abaixo devem aparecer como `healthy` em `make status`:
+
+- `postgres`;
+- `minio`;
+- `mailpit`;
+- `backend`;
+- `worker`;
+- `frontend`.
+
+Se algo falhar, não altere código nem esconda a saída. Registre o comando, a
+mensagem completa e consulte os logs com:
+
+```bash
+docker compose logs --no-color backend worker frontend postgres minio mailpit
+```
+
+### 5. Acessar e testar manualmente
+
+- frontend: `http://localhost:3000`;
+- backend/OpenAPI: `http://localhost:8000/docs`;
+- Mailpit: `http://localhost:8025`;
+- health do backend: `http://localhost:8000/api/v1/health/ready`.
+
+Credenciais exclusivamente fictícias:
+
+| Papel | E-mail | Senha |
+|---|---|---|
+| Agência | `admin@devmark.local` | `local-demo-only-change-before-use` |
+| Cliente revisor | `client@clinicafeliz.local` | `local-demo-client-only-change-before-use` |
+
+Entre com os dois usuários e execute o [roteiro de teste manual](#roteiro-de-teste-manual).
+
+### 6. Executar os testes essenciais
+
+O teste essencial, sem Python ou Node.js no host, é:
+
+```bash
+make e2e
+```
+
+Se o host também possuir Python 3.12 com `venv`, Node.js 22 e npm 10:
+
+```bash
+make install
+make lint
+make test
+```
+
+Opcionalmente, o avaliador pode executar toda a sequência automatizada desta
+seção. Ela grava o log em `.data/cav1-23/`, não corrige falhas e retorna código
+diferente de zero se algum check falhar:
+
+```bash
+./scripts/cav1-23-check.sh
+```
+
+### 7. Desligar ou limpar
+
+Para desligar preservando os dados e volumes:
+
+```bash
+make down
+```
+
+Depois de salvar as evidências, para apagar deliberadamente todos os volumes
+locais do GrowthOS e deixar o ambiente limpo:
+
+```bash
+make reset
+```
+
+`make reset` é destrutivo somente para os volumes deste projeto. Não o execute
+antes de coletar logs ou screenshots necessários.
+
+### 8. Registrar o resultado
+
+Copie [o modelo de relatório](docs/templates/cav1-23-relatorio.md), preencha
+todos os campos e anexe ao Draft PR #3 junto com logs ou screenshots. Qualquer
+pedido de ajuda externa deve ser registrado, mesmo quando a instalação termina.
+Marque `PASS` somente se todos os itens obrigatórios funcionarem sem alteração
+de código ou instrução não presente neste README.
+
+Checklist do avaliador:
+
+- [ ] clone novo, branch e commit registrados;
+- [ ] requisitos mínimos confirmados;
+- [ ] `.env` criado somente a partir de `.env.example` e ignorado pelo Git;
+- [ ] `make setup` terminou sem erro;
+- [ ] `make doctor` terminou sem `ERRO`;
+- [ ] seis serviços aparecem saudáveis em `make status`;
+- [ ] frontend, backend e Mailpit abriram no navegador;
+- [ ] login de agência e cliente funcionou;
+- [ ] roteiro manual foi concluído;
+- [ ] `make e2e` passou;
+- [ ] desligamento/limpeza e falhas foram registrados;
+- [ ] relatório preenchido com resultado `PASS` ou `FAIL` e anexado ao PR.
 
 ## Subir o sistema
 

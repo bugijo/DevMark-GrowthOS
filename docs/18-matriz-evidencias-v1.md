@@ -32,6 +32,15 @@ evidência depende de outra pessoa ou ambiente e não pode ser presumida.
 | 17 | Dependências e segredos | PASS | npm audit sem achados; pip-audit sem CVE conhecida; busca de padrões sem segredo |
 | 18 | Entrega independente | BLOCKED | uma segunda pessoa ainda precisa executar instalação limpa usando apenas o README |
 
+### Preparação do gate independente
+
+O gate 18 continua `BLOCKED`, mas agora possui um pacote reproduzível para o
+avaliador: seção **Validação independente CAV1-23** no README, checklist sem
+conhecimento implícito, modelo em `docs/templates/cav1-23-relatorio.md` e
+verificador opcional `scripts/cav1-23-check.sh`. O script registra preflight,
+setup, saúde, acessos, migration, seed e E2E em `.data/cav1-23/`; ele não altera
+código, não corrige falhas e termina com código não zero quando houver erro.
+
 ## 25 critérios CAV1
 
 | Critério | Estado | Evidência principal |
@@ -80,7 +89,7 @@ evidência depende de outra pessoa ou ambiente e não pode ser presumida.
 ## Bloqueios e riscos residuais
 
 1. `CAV1-23`: atribuir a uma segunda pessoa a instalação limpa e guardar a
-   evidência (máquina, commit, comandos e resultado).
+   evidência (máquina, commit, comandos e resultado) usando o modelo publicado.
 2. O volume `fuseblk` deste host mantém `.env` em modo `777` mesmo após
    `chmod 600`; não usar dados reais nesse volume. Produção/homologação exige
    filesystem Linux ou secret manager que preserve acesso restrito.
@@ -93,6 +102,6 @@ evidência depende de outra pessoa ou ambiente e não pode ser presumida.
 
 Uma pessoa que não participou da implementação deve clonar a branch em ambiente
 limpo, seguir apenas o README, executar `make setup`, `make status`, o roteiro
-manual e `make e2e`, e registrar o resultado no PR. Com `CAV1-23` em `PASS`, CI
-verde e revisão aprovada, a matriz poderá declarar os 43 itens verdes e liberar
-a versão 1.0 sem ativar qualquer integração externa fora do escopo.
+manual e `make e2e`, e anexar ao PR o relatório preenchido. Com `CAV1-23` em
+`PASS`, CI verde e revisão aprovada, a matriz poderá declarar os 43 itens verdes
+e liberar a versão 1.0 sem ativar qualquer integração externa fora do escopo.
