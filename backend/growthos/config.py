@@ -150,6 +150,8 @@ class Settings(BaseSettings):
                     problems.append("TOKEN_SECRET_KEY não pode usar valor local, demo ou padrão")
             if not self.session_cookie_secure:
                 problems.append("SESSION_COOKIE_SECURE deve ser true")
+            if self.ai_provider != "mock":
+                problems.append("AI_PROVIDER deve permanecer mock; use AI_EXTERNAL_ENABLED")
             if self.ai_external_enabled and not self.openrouter_api_key:
                 problems.append("OPENROUTER_API_KEY é obrigatória quando IA externa está ativa")
             if self.antimalware_provider == "disabled":
