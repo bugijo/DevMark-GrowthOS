@@ -463,7 +463,11 @@ export default function ContentsPage() {
                 </Button>
               </div>
               {generation.simulated ? <Alert tone="info">Resposta simulada pelo provider mock.</Alert> : null}
-              {generation.used_fallback ? <Alert tone="info">Foi necessário usar fallback.</Alert> : null}
+              {generation.used_fallback ? (
+                <Alert tone="info">
+                  {generation.fallback_message ?? "Foi necessário usar fallback seguro."}
+                </Alert>
+              ) : null}
               <p className="mt-2 text-xs text-slate-600">Revisão humana obrigatória · sem publicação automática</p>
               <div className="mt-3 grid gap-3 lg:grid-cols-3">
                 {generation.alternatives.map((alternative) => (

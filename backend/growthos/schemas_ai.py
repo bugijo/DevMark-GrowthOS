@@ -56,6 +56,7 @@ class AIGenerationRead(BaseModel):
     provider: str
     model: str
     used_fallback: bool
+    fallback_message: str | None = None
     duration_ms: int
     input_tokens: int
     output_tokens: int

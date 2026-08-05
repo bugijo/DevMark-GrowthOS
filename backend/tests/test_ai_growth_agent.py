@@ -1,6 +1,11 @@
-from fastapi.testclient import TestClient
+from uuid import UUID
 
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from growthos.database import get_session_factory
 from growthos.domain.enums import Role
+from growthos.models import AIGeneration
 from tests.conftest import create_identity, csrf_headers, login
 
 
@@ -29,6 +34,23 @@ def test_ai_generation_uses_offline_mock_and_records_history(client: TestClient)
     assert body["requires_approval"] is True
     assert body["can_publish_automatically"] is False
     assert len(body["alternatives"]) == 3
+
+    with get_session_factory()() as session:
+        stored = session.scalar(select(AIGeneration).where(AIGeneration.id == UUID(body["id"])))
+        assert stored is not None
+        assert set(stored.context_snapshot) == {
+            "brand",
+            "services",
+            "audiences",
+            "objectives",
+            "planning",
+        }
+        serialized_context = str(stored.context_snapshot).casefold()
+        assert "password" not in serialized_context
+        assert "token" not in serialized_context
+        assert "cookie" not in serialized_context
+        assert "internal_notes" not in serialized_context
+        assert "signed_url" not in serialized_context
 
     history = client.get(f"/api/v1/businesses/{admin.business_id}/ai/generations")
     assert history.status_code == 200

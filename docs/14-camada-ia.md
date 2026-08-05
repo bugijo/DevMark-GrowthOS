@@ -65,10 +65,11 @@ Exemplo de response esperado:
 
 ## Configuração
 
-IA externa nasce desligada. `OPENROUTER_API_KEY` existe somente no ambiente e nunca é retornada,
-persistida ou enviada ao frontend. `OPENROUTER_MODEL=openrouter/free` permite roteamento gratuito,
-mas disponibilidade, rate limit e gratuidade são decisões do serviço externo; não há gasto ou
-upgrade automático.
+No ambiente local do piloto, a preferência externa nasce ativa, mas o OpenRouter só entra na cadeia
+quando `OPENROUTER_API_KEY` também está preenchida. A chave existe somente no `.env` ignorado e
+nunca é retornada, persistida ou enviada ao frontend. `OPENROUTER_MODEL=openrouter/free` permite
+roteamento gratuito, mas disponibilidade, rate limit e gratuidade são decisões do serviço externo;
+não há gasto ou upgrade automático.
 
 O limite diário é por organização. Os limites de entrada e saída são aplicados antes da chamada e
 no provider. Custo só é persistido quando informado de forma confiável; caso contrário fica nulo.
@@ -82,8 +83,8 @@ no provider. Custo só é persistido quando informado de forma confiável; caso 
 - `GET /api/v1/ai/status` e `GET /api/v1/ai/usage`.
 
 As respostas registram provider, modelo, duração, tokens, fallback e sensibilidade. Prompts completos
-não entram em logs. O snapshot de contexto é tenant-scoped e contém Brand Kit, onboarding,
-serviços, públicos, objetivos e até dez conteúdos aprovados recentes do mesmo cliente.
+não entram em logs. O snapshot de contexto é tenant-scoped e minimizado: contém Brand Kit sem
+notas internas, serviços, públicos, objetivos e até três estratégias aprovadas do mesmo cliente.
 
 ## Riscos conhecidos
 
@@ -94,6 +95,6 @@ serviços, públicos, objetivos e até dez conteúdos aprovados recentes do mesm
 - envio a provider externo implica transferência de contexto da marca e exige decisão operacional,
   base legal e revisão de privacidade antes de dados reais.
 
-Recomendação: manter IA externa desligada no piloto inicial, instalar/testar Ollama quando houver
-hardware adequado e usar o mock como baseline. Ativar OpenRouter somente com chave em secret
-manager, aceite explícito do tratamento externo e monitoramento dos limites.
+Recomendação: usar OpenRouter Free no piloto somente com chave local, aceite explícito do tratamento
+externo e monitoramento dos limites. Instalar/testar Ollama quando houver hardware adequado e manter
+o mock como último fallback verificável.

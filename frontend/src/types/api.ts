@@ -705,6 +705,7 @@ export interface AIGeneration {
   provider: string;
   model: string;
   used_fallback: boolean;
+  fallback_message: string | null;
   duration_ms: number;
   input_tokens: number;
   output_tokens: number;
