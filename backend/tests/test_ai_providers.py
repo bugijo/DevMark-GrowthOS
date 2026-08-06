@@ -47,6 +47,7 @@ def test_ollama_contract_uses_native_response_and_reported_model(monkeypatch) ->
         timeout=1,
         attempts=1,
         native_ollama=True,
+        allow_test_transport=True,
     )
     result = provider.generate(request())
     assert result.model == "qwen3:4b-instruct"
@@ -67,6 +68,19 @@ def test_provider_rejects_unstructured_response(monkeypatch) -> None:  # type: i
         timeout=1,
         attempts=1,
         api_key="test-only",
+        allow_test_transport=True,
     )
     with pytest.raises(AIProviderError, match="INVALID_JSON"):
         provider.generate(request())
+
+
+def test_external_provider_construction_is_blocked_during_tests() -> None:
+    with pytest.raises(AIProviderError, match="EXTERNAL_PROVIDER_DISABLED_IN_TEST"):
+        OpenAICompatibleProvider(
+            name="openrouter",
+            base_url="https://openrouter.ai/api/v1",
+            model="openrouter/free",
+            timeout=1,
+            attempts=1,
+            api_key="must-not-be-used",
+        )

@@ -118,7 +118,7 @@ def _context(session: Session, organization_id: UUID, business_id: UUID) -> dict
 
 def _providers(settings: Settings) -> list[AIProvider]:
     result: list[AIProvider] = []
-    if settings.ai_external_enabled and settings.openrouter_api_key:
+    if settings.external_ai_allowed and settings.openrouter_api_key:
         result.append(
             OpenAICompatibleProvider(
                 name="openrouter",

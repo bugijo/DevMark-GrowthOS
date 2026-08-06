@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from typing import Self
 
@@ -132,6 +133,10 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def reject_unsafe_runtime_configuration(self) -> Self:
         problems: list[str] = []
+        if self.app_env == "test" or os.getenv("PYTEST_CURRENT_TEST") is not None:
+            self.ai_external_enabled = False
+            self.openrouter_api_key = None
+            self.hermes_base_url = ""
         if len(self.auth_secret_key) < 32:
             problems.append("AUTH_SECRET_KEY deve ter ao menos 32 caracteres")
         if self.token_secret_key is not None and len(self.token_secret_key) < 32:
@@ -204,6 +209,10 @@ class Settings(BaseSettings):
             for value in self.allowed_upload_mime_types.split(",")
             if value.strip()
         )
+
+    @property
+    def external_ai_allowed(self) -> bool:
+        return self.app_env != "test" and self.ai_external_enabled
 
 
 @lru_cache

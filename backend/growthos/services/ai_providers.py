@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Protocol
@@ -98,7 +99,13 @@ class OpenAICompatibleProvider:
         attempts: int,
         api_key: str | None = None,
         native_ollama: bool = False,
+        allow_test_transport: bool = False,
     ) -> None:
+        if not allow_test_transport and (
+            os.getenv("APP_ENV", "").strip().casefold() == "test"
+            or "PYTEST_CURRENT_TEST" in os.environ
+        ):
+            raise AIProviderError("EXTERNAL_PROVIDER_DISABLED_IN_TEST")
         self.name = name
         self.base_url = base_url.rstrip("/")
         self.model = model

@@ -1,4 +1,5 @@
 import os
+import socket
 from collections.abc import Generator
 from dataclasses import dataclass
 from uuid import UUID, uuid4
@@ -13,6 +14,10 @@ os.environ["LOGIN_RATE_LIMIT_ATTEMPTS"] = "2"
 os.environ["LOGIN_RATE_LIMIT_WINDOW_SECONDS"] = "60"
 os.environ["LOGIN_RATE_LIMIT_ORIGIN_MULTIPLIER"] = "2"
 os.environ["AI_PROVIDER"] = "mock"
+os.environ["APP_ENV"] = "test"
+os.environ["AI_EXTERNAL_ENABLED"] = "false"
+os.environ["OPENROUTER_API_KEY"] = ""
+os.environ["HERMES_BASE_URL"] = ""
 os.environ["DEMO_CLIENT_EMAIL"] = "client@clinicafeliz.local"
 os.environ["DEMO_CLIENT_PASSWORD"] = "client-password-123"
 
@@ -35,6 +40,15 @@ class Identity:
     business_id: UUID | None
     email: str
     password: str
+
+
+@pytest.fixture(autouse=True)
+def block_external_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    def block_network(*args: object, **kwargs: object) -> socket.socket:
+        del args, kwargs
+        raise AssertionError("A suíte offline bloqueou uma tentativa de rede externa")
+
+    monkeypatch.setattr(socket, "create_connection", block_network)
 
 
 @pytest.fixture(autouse=True)

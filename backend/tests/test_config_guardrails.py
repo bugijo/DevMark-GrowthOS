@@ -27,6 +27,22 @@ def test_secure_production_configuration_accepts_mock_provider() -> None:
     assert settings.session_cookie_secure is True
 
 
+def test_test_environment_ignores_external_ai_credentials() -> None:
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        auth_secret_key=SAFE_PRODUCTION_SECRET,
+        ai_external_enabled=True,
+        openrouter_api_key="must-not-be-used",
+        hermes_base_url="http://127.0.0.1:11434",
+    )
+
+    assert settings.external_ai_allowed is False
+    assert settings.ai_external_enabled is False
+    assert settings.openrouter_api_key is None
+    assert settings.hermes_base_url == ""
+
+
 def test_production_rejects_wildcard_cors_origin() -> None:
     with pytest.raises(UnsafeConfigurationError, match="ALLOWED_ORIGINS"):
         production_settings(allowed_origins="*")
