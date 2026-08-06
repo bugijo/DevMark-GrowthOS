@@ -16,6 +16,8 @@ from growthos.schemas_privacy import (
     PrivacyResolution,
     RetentionPolicyRead,
     RetentionPolicyUpdate,
+    RetentionRunCreate,
+    RetentionRunRead,
 )
 from growthos.services import privacy
 
@@ -104,3 +106,13 @@ def update_retention(
 ) -> RetentionPolicyRead:
     require_capability(context, Capability.ORGANIZATION_MANAGE)
     return privacy.save_retention(session, context, resource_type, payload)
+
+
+@router.post("/admin/retention/run", response_model=RetentionRunRead)
+def run_retention(
+    payload: RetentionRunCreate,
+    context: AuthContext = Depends(get_current_context),
+    session: Session = Depends(get_session),
+) -> RetentionRunRead:
+    require_capability(context, Capability.ORGANIZATION_MANAGE)
+    return privacy.run_retention(session, context, payload)

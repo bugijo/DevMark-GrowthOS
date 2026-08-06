@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -61,9 +62,27 @@ class PrivacyRequestRead(BaseModel):
 
 
 class PrivacyExportRead(BaseModel):
+    format_version: str = "1.1"
     generated_at: datetime
     organization: dict[str, str]
     subject: dict[str, str]
     memberships: list[dict[str, str | None]]
     consents: list[ConsentRead]
     requests: list[PrivacyRequestRead]
+    ai_generations: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class RetentionRunCreate(BaseModel):
+    resource_type: str = Field(
+        pattern="^(ai_generations|ai_generation_attempts|ai_generation_alternatives|"
+        "ai_generation_feedback|ai_generation_snapshots|ai_usage_daily|ai_generation_errors)$"
+    )
+    dry_run: bool = True
+
+
+class RetentionRunRead(BaseModel):
+    resource_type: str
+    dry_run: bool
+    cutoff_at: datetime
+    affected_count: int
+    audit_log_id: UUID | None = None

@@ -36,8 +36,8 @@ class AIGeneration(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     business_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
     )
-    requested_by_user_id: Mapped[UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    requested_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     parent_generation_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("ai_generations.id", ondelete="SET NULL"), nullable=True
@@ -106,8 +106,8 @@ class AIGenerationFeedback(UUIDPrimaryKeyMixin, Base):
     generation_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("ai_generations.id", ondelete="CASCADE"), nullable=False
     )
-    user_id: Mapped[UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    user_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     rating: Mapped[str] = mapped_column(String(16), nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=False, default="")
