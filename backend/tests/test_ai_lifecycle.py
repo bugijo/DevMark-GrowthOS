@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 
 from growthos.database import get_session_factory
 from growthos.domain.enums import ContentStatus, Role
+from growthos.main import app
 from growthos.models import AIGeneration, AIGenerationAlternative, AuditLog, ContentItem
 from tests.conftest import create_identity, csrf_headers, login
 
@@ -254,13 +255,17 @@ def test_concurrent_replay_contract_has_database_uniqueness(client: TestClient) 
     assert admin.business_id
     csrf = login(client, admin)
     key = "qa006-concurrent-key"
+    session_cookie = client.cookies["growthos_session"]
 
     def request() -> tuple[int, str]:
-        response = client.post(
-            f"/api/v1/businesses/{admin.business_id}/ai/generations",
-            headers=csrf_headers(csrf),
-            json={"task": "TITLE", "alternatives": 1, "idempotency_key": key},
-        )
+        with TestClient(app) as concurrent_client:
+            concurrent_client.cookies.set("growthos_session", session_cookie)
+            concurrent_client.cookies.set("growthos_csrf", csrf)
+            response = concurrent_client.post(
+                f"/api/v1/businesses/{admin.business_id}/ai/generations",
+                headers=csrf_headers(csrf),
+                json={"task": "TITLE", "alternatives": 1, "idempotency_key": key},
+            )
         return response.status_code, str(response.json().get("id"))
 
     with ThreadPoolExecutor(max_workers=2) as executor:
