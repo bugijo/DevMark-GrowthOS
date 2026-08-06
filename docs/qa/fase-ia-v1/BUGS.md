@@ -3,6 +3,7 @@
 ## QA-001 — Drift de nove constraints bloqueia CI
 
 - Área/severidade: Banco e CI — **BLOQUEADOR**
+- Estado: **RESOLVIDO** em `99552a7`.
 - Ambiente/perfil: banco PostgreSQL limpo; operador/CI
 - Pré-condição: aplicar migrations até `0014_ai_generations`.
 - Reprodução: executar `alembic upgrade head` e `alembic check`.
@@ -12,10 +13,15 @@
 - Risco: CI vermelha e divergência entre schema executável e metadata ORM.
 - Recomendação: declarar as nove constraints no metadata ou alinhar migrations por migration aditiva; não editar migrations compartilhadas.
 - Regressão: base→head, 0008→head, `alembic check`, downgrade base e novo upgrade.
+- Causa raiz: as migrations criavam os nove checks, mas o metadata SQLAlchemy não os declarava; o autogenerate interpretava o banco correto como drift.
+- Correção: os mesmos checks foram declarados nos modelos de notificações, entregas, resumos e revisão profissional, com teste de metadata. Nenhuma migration histórica foi editada e nenhuma migration destrutiva foi criada.
+- Evidência pós-correção: `base→0014`, `0014→base→0014`, `0008→0014`, `0013→0014`, `0014→0014` e `alembic check` passaram em bancos PostgreSQL isolados; resultado: `No new upgrade operations detected`.
+- Risco residual: mudanças futuras no schema ainda precisam manter migration e metadata sincronizados; o teste de regressão cobre os nove checks atuais.
 
 ## QA-002 — Suítes offline chamam OpenRouter real
 
 - Área/severidade: IA/testes/privacidade — **CRÍTICO**
+- Estado: **RESOLVIDO** em `ea42bd7`.
 - Ambiente/perfil: host com `.env`, chave válida e `AI_EXTERNAL_ENABLED=true`; QA/desenvolvedor
 - Reprodução: `make test` ou `make e2e`.
 - Esperado: providers falsos/Mock, sem internet e sem custo.
@@ -24,10 +30,15 @@
 - Risco: envio involuntário de fixtures/contexto, consumo de cota e suíte não determinística.
 - Recomendação: configuração de teste deve sobrescrever explicitamente IA externa e chave; providers devem ser injetados/falsificados nos testes.
 - Regressão: executar suítes com uma chave canário e provar, por servidor falso/contador, zero chamadas externas.
+- Causa raiz: pytest e E2E herdavam `.env`, chave e URLs do ambiente local, e a construção do provider não possuía uma barreira própria para ambiente de teste.
+- Correção: isolamento em camadas por `APP_ENV=test`/`PYTEST_CURRENT_TEST`, Makefile, `.env.test.example`, Compose/E2E, bloqueio de socket no pytest e recusa de construir provider externo em testes sem transporte falso explicitamente autorizado.
+- Evidência pós-correção: 22 testes direcionados passaram mesmo com chave canário e URL Hermes inválida; depois passaram `make test` (220 backend, 41 worker e 52 frontend) e `make e2e` (10/10), incluindo o cenário Growth Agent offline com Mock e sem publicação automática.
+- Risco residual: subprocessos que ignorem totalmente a configuração da aplicação devem continuar sendo cobertos pela configuração de execução/CI; a suíte padrão não depende de internet.
 
 ## QA-003 — `.env` local com modo 777
 
 - Área/severidade: Segredos — **CRÍTICO**
+- Estado: **RESOLVIDO COM MITIGAÇÃO OPERACIONAL** em `423aa33`.
 - Ambiente/perfil: host Linux local; qualquer usuário/processo do host
 - Reprodução: `stat -c '%a' .env` ou `make doctor`.
 - Esperado: `600`.
@@ -35,6 +46,10 @@
 - Risco: leitura e alteração da chave OpenRouter e demais segredos locais por terceiros.
 - Recomendação: aplicar `chmod 600 .env` e tornar o doctor impeditivo quando houver segredo e permissões amplas.
 - Regressão: doctor deve falhar ou alertar em severidade alta para modos com grupo/outros.
+- Causa raiz: o projeto está em filesystem `fuseblk`, no qual o modo Unix do `.env` aparece como 777 e `chmod 600` não oferece a garantia esperada.
+- Correção: a chave foi removida do `.env` ignorado e transferida, sem exibição, para arquivo do usuário em filesystem Linux, proprietário correto e modo 600. A aplicação aceita arquivo de segredo validado ou variável de processo; fontes simultâneas são rejeitadas. O doctor diferencia ambiente, filesystem e presença real de segredo, falhando em staging/produção quando inseguro.
+- Evidência pós-correção: `make doctor` retornou 36 OK, dois avisos explicativos e zero erros; `APP_ENV=production ./scripts/doctor.sh` rejeitou a configuração insegura; 25 testes direcionados e mypy passaram. Busca em arquivos rastreados, histórico e logs não encontrou chave.
+- Risco residual: o `.env` continuará reportando 777 enquanto o repositório permanecer em `fuseblk`; ele não pode receber segredos. Reinícios locais devem injetar a chave a partir do arquivo seguro ou de secret manager.
 
 ## QA-004 — LGPD não cobre snapshots de IA
 

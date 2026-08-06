@@ -9,12 +9,12 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 | Migração atual | PASS | 0014 head |
 | Base→0014 e 0008→0014 | PASS | bancos temporários isolados |
 | Downgrade base e reupgrade | PASS | dois bancos temporários |
-| Alembic drift | FAIL | nove constraints; QA-001 |
+| Alembic drift | PASS | nove constraints alinhadas; base/0008/0013/0014 e `alembic check`; QA-001 resolvido |
 | Lint, tipos e build | PASS | `make lint` |
-| Backend | FAIL | 213/214 com env local; 214/214 com externo desligado |
+| Backend | PASS | 220/220; ambiente de teste força providers offline |
 | Worker | PASS | 41/41 |
 | Frontend unitário | PASS | 52/52 |
-| E2E | FAIL | 9/10 com env local; 10/10 offline explícito |
+| E2E | PASS | 10/10 offline por configuração dedicada |
 | Acessibilidade automatizada | PASS | agência/cliente, axe WCAG 2.1 AA |
 | Viewport 360 px | PASS | login, operação e equipe |
 | Viewports 768/1280 | PARCIAL | layout exercitado, sem matriz visual completa |
@@ -41,19 +41,19 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 | Regeneração e feedback | PARCIAL | contratos presentes; cobertura limitada |
 | Aplicar alternativa/cancelar/idempotência | FAIL | contratos não encontrados; QA-006 |
 | Hermes/Ollama | PARCIAL | indisponibilidade e fallback confirmados; instalação proibida; health/model fake incompletos |
-| Mock offline | FAIL | funciona quando externo desligado, mas suíte não isola env; QA-002 |
+| Mock offline | PASS | APP_ENV/pytest/Makefile/Compose/provider bloqueiam rede externa; QA-002 resolvido |
 | Provider/modelo/fallback/selo no frontend | PASS | proxy/histórico e componentes |
 | Backup PostgreSQL/MinIO/checksum | PASS | backup e verify |
 | Restore isolado | PASS | banco e objetos restaurados e descartados |
 | Backup corrompido/ausente | PARCIAL | scripts validam; não corrompido deliberadamente nesta rodada |
 | npm audit | PASS | zero vulnerabilidades frontend/E2E |
-| pip-audit | PARCIAL | CI passou; venv isolado local bloqueado por ensurepip ausente |
+| pip-audit | PARCIAL | backend sem vulnerabilidade conhecida; imagem worker acusou seis advisories do pip 25.0.1, ferramenta de build não exposta; CI atualiza pip antes da auditoria |
 | Segredos Git/logs | PASS | zero padrões; `.env` ignorado |
-| Permissão do `.env` | FAIL | modo 777; QA-003 |
+| Permissão do `.env` | PASS | `.env` fuseblk permanece 777, mas está sem segredo; chave local em arquivo Linux 600 e doctor impede uso inseguro; QA-003 mitigado |
 | Headers/CSP | PARCIAL | headers defensivos presentes; unsafe-inline; QA-008 |
 | Performance | PARCIAL | sete endpoints e memória; IA/aprovação/LGPD não medidos em série |
 | Instalação limpa e falhas de recursos | PARCIAL | doctor/setup existentes; máquina limpa externa/CAV1 não repetida |
-| Git/PR/CI | FAIL | pasta Git duplicada não rastreada; CI vermelha; PR Draft preservado |
+| Git/PR/CI | PARCIAL | pasta Git duplicada não rastreada preservada; validação local verde; PR Draft preservado; nova CI pendente após push |
 
 ## Perfis
 

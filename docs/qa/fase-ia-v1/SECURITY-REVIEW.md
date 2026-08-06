@@ -2,7 +2,7 @@
 
 ## Parecer
 
-**Não aprovado para dados reais.** O isolamento multiempresa, autorização, CSRF, cookies, uploads e URLs privadas possuem boa cobertura automatizada. Os bloqueios são operacionais e de privacidade da nova camada de IA.
+**Ainda não aprovado para dados reais.** O isolamento multiempresa, autorização, CSRF, cookies, uploads e URLs privadas possuem boa cobertura automatizada. QA-002 e QA-003 foram corrigidos; permanece a lacuna alta de LGPD sobre snapshots de IA.
 
 ## Evidências positivas
 
@@ -18,8 +18,8 @@
 
 ## Achados
 
-- QA-002 CRÍTICO: testes podem transmitir contexto ao OpenRouter real.
-- QA-003 CRÍTICO: `.env` modo 777.
+- QA-002 CRÍTICO: **resolvido**; testes recusam provider/rede externa e usam configuração offline dedicada.
+- QA-003 CRÍTICO: **mitigado**; `.env` em fuseblk está sem chave, e o segredo local foi movido para arquivo Linux modo 600 validado pela aplicação.
 - QA-004 ALTO: LGPD não inclui entidades/snapshots de IA.
 - QA-008 MÉDIO: CSP permite `unsafe-inline` em script/style.
 - HSTS não foi exigido no HTTP local; deve ser validado no terminador TLS de produção.
@@ -31,4 +31,4 @@ IDOR, escalada de papel, CSRF, enumeração, uploads e tenant crossing foram ava
 
 ## Recomendação
 
-Bloquear chamadas externas em qualquer `APP_ENV=test`; proteger `.env`; ampliar LGPD para IA; revalidar CSP em produção; adicionar teste canário que falha se qualquer socket externo for aberto durante pytest/E2E.
+Ampliar LGPD para IA; revalidar CSP em produção; manter a chave fora do filesystem fuseblk e preservar os testes canário/bloqueios de rede. Antes de dados reais, repetir auditoria de dependências em ambiente reproduzível e resolver ou aceitar formalmente os riscos altos restantes.
