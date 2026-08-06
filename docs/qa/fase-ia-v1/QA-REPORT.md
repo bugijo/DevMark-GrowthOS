@@ -1,20 +1,20 @@
 # QA Report — Fase IA v1
 
-Data: 2026-08-05
+Data: 2026-08-06
 
 QA Lead: Codex
 
 Branch: `agent/camada-ia-v1`
 
-Commits corretivos auditados: `99552a7`, `ea42bd7`, `423aa33`
+Commits corretivos auditados: `99552a7`, `ea42bd7`, `423aa33`, `8c2418d`, `8aa3e9c`
 
 PR: #4, aberto e em Draft
 
 ## Conclusão executiva
 
-O sistema está executável localmente e os três bloqueadores solicitados foram corrigidos: o metadata não apresenta drift, as suítes não podem construir/chamar providers externos e a chave local não fica mais no `.env` do filesystem fuseblk. A validação local completa e a CI corretiva do GitHub passaram. O PR permanece em Draft porque QA-004 e QA-005 continuam altos.
+QA-004 e QA-005 foram corrigidos. Dados de IA agora participam de exportação, anonimização, retenção e auditoria LGPD, e custos informados pelo OpenRouter são persistidos sem transformar ausência em zero. Migrações e validação local completa passaram. O PR permanece em Draft porque QA-006 continua alto e a CI destes commits ainda deve ser confirmada.
 
-Recomendação: **NO-GO para merge e para dados reais**. Piloto apenas depois dos bloqueios e achados altos serem corrigidos e revalidados.
+Recomendação: **NO-GO para merge**. O piloto ainda depende de tratar ou aceitar formalmente QA-006 e de CI verde no novo head.
 
 ## Ambiente
 
@@ -30,7 +30,7 @@ Recomendação: **NO-GO para merge e para dados reais**. Piloto apenas depois do
 | Mailpit | http://127.0.0.1:8025 |
 | PostgreSQL | 127.0.0.1:5432 |
 | MinIO | 127.0.0.1:9000 e console 9001 |
-| Migração | `0014_ai_generations (head)` |
+| Migração | `0016_ai_costs (head)` |
 | Providers | OpenRouter configurado; Hermes apontado para Ollama local indisponível; Mock obrigatório |
 | Modelo configurado | `openrouter/free` |
 | Modelo real observado | `nvidia/nemotron-3-super-120b-a12b:free`; diagnóstico também escolheu `openai/gpt-oss-20b:free` |
@@ -44,18 +44,18 @@ Nenhuma chave foi registrada neste relatório. A busca no Git, histórico e logs
 | `make doctor` | PASS: 36 OK, 2 avisos explícitos sobre `.env` fuseblk sem segredo, 0 erros |
 | `make validate` | PASS |
 | `make lint` | PASS: Ruff, formatação, mypy, ESLint, TypeScript e build |
-| Backend | PASS: 220, 1 warning de depreciação Starlette/httpx |
+| Backend | PASS: 234, 1 warning de depreciação Starlette/httpx |
 | Worker | PASS: 41 |
-| Frontend | PASS: 52 em 19 arquivos |
+| Frontend | PASS: 54 em 20 arquivos |
 | E2E offline | PASS: 10, incluindo IA mock e acessibilidade |
 | npm audit frontend/E2E | PASS: 0 vulnerabilidades |
 | pip-audit | backend sem vulnerabilidades conhecidas; worker acusou seis advisories no pip 25.0.1 da imagem; dependências locais do projeto foram ignoradas por não existirem no PyPI |
 | Backup + verificação + restauração | PASS |
-| Migrações base/0008/0013/0014, downgrade e reupgrade | PASS em bancos isolados |
+| Migrações base/0008/0014 até 0016, downgrade e reupgrade | PASS; cinco tabelas `ai_*` íntegras |
 | `alembic check` | PASS em todos os caminhos validados |
-| CI PR #4 | PASS integral no run 31067219680: frontend, backend/worker, Compose/contratos e E2E vertical; PR continua Draft |
+| CI PR #4 | Head anterior passou no run 31067503393; nova execução pendente após publicar QA-004/005; PR continua Draft |
 
-Contagem da rodada automatizada: 220 backend + 41 worker + 52 frontend + 10 E2E = **323 aprovados**. Não houve falha de teste. Validações operacionais e de migração são registradas separadamente na matriz.
+Contagem da rodada automatizada: 234 backend + 41 worker + 54 frontend + 10 E2E = **339 aprovados**. Não houve falha de teste.
 
 ## Cobertura funcional
 
@@ -63,15 +63,15 @@ Foram exercitados por testes existentes: autenticação, convite e recuperação
 
 Foram comprovados manualmente pela API e pelo proxy do frontend: autenticação OpenRouter, structured JSON, três alternativas persistidas, provider/modelo real, tokens, ausência de publicação automática, histórico no frontend e fallback OpenRouter → Hermes indisponível → Mock simulado.
 
-Permanecem sem evidência completa: todas as 12 tarefas em combinações 1/3, cancelamento, concorrência e idempotência de IA, aplicação de alternativa a conteúdo, limite diário em ambiente real, 429 real, LGPD incluindo snapshots de IA, leitor de tela real, navegadores além de Chromium e falhas destrutivas de backup. Esses itens constam como PARCIAL ou NÃO EXECUTADO na matriz.
+Permanecem sem evidência completa: todas as 12 tarefas em combinações 1/3, cancelamento, concorrência e idempotência de requisição, aplicação de alternativa, limite diário/429 real, leitor de tela, outros navegadores e falhas destrutivas de backup.
 
 ## Cinco problemas prioritários
 
-1. QA-004 — exportação/anonimização LGPD não contempla gerações e snapshots de IA.
-2. QA-005 — custo retornado pelo OpenRouter não é persistido/exibido pela aplicação.
-3. QA-006 — cancelamento, aplicação de alternativa e idempotência não têm contrato completo.
-4. QA-007 — Hermes configurado ainda não equivale a saudável.
-5. QA-008 — CSP ainda permite `unsafe-inline`.
+1. QA-006 — cancelamento, aplicação de alternativa e idempotência não têm contrato completo.
+2. QA-007 — Hermes configurado ainda não equivale a saudável.
+3. QA-008 — CSP ainda permite `unsafe-inline`.
+4. QA-009 — lista de conteúdos é o endpoint mais pesado medido.
+5. QA-010 — auditoria Python local e pip antigo na imagem worker.
 
 Detalhes reproduzíveis estão em `BUGS.md`.
 
@@ -79,5 +79,5 @@ Detalhes reproduzíveis estão em `BUGS.md`.
 
 - PR #4 pode sair de Draft? **Não**.
 - Pode ser mesclado? **Não**.
-- Pronto para piloto? **Ainda não**; QA-001/002/003 estão corrigidos e a CI está verde, mas QA-004/005 precisam ser resolvidos ou formalmente aceitos.
-- Pronto para dados reais? **Não**.
+- Pronto para piloto? **Ainda não**; QA-001 a QA-005 estão resolvidos/mitigados, mas QA-006 precisa de resolução ou aceite formal e a nova CI deve ficar verde.
+- Pronto para dados reais? **Condicionalmente não** até o gate acima e o aceite dos riscos restantes.

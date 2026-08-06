@@ -13,6 +13,12 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 - providers OpenRouter opcional, Ollama local pelo adapter Hermes e mock obrigatório, com fallback,
   modelo, duração, tokens, limite diário, feedback e histórico auditável;
 - migration `0014` para gerações, tentativas, alternativas, feedback e uso diário de IA.
+- LGPD da camada de IA com exportação versionada, anonimização conservadora e
+  retenção tenant-scoped com dry-run e auditoria;
+- custos de providers em Decimal, distinguindo confirmado, estimado e desconhecido
+  em tentativas, uso diário, relatórios, exportação e interface;
+- migrations `0015_ai_privacy` e `0016_ai_costs`, preservando custos antigos como
+  nulos e desconhecidos.
 
 - documentação inicial de visão, escopo, arquitetura, dados, fluxos, providers, segurança, testes, operação e riscos da versão 1.0;
 - regras de contribuição e orientação para agentes de programação;

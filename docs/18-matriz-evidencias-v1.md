@@ -22,9 +22,9 @@ evidência depende de outra pessoa ou ambiente e não pode ser presumida.
 | 7 | Providers | PASS | mock obrigatório, Hermes opcional, prioridade, fallback, timeout e tentativas |
 | 8 | Segredos de integração | PASS | somente nome da variável de ambiente; nenhum valor secreto retorna à API/UI |
 | 9 | Conteúdo sensível | PASS | classificação determinística e bloqueio até revisão profissional auditada |
-| 10 | LGPD operacional | PASS | consentimento, finalidades, retenção, exportação, solicitação e anonimização |
+| 10 | LGPD operacional | PASS | consentimento, finalidades e IA em exportação 1.1, anonimização, retenção dry-run/real e auditoria |
 | 11 | Isolamento/RBAC | PASS | testes negativos entre organizações, clientes e papéis nas novas rotas |
-| 12 | Migrações | PASS | `base → 0011 → 0013 → base → 0013` e `0008 → 0013`; Alembic sem drift |
+| 12 | Migrações | PASS | `base/0008/0014 → 0016`, `0016 → base → 0016`; Alembic sem drift e custos legados `NULL/UNKNOWN` |
 | 13 | Recuperação | PASS | backup PostgreSQL/MinIO, checksums e restauração em ambiente descartável |
 | 14 | Operação Compose | PASS | `make setup`, healthchecks e `make doctor`: 36 OK, 0 erro |
 | 15 | Desempenho | PASS | 30 amostras com enforcement; pior p95 observado: conteúdos, 337 ms |

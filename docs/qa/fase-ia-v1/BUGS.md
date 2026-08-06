@@ -54,6 +54,7 @@
 ## QA-004 — LGPD não cobre snapshots de IA
 
 - Área/severidade: LGPD/IA — **ALTO**
+- Estado: **RESOLVIDO** em `8c2418d` (formatação validada em `e2c3269`).
 - Ambiente/perfil: organização com gerações; titular e administrador
 - Reprodução: criar geração, solicitar exportação/anonimização e revisar `services/privacy.py`.
 - Esperado: inventário, exportação, retenção e anonimização tratam instrução, feedback e `context_snapshot` conforme política.
@@ -61,10 +62,16 @@
 - Risco: exportação incompleta e retenção de contexto após solicitação administrativa.
 - Recomendação: definir política legal e incluir entidades IA com preservação auditável mínima.
 - Regressão: exportação e anonimização tenant-scoped com geração antes/depois.
+- Causa raiz: o fluxo de privacidade não consultava IA; as FKs de solicitante/feedback eram obrigatórias com `RESTRICT`, e retenção possuía cadastro sem execução.
+- Correção: exportação `1.1` inclui somente IA do titular no tenant; identificadores viram `NULL`; instrução, feedback, snapshot e resultados recebem marcador sem conteúdo; métricas e auditoria mínima são preservadas. A retenção oferece dry-run, legal hold, isolamento, idempotência e audit log.
+- Evidências: migration `0015_ai_privacy`, inventário `docs/19-lgpd-dados-ia.md` e testes de exportação, tenant, papel, anonimização, métricas e retenção. Downgrade bloqueia se referências já foram anonimizadas para impedir reidentificação ou `NOT NULL` inválido.
+- Testes: regressão total passou com 234 backend, 41 worker, 54 frontend e 10 E2E offline.
+- Risco residual: não existe vínculo persistido de alternativa aplicada (QA-006); por segurança, a política de gerações não apaga o registro consolidado e minimiza snapshots.
 
 ## QA-005 — Custo do OpenRouter não é persistido
 
 - Área/severidade: IA/controle de gasto — **ALTO**
+- Estado: **RESOLVIDO** em `8aa3e9c` (formatação validada em `e2c3269`).
 - Ambiente/perfil: geração OpenRouter real; administrador
 - Reprodução: gerar conteúdo e comparar resposta oficial com `estimated_cost_usd`.
 - Esperado: custo retornado é salvo/exibido; ausência fica explícita.
@@ -72,6 +79,11 @@
 - Risco: telemetria de gasto incompleta e limite financeiro não auditável.
 - Recomendação: mapear custo somente quando fornecido, sem inventar valor.
 - Regressão: provider falso com custo 0 e custo positivo, além de ausência do campo.
+- Causa raiz: o adaptador ignorava `usage.cost`, e o campo legado não distinguia ausência, zero confirmado, estimativa e valor inválido.
+- Correção: Decimal/Numeric registra valor, USD, estado `CONFIRMED|ESTIMATED|UNKNOWN`, origem e contabilização em geração, tentativa, uso, exportação, relatório e UI. Ausência/nulo/inválido permanece desconhecido.
+- Evidências: migration `0016_ai_costs`, fixture sanitizada e `docs/20-custos-providers-ia.md`; seis registros anteriores permaneceram `NULL/UNKNOWN`; base, 0008 e 0014 chegaram a 0016 sem drift.
+- Testes: positivo, zero, ausente, nulo, inválido, estimado, retry, fallback, regeneração, agregação, exportação, relatório, UI e provider fake passaram offline.
+- Risco residual: zero de Hermes representa somente custo de API externa, não hardware/energia; OpenRouter omitido permanece desconhecido. A imagem worker ainda contém pip antigo, risco operacional já documentado.
 
 ## QA-006 — Recursos de ciclo de IA sem contrato completo
 
@@ -116,3 +128,12 @@
 - Área/severidade: Operação — **MELHORIA**
 - Atual: Compose usa Bake, mas buildx não está instalado; build cai para driver padrão e funciona.
 - Recomendação: documentar buildx como opcional ou eliminar o aviso.
+
+## Contagem após QA-004/QA-005
+
+- resolvidos/mitigados: 5 (QA-001 a QA-005);
+- abertos altos: 1 (QA-006);
+- abertos médios: 3 (QA-007 a QA-009);
+- aberto baixo: 1 (QA-010);
+- melhoria: 1 (QA-011);
+- bloqueadores/críticos abertos: 0.

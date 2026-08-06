@@ -2,7 +2,7 @@
 
 ## Parecer
 
-**Ainda não aprovado para dados reais.** O isolamento multiempresa, autorização, CSRF, cookies, uploads e URLs privadas possuem boa cobertura automatizada. QA-002 e QA-003 foram corrigidos; permanece a lacuna alta de LGPD sobre snapshots de IA.
+**LGPD da camada de IA aprovada no escopo QA-004.** Exportação, anonimização e retenção agora incluem IA com isolamento e minimização conservadora. A aprovação geral do piloto continua condicionada a QA-006, CI do novo head e aceite dos riscos restantes.
 
 ## Evidências positivas
 
@@ -20,7 +20,7 @@
 
 - QA-002 CRÍTICO: **resolvido**; testes recusam provider/rede externa e usam configuração offline dedicada.
 - QA-003 CRÍTICO: **mitigado**; `.env` em fuseblk está sem chave, e o segredo local foi movido para arquivo Linux modo 600 validado pela aplicação.
-- QA-004 ALTO: LGPD não inclui entidades/snapshots de IA.
+- QA-004 ALTO: **resolvido**; snapshots seguem potencialmente identificáveis e são exportados, anonimizados e retidos por política tenant-scoped.
 - QA-008 MÉDIO: CSP permite `unsafe-inline` em script/style.
 - HSTS não foi exigido no HTTP local; deve ser validado no terminador TLS de produção.
 - Hermes configurado não significa saudável; a indisponibilidade só fica clara no uso.
@@ -31,4 +31,4 @@ IDOR, escalada de papel, CSRF, enumeração, uploads e tenant crossing foram ava
 
 ## Recomendação
 
-Ampliar LGPD para IA; revalidar CSP em produção; manter a chave fora do filesystem fuseblk e preservar os testes canário/bloqueios de rede. Antes de dados reais, repetir auditoria de dependências em ambiente reproduzível e resolver ou aceitar formalmente os riscos altos restantes.
+Manter a matriz LGPD atualizada quando surgir vínculo de alternativa aplicada; revalidar CSP em produção; manter a chave fora do fuseblk e preservar bloqueios de rede. Antes do piloto, resolver ou aceitar QA-006 e repetir auditoria de dependências reproduzível.

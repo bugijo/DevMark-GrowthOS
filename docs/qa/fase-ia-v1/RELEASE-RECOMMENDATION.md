@@ -6,16 +6,14 @@
 
 ## Por quê
 
-Os três bloqueadores desta rodada (drift, rede externa em testes e armazenamento local inseguro da chave) foram corrigidos e revalidados localmente e na CI. O NO-GO permanece porque QA-004 e QA-005 continuam altos e os contratos QA-006 seguem incompletos.
+QA-001 a QA-005 estão resolvidos ou mitigados e a validação local está verde. O NO-GO permanece porque QA-006 segue alto e a CI do novo head precisa concluir.
 
 ## Ordem obrigatória de correção
 
-1. Incluir gerações, feedback e snapshots na política/fluxos LGPD.
-2. Persistir custo quando retornado e explicar ausência.
-3. Fechar contratos de idempotência, cancelamento e aplicação de alternativa.
-4. Diferenciar provider configurado de saudável e ampliar testes Hermes fake.
-5. Repetir auditoria Python reproduzível e atualizar o pip da imagem worker ou aceitar formalmente o risco de build.
-6. Rodar matriz manual UX/a11y e instalação independente.
+1. Fechar ou aceitar formalmente idempotência, cancelamento e aplicação de alternativa (QA-006).
+2. Diferenciar provider configurado de saudável e ampliar testes Hermes fake.
+3. Atualizar o pip da imagem worker ou aceitar formalmente o risco da ferramenta de build.
+4. Rodar matriz manual UX/a11y e instalação independente.
 
 ## Gates para sair de Draft
 
@@ -29,4 +27,4 @@ Os três bloqueadores desta rodada (drift, rede externa em testes e armazenament
 
 ## Próximo prompt recomendado
 
-> Corrija somente QA-004 e QA-005 documentados em `docs/qa/fase-ia-v1/BUGS.md`. Defina a política LGPD para snapshots de IA antes de alterar retenção/anonimização e persista custo apenas quando o provider o retornar, sem inventar valores. Preserve isolamento multiempresa, aprovação humana, providers offline e o PR #4 em Draft. Não faça merge.
+> Avalie exclusivamente QA-006 e defina primeiro o contrato observável de idempotência, cancelamento e aplicação de alternativa. Preserve tenant, histórico, custo, LGPD, testes offline e o PR #4 em Draft. Não faça merge.

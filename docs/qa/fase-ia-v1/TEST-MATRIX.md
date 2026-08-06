@@ -31,11 +31,11 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 | Conteúdo sensível | PASS | classificador, bloqueio e revisão profissional automatizados |
 | Notificações e resumos | PASS | backend/worker/E2E/Mailpit |
 | LGPD pré-IA | PASS | consentimento, exportação, requests, anonimização |
-| LGPD sobre IA | FAIL | snapshots/instruções não tratados; QA-004 |
+| LGPD sobre IA | PASS | exportação 1.1, anonimização, retenção, auditoria e tenant; QA-004 resolvido |
 | OpenRouter autenticação | PASS | HTTP 200, chave não exibida |
 | OpenRouter structured output | PASS | JSON válido e três alternativas persistidas |
 | OpenRouter tokens/modelo | PASS | modelo real e usage persistidos |
-| OpenRouter custo | FAIL | custo oficial não mapeado; QA-005 |
+| OpenRouter custo | PASS | Decimal, confirmado/estimado/desconhecido, tentativa/uso/exportação/relatório/UI; QA-005 resolvido |
 | OpenRouter 401/timeout/invalid schema | PARCIAL | falsos/unitários e fallback; 429 real não provocado para evitar abuso |
 | 12 tarefas de IA × 1/3 alternativas | PARCIAL | enum/UI existem; não há matriz funcional completa por tarefa |
 | Regeneração e feedback | PARCIAL | contratos presentes; cobertura limitada |
