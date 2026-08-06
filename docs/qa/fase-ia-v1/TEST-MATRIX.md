@@ -53,7 +53,7 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 | Headers/CSP | PARCIAL | headers defensivos presentes; unsafe-inline; QA-008 |
 | Performance | PARCIAL | sete endpoints e memória; IA/aprovação/LGPD não medidos em série |
 | Instalação limpa e falhas de recursos | PARCIAL | doctor/setup existentes; máquina limpa externa/CAV1 não repetida |
-| Git/PR/CI | PARCIAL | pasta Git duplicada não rastreada preservada; validação local verde; PR Draft preservado; nova CI pendente após push |
+| Git/PR/CI | PASS | pasta Git duplicada não rastreada preservada; validação local e CI run 31067219680 verdes; PR Draft preservado |
 
 ## Perfis
 

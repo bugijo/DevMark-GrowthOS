@@ -12,7 +12,7 @@ PR: #4, aberto e em Draft
 
 ## Conclusão executiva
 
-O sistema está executável localmente e os três bloqueadores solicitados foram corrigidos: o metadata não apresenta drift, as suítes não podem construir/chamar providers externos e a chave local não fica mais no `.env` do filesystem fuseblk. A validação local completa passou. O PR permanece em Draft porque QA-004 e QA-005 continuam altos e a CI do GitHub ainda deve validar os novos commits.
+O sistema está executável localmente e os três bloqueadores solicitados foram corrigidos: o metadata não apresenta drift, as suítes não podem construir/chamar providers externos e a chave local não fica mais no `.env` do filesystem fuseblk. A validação local completa e a CI corretiva do GitHub passaram. O PR permanece em Draft porque QA-004 e QA-005 continuam altos.
 
 Recomendação: **NO-GO para merge e para dados reais**. Piloto apenas depois dos bloqueios e achados altos serem corrigidos e revalidados.
 
@@ -53,7 +53,7 @@ Nenhuma chave foi registrada neste relatório. A busca no Git, histórico e logs
 | Backup + verificação + restauração | PASS |
 | Migrações base/0008/0013/0014, downgrade e reupgrade | PASS em bancos isolados |
 | `alembic check` | PASS em todos os caminhos validados |
-| CI PR #4 | PENDENTE de nova execução após push; PR continua Draft |
+| CI PR #4 | PASS integral no run 31067219680: frontend, backend/worker, Compose/contratos e E2E vertical; PR continua Draft |
 
 Contagem da rodada automatizada: 220 backend + 41 worker + 52 frontend + 10 E2E = **323 aprovados**. Não houve falha de teste. Validações operacionais e de migração são registradas separadamente na matriz.
 
@@ -79,5 +79,5 @@ Detalhes reproduzíveis estão em `BUGS.md`.
 
 - PR #4 pode sair de Draft? **Não**.
 - Pode ser mesclado? **Não**.
-- Pronto para piloto? **Ainda não**; QA-001/002/003 estão corrigidos, mas QA-004/005 precisam ser resolvidos ou formalmente aceitos, e a CI deve ficar verde.
+- Pronto para piloto? **Ainda não**; QA-001/002/003 estão corrigidos e a CI está verde, mas QA-004/005 precisam ser resolvidos ou formalmente aceitos.
 - Pronto para dados reais? **Não**.
