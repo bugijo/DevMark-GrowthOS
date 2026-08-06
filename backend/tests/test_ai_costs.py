@@ -30,8 +30,7 @@ class CostProvider:
 
     def generate(self, request: ProviderRequest) -> ProviderResult:
         return ProviderResult(
-            alternatives=[{"title": "Ideia com custo", "caption": "Texto"}]
-            * request.alternatives,
+            alternatives=[{"title": "Ideia com custo", "caption": "Texto"}] * request.alternatives,
             provider=self.name,
             model=self.model,
             duration_ms=3,

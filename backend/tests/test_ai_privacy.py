@@ -117,9 +117,7 @@ def test_deletion_anonymizes_ai_text_and_identifiers_but_preserves_aggregates(
             item.payload == {"privacy_status": "ANONYMIZED"} for item in alternatives
         )
         feedback = session.scalar(
-            select(AIGenerationFeedback).where(
-                AIGenerationFeedback.generation_id == generation.id
-            )
+            select(AIGenerationFeedback).where(AIGenerationFeedback.generation_id == generation.id)
         )
         assert feedback is not None and feedback.user_id is None
         assert feedback.comment == "[ANONIMIZADO POR SOLICITAÇÃO LGPD]"

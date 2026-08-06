@@ -44,9 +44,7 @@ def upgrade() -> None:
         "ai_generation_attempts",
         sa.Column("cost_status", sa.String(16), nullable=False, server_default="UNKNOWN"),
     )
-    op.add_column(
-        "ai_generation_attempts", sa.Column("cost_origin", sa.String(48), nullable=True)
-    )
+    op.add_column("ai_generation_attempts", sa.Column("cost_origin", sa.String(48), nullable=True))
     op.create_check_constraint(
         "ck_ai_attempt_cost_status",
         "ai_generation_attempts",

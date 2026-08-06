@@ -419,9 +419,12 @@ def run_retention(
             AIGenerationFeedback.organization_id == organization_id,
             AIGenerationFeedback.created_at < cutoff,
         )
-        affected = session.scalar(
-            select(func.count()).select_from(AIGenerationFeedback).where(*feedback_predicate)
-        ) or 0
+        affected = (
+            session.scalar(
+                select(func.count()).select_from(AIGenerationFeedback).where(*feedback_predicate)
+            )
+            or 0
+        )
         if not data.dry_run:
             session.execute(delete(AIGenerationFeedback).where(*feedback_predicate))
     elif data.resource_type == "ai_generation_attempts":
@@ -429,9 +432,12 @@ def run_retention(
             AIGenerationAttempt.organization_id == organization_id,
             AIGenerationAttempt.created_at < cutoff,
         )
-        affected = session.scalar(
-            select(func.count()).select_from(AIGenerationAttempt).where(*attempts_predicate)
-        ) or 0
+        affected = (
+            session.scalar(
+                select(func.count()).select_from(AIGenerationAttempt).where(*attempts_predicate)
+            )
+            or 0
+        )
         if not data.dry_run:
             session.execute(delete(AIGenerationAttempt).where(*attempts_predicate))
     elif data.resource_type == "ai_generation_alternatives":
@@ -439,9 +445,14 @@ def run_retention(
             AIGenerationAlternative.organization_id == organization_id,
             AIGenerationAlternative.created_at < cutoff,
         )
-        affected = session.scalar(
-            select(func.count()).select_from(AIGenerationAlternative).where(*alternatives_predicate)
-        ) or 0
+        affected = (
+            session.scalar(
+                select(func.count())
+                .select_from(AIGenerationAlternative)
+                .where(*alternatives_predicate)
+            )
+            or 0
+        )
         if not data.dry_run:
             session.execute(delete(AIGenerationAlternative).where(*alternatives_predicate))
     elif data.resource_type == "ai_usage_daily":
@@ -480,9 +491,12 @@ def run_retention(
             AIGenerationAttempt.created_at < cutoff,
             AIGenerationAttempt.error_code.is_not(None),
         )
-        affected = session.scalar(
-            select(func.count()).select_from(AIGenerationAttempt).where(*errors_predicate)
-        ) or 0
+        affected = (
+            session.scalar(
+                select(func.count()).select_from(AIGenerationAttempt).where(*errors_predicate)
+            )
+            or 0
+        )
         if not data.dry_run:
             session.execute(
                 update(AIGenerationAttempt).where(*errors_predicate).values(error_code=None)
