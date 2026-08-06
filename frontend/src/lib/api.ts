@@ -216,10 +216,24 @@ export const api = {
       }),
     list: (businessId: string) =>
       apiRequest<AIGeneration[]>(`/businesses/${businessId}/ai/generations`),
-    regenerate: (id: string) =>
+    regenerate: (id: string, idempotencyKey = crypto.randomUUID()) =>
       apiRequest<AIGeneration>(`/ai/generations/${id}/regenerate`, {
         method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
       }),
+    cancel: (id: string) =>
+      apiRequest<AIGeneration>(`/ai/generations/${id}/cancel`, {
+        method: "POST",
+      }),
+    applyAlternative: (
+      generationId: string,
+      alternativeId: string,
+      input: { channel: string; format: string; objective: string },
+    ) =>
+      apiRequest<ContentItem>(
+        `/ai/generations/${generationId}/alternatives/${alternativeId}/apply`,
+        { method: "POST", body: JSON.stringify(input) },
+      ),
     feedback: (id: string, rating: "HELPFUL" | "NOT_HELPFUL", comment = "") =>
       apiRequest<void>(`/ai/generations/${id}/feedback`, {
         method: "POST",

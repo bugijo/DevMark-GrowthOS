@@ -330,6 +330,7 @@ export default function ContentsPage() {
         instruction: aiInstruction,
         alternatives: aiAlternatives,
         source_text: objective,
+        idempotency_key: crypto.randomUUID(),
       });
       setAiHistory((current) => [generated, ...current]);
       setSuccess(
@@ -358,6 +359,60 @@ export default function ContentsPage() {
       setError(requestError instanceof Error ? requestError.message : "Falha ao regenerar.");
     } finally {
       setAiGenerating(false);
+    }
+  }
+
+  async function cancelAIGeneration(generation: AIGeneration) {
+    if (!window.confirm("Cancelar esta geração? O histórico será preservado.")) return;
+    setActionId(generation.id);
+    setError(null);
+    try {
+      const cancelled = await api.ai.cancel(generation.id);
+      setAiHistory((current) =>
+        current.map((item) => (item.id === cancelled.id ? cancelled : item)),
+      );
+      setSuccess("Geração cancelada. O histórico foi preservado.");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Falha ao cancelar.");
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function applyAIAlternative(generation: AIGeneration, alternativeId: string) {
+    setActionId(alternativeId);
+    setError(null);
+    try {
+      const content = await api.ai.applyAlternative(generation.id, alternativeId, {
+        channel,
+        format,
+        objective: objective || "Conteúdo criado a partir de alternativa de IA",
+      });
+      setContents((current) => [content, ...current.filter((item) => item.id !== content.id)]);
+      setAiHistory((current) =>
+        current.map((item) =>
+          item.id === generation.id
+            ? {
+                ...item,
+                alternatives: item.alternatives.map((alternative) =>
+                  alternative.id === alternativeId
+                    ? {
+                        ...alternative,
+                        applied_content_item_id: content.id,
+                        applied_content_version_id: content.current_version.id,
+                        applied_at: new Date().toISOString(),
+                      }
+                    : alternative,
+                ),
+              }
+            : item,
+        ),
+      );
+      setSuccess("Alternativa aplicada a um novo rascunho. Revise antes de enviar.");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Falha ao aplicar.");
+    } finally {
+      setActionId(null);
     }
   }
 
@@ -463,6 +518,15 @@ export default function ContentsPage() {
                 <Button type="button" variant="secondary" onClick={() => void regenerateWithAI(generation)}>
                   Gerar outra versão
                 </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  busy={actionId === generation.id}
+                  disabled={generation.status === "CANCELLED"}
+                  onClick={() => void cancelAIGeneration(generation)}
+                >
+                  {generation.status === "CANCELLED" ? "Cancelada" : "Cancelar geração"}
+                </Button>
               </div>
               {generation.simulated ? <Alert tone="info">Resposta simulada pelo provider mock.</Alert> : null}
               {generation.used_fallback ? (
@@ -477,6 +541,21 @@ export default function ContentsPage() {
                     <h3 className="font-semibold text-slate-950">{String(alternative.payload.title ?? `Alternativa ${alternative.position}`)}</h3>
                     <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{String(alternative.payload.caption ?? alternative.payload.strategy ?? "")}</p>
                     {alternative.is_sensitive ? <p className="mt-2 text-sm font-semibold text-amber-800">Conteúdo sensível: exige revisão profissional.</p> : null}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="mt-3 w-full sm:w-auto"
+                      busy={actionId === alternative.id}
+                      disabled={
+                        generation.status === "CANCELLED" ||
+                        alternative.applied_content_item_id !== null
+                      }
+                      onClick={() => void applyAIAlternative(generation, alternative.id)}
+                    >
+                      {alternative.applied_content_item_id
+                        ? "Rascunho já aplicado"
+                        : "Aplicar ao rascunho"}
+                    </Button>
                   </article>
                 ))}
               </div>

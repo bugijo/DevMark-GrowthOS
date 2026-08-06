@@ -27,6 +27,7 @@ class AIGenerationCreate(BaseModel):
     instruction: str = Field(default="", max_length=2000)
     alternatives: Literal[1, 3] = 1
     source_text: str = Field(default="", max_length=12_000)
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=200)
 
     @field_validator("instruction", "source_text")
     @classmethod
@@ -41,6 +42,9 @@ class AIAlternativeRead(BaseModel):
     payload: dict[str, Any]
     is_sensitive: bool
     sensitivity_codes: list[str]
+    applied_content_item_id: UUID | None
+    applied_content_version_id: UUID | None
+    applied_at: datetime | None
     created_at: datetime
 
 
@@ -67,6 +71,7 @@ class AIGenerationRead(BaseModel):
     cost_status: Literal["CONFIRMED", "ESTIMATED", "UNKNOWN"]
     cost_origin: str | None
     error_code: str | None
+    cancelled_at: datetime | None
     created_at: datetime
     alternatives: list[AIAlternativeRead]
     simulated: bool
@@ -77,6 +82,16 @@ class AIGenerationRead(BaseModel):
 class AIFeedbackCreate(BaseModel):
     rating: Literal["HELPFUL", "NOT_HELPFUL"]
     comment: str = Field(default="", max_length=2000)
+
+
+class AIAlternativeApplyCreate(BaseModel):
+    channel: str = Field(default="INSTAGRAM", min_length=2, max_length=80)
+    format: str = Field(default="FEED", min_length=2, max_length=80)
+    objective: str = Field(
+        default="Conteúdo criado a partir de alternativa de IA",
+        min_length=2,
+        max_length=1000,
+    )
 
 
 class AIUsageRead(BaseModel):

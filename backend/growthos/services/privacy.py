@@ -278,6 +278,10 @@ def export_subject(session: Session, context: AuthContext) -> PrivacyExportRead:
                 "provider": generation.provider,
                 "model": generation.model,
                 "used_fallback": generation.used_fallback,
+                "status": generation.status,
+                "cancelled_at": (
+                    generation.cancelled_at.isoformat() if generation.cancelled_at else None
+                ),
                 "input_tokens": generation.input_tokens,
                 "output_tokens": generation.output_tokens,
                 "estimated_cost_usd": (
@@ -296,6 +300,17 @@ def export_subject(session: Session, context: AuthContext) -> PrivacyExportRead:
                         "position": item.position,
                         "payload": item.payload,
                         "is_sensitive": item.is_sensitive,
+                        "applied_content_item_id": (
+                            str(item.applied_content_item_id)
+                            if item.applied_content_item_id
+                            else None
+                        ),
+                        "applied_content_version_id": (
+                            str(item.applied_content_version_id)
+                            if item.applied_content_version_id
+                            else None
+                        ),
+                        "applied_at": item.applied_at.isoformat() if item.applied_at else None,
                         "created_at": item.created_at.isoformat(),
                     }
                     for item in alternatives
@@ -366,6 +381,7 @@ def _anonymize_ai_subject(
             )
             .values(
                 requested_by_user_id=None,
+                cancelled_by_user_id=None,
                 instruction="[ANONIMIZADO POR SOLICITAÇÃO LGPD]",
                 context_snapshot={"privacy_status": "ANONYMIZED"},
             )
@@ -378,6 +394,22 @@ def _anonymize_ai_subject(
             )
             .values(payload={"privacy_status": "ANONYMIZED"})
         )
+    session.execute(
+        update(AIGeneration)
+        .where(
+            AIGeneration.organization_id == organization_id,
+            AIGeneration.cancelled_by_user_id == subject_user_id,
+        )
+        .values(cancelled_by_user_id=None)
+    )
+    session.execute(
+        update(AIGenerationAlternative)
+        .where(
+            AIGenerationAlternative.organization_id == organization_id,
+            AIGenerationAlternative.applied_by_user_id == subject_user_id,
+        )
+        .values(applied_by_user_id=None)
+    )
     feedback_ids = list(
         session.scalars(
             select(AIGenerationFeedback.id).where(

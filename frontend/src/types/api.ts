@@ -685,6 +685,7 @@ export interface AIGenerationInput {
   instruction: string;
   alternatives: 1 | 3;
   source_text?: string;
+  idempotency_key?: string;
 }
 
 export interface AIAlternative {
@@ -693,6 +694,9 @@ export interface AIAlternative {
   payload: Record<string, unknown>;
   is_sensitive: boolean;
   sensitivity_codes: string[];
+  applied_content_item_id: string | null;
+  applied_content_version_id: string | null;
+  applied_at: string | null;
   created_at: string;
 }
 
@@ -714,6 +718,7 @@ export interface AIGeneration {
   cost_currency: "USD";
   cost_status: "CONFIRMED" | "ESTIMATED" | "UNKNOWN";
   cost_origin: string | null;
+  cancelled_at: string | null;
   alternatives: AIAlternative[];
   simulated: boolean;
   requires_approval: true;

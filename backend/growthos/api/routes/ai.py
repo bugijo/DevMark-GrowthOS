@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,9 @@ from growthos.database import get_session
 from growthos.dependencies import AuthContext, get_current_context, require_capability, require_csrf
 from growthos.domain.permissions import Capability
 from growthos.models import AIGeneration, AIUsageDaily
+from growthos.schemas import ContentRead
 from growthos.schemas_ai import (
+    AIAlternativeApplyCreate,
     AIFeedbackCreate,
     AIGenerationCreate,
     AIGenerationRead,
@@ -22,6 +24,18 @@ from growthos.schemas_ai import (
 from growthos.services import growth_agent
 
 router = APIRouter()
+
+
+def _validated_idempotency_key(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    if not 8 <= len(value) <= 200:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "Idempotency-Key deve ter entre 8 e 200 caracteres",
+        )
+    return value
 
 
 @router.get("/ai/status", response_model=AIStatusRead)
@@ -78,8 +92,14 @@ def create_generation(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
     settings: Settings = Depends(get_settings),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> AIGenerationRead:
     require_capability(context, Capability.CONTENT_CREATE)
+    idempotency_key = _validated_idempotency_key(idempotency_key)
+    if idempotency_key:
+        if payload.idempotency_key and payload.idempotency_key != idempotency_key:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Chaves de idempotência divergentes")
+        payload = payload.model_copy(update={"idempotency_key": idempotency_key})
     return growth_agent.generate(session, context, business_id, payload, settings)
 
 
@@ -113,8 +133,10 @@ def regenerate(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
     settings: Settings = Depends(get_settings),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> AIGenerationRead:
     require_capability(context, Capability.CONTENT_CREATE)
+    idempotency_key = _validated_idempotency_key(idempotency_key)
     previous = session.scalar(
         select(AIGeneration).where(
             AIGeneration.id == generation_id,
@@ -129,10 +151,40 @@ def regenerate(
         task=AITask(previous.task),
         instruction=previous.instruction,
         alternatives=3 if previous.alternative_count == 3 else 1,
+        idempotency_key=idempotency_key,
     )
     return growth_agent.generate(
         session, context, previous.business_id, payload, settings, parent_id=previous.id
     )
+
+
+@router.post(
+    "/ai/generations/{generation_id}/cancel",
+    response_model=AIGenerationRead,
+)
+def cancel_generation(
+    generation_id: UUID,
+    context: AuthContext = Depends(require_csrf),
+    session: Session = Depends(get_session),
+) -> AIGenerationRead:
+    require_capability(context, Capability.CONTENT_CREATE)
+    return growth_agent.cancel_generation(session, context, generation_id)
+
+
+@router.post(
+    "/ai/generations/{generation_id}/alternatives/{alternative_id}/apply",
+    response_model=ContentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def apply_alternative(
+    generation_id: UUID,
+    alternative_id: UUID,
+    payload: AIAlternativeApplyCreate,
+    context: AuthContext = Depends(require_csrf),
+    session: Session = Depends(get_session),
+) -> ContentRead:
+    require_capability(context, Capability.CONTENT_CREATE)
+    return growth_agent.apply_alternative(session, context, generation_id, alternative_id, payload)
 
 
 @router.post("/ai/generations/{generation_id}/feedback", status_code=status.HTTP_204_NO_CONTENT)
