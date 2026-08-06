@@ -6,7 +6,7 @@
 
 ## Por quê
 
-QA-001 a QA-005 estão resolvidos ou mitigados e a validação local está verde. O NO-GO permanece porque QA-006 segue alto e a CI do novo head precisa concluir.
+QA-001 a QA-005 estão resolvidos ou mitigados, a validação local está verde e o run de CI 31094333781 passou integralmente. O NO-GO permanece porque QA-006 segue alto.
 
 ## Ordem obrigatória de correção
 

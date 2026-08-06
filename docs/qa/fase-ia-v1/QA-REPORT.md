@@ -12,9 +12,9 @@ PR: #4, aberto e em Draft
 
 ## Conclusão executiva
 
-QA-004 e QA-005 foram corrigidos. Dados de IA agora participam de exportação, anonimização, retenção e auditoria LGPD, e custos informados pelo OpenRouter são persistidos sem transformar ausência em zero. Migrações e validação local completa passaram. O PR permanece em Draft porque QA-006 continua alto e a CI destes commits ainda deve ser confirmada.
+QA-004 e QA-005 foram corrigidos. Dados de IA agora participam de exportação, anonimização, retenção e auditoria LGPD, e custos informados pelo OpenRouter são persistidos sem transformar ausência em zero. Migrações, validação local completa e a CI do run 31094333781 passaram. O PR permanece em Draft porque QA-006 continua alto.
 
-Recomendação: **NO-GO para merge**. O piloto ainda depende de tratar ou aceitar formalmente QA-006 e de CI verde no novo head.
+Recomendação: **NO-GO para merge**. O piloto ainda depende de tratar ou aceitar formalmente QA-006.
 
 ## Ambiente
 
@@ -53,7 +53,7 @@ Nenhuma chave foi registrada neste relatório. A busca no Git, histórico e logs
 | Backup + verificação + restauração | PASS |
 | Migrações base/0008/0014 até 0016, downgrade e reupgrade | PASS; cinco tabelas `ai_*` íntegras |
 | `alembic check` | PASS em todos os caminhos validados |
-| CI PR #4 | Head anterior passou no run 31067503393; nova execução pendente após publicar QA-004/005; PR continua Draft |
+| CI PR #4 | PASS no run 31094333781: backend/worker, frontend, Compose/contratos e fluxo vertical E2E; PR continua Draft |
 
 Contagem da rodada automatizada: 234 backend + 41 worker + 54 frontend + 10 E2E = **339 aprovados**. Não houve falha de teste.
 
@@ -79,5 +79,5 @@ Detalhes reproduzíveis estão em `BUGS.md`.
 
 - PR #4 pode sair de Draft? **Não**.
 - Pode ser mesclado? **Não**.
-- Pronto para piloto? **Ainda não**; QA-001 a QA-005 estão resolvidos/mitigados, mas QA-006 precisa de resolução ou aceite formal e a nova CI deve ficar verde.
+- Pronto para piloto? **Ainda não**; QA-001 a QA-005 estão resolvidos/mitigados, mas QA-006 precisa de resolução ou aceite formal.
 - Pronto para dados reais? **Condicionalmente não** até o gate acima e o aceite dos riscos restantes.
