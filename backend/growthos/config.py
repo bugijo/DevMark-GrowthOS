@@ -6,11 +6,8 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from growthos.client_ip import parse_trusted_proxy_cidrs
-
-
-class UnsafeConfigurationError(RuntimeError):
-    """Raised without echoing secret values when runtime configuration is unsafe."""
-
+from growthos.config_errors import UnsafeConfigurationError
+from growthos.secret_files import read_private_secret_file
 
 _INSECURE_PRODUCTION_SECRET_MARKERS = (
     "change-me",
@@ -64,6 +61,7 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "openrouter/free"
     openrouter_api_key: str | None = None
+    openrouter_api_key_file: str = ""
     openrouter_timeout_seconds: int = Field(default=30, ge=1, le=120)
     openrouter_max_attempts: int = Field(default=2, ge=1, le=5)
     hermes_base_url: str = ""
@@ -136,7 +134,17 @@ class Settings(BaseSettings):
         if self.app_env == "test" or os.getenv("PYTEST_CURRENT_TEST") is not None:
             self.ai_external_enabled = False
             self.openrouter_api_key = None
+            self.openrouter_api_key_file = ""
             self.hermes_base_url = ""
+        elif self.openrouter_api_key and self.openrouter_api_key_file:
+            problems.append(
+                "use somente OPENROUTER_API_KEY ou OPENROUTER_API_KEY_FILE, nunca ambos"
+            )
+        elif self.openrouter_api_key_file:
+            self.openrouter_api_key = read_private_secret_file(
+                self.openrouter_api_key_file,
+                variable_name="OPENROUTER_API_KEY_FILE",
+            )
         if len(self.auth_secret_key) < 32:
             problems.append("AUTH_SECRET_KEY deve ter ao menos 32 caracteres")
         if self.token_secret_key is not None and len(self.token_secret_key) < 32:

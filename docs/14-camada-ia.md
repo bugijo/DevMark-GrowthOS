@@ -71,6 +71,15 @@ nunca é retornada, persistida ou enviada ao frontend. `OPENROUTER_MODEL=openrou
 roteamento gratuito, mas disponibilidade, rate limit e gratuidade são decisões do serviço externo;
 não há gasto ou upgrade automático.
 
+Em filesystem que não preserva permissões Unix, a chave não deve ficar no
+`.env`. O backend aceita `OPENROUTER_API_KEY_FILE` em processos no host e valida
+arquivo regular, proprietário, tamanho e modo `600` ou `400`. No Compose, use
+uma variável exportada apenas no processo ou monte um segredo externo e defina
+`OPENROUTER_API_KEY_FILE_CONTAINER` para seu caminho dentro do contêiner. As
+duas fontes não podem ser usadas ao mesmo tempo. O `make doctor` diferencia
+desenvolvimento, homologação e produção e falha fechado fora do desenvolvimento
+quando encontra segredo em `.env` acessível por grupo ou outros.
+
 O limite diário é por organização. Os limites de entrada e saída são aplicados antes da chamada e
 no provider. Custo só é persistido quando informado de forma confiável; caso contrário fica nulo.
 

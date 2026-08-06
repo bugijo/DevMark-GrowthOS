@@ -171,6 +171,30 @@ Não coloque credenciais reais no arquivo. `git check-ignore .env` deve imprimir
 `.env`. Em filesystems que não preservam `chmod`, registre o aviso no relatório
 e não utilize dados reais.
 
+#### OpenRouter em filesystem que não protege o `.env`
+
+Se `make doctor` identificar `fuseblk`, NTFS, FAT ou permissões amplas que o
+`chmod` não consegue corrigir, não grave a chave no `.env`. Neste computador,
+guarde-a na home Linux e exporte-a somente no terminal que inicia os serviços:
+
+```bash
+secret_dir="${XDG_CONFIG_HOME:-$HOME/.config}/devmark-growthos"
+install -d -m 700 "$secret_dir"
+install -m 600 /dev/null "$secret_dir/openrouter_api_key"
+nano "$secret_dir/openrouter_api_key"
+export OPENROUTER_API_KEY="$(<"$secret_dir/openrouter_api_key")"
+docker compose up -d --force-recreate backend worker frontend
+unset OPENROUTER_API_KEY
+```
+
+O arquivo deve conter somente a chave. Processos Python executados diretamente
+no host também aceitam `OPENROUTER_API_KEY_FILE=/caminho/privado`, validando
+arquivo regular, proprietário, tamanho e modo `600`/`400`. Para Docker, exporte
+a variável no processo ou monte um Docker secret e configure o caminho interno
+em `OPENROUTER_API_KEY_FILE_CONTAINER`. Nunca configure valor direto e arquivo
+ao mesmo tempo. Homologação e produção devem usar secret manager ou mecanismo
+equivalente.
+
 ### 4. Diagnosticar e instalar
 
 Com o Docker iniciado, execute na raiz do clone:

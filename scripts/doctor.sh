@@ -89,12 +89,51 @@ fi
 if [[ -f .env ]]; then
   ok "O arquivo .env local existe."
   env_mode="$(stat -c '%a' .env 2>/dev/null || true)"
+  env_filesystem="$(stat -f -c '%T' .env 2>/dev/null || true)"
+  app_environment="${APP_ENV:-$(env_value APP_ENV development)}"
+  app_environment="${app_environment,,}"
+  openrouter_direct="${OPENROUTER_API_KEY:-$(env_value OPENROUTER_API_KEY)}"
+  openrouter_file="${OPENROUTER_API_KEY_FILE:-$(env_value OPENROUTER_API_KEY_FILE)}"
+  provider_secret_present=false
+  if [[ -n "$openrouter_direct" || -n "$openrouter_file" ]]; then
+    provider_secret_present=true
+  fi
   if [[ "$env_mode" =~ ^[0-7]{3,4}$ ]] && ((8#$env_mode & 077)); then
-    warning "O arquivo .env permite acesso de grupo/outros (modo $env_mode). Rode chmod 600 .env."
+    if [[ "$app_environment" =~ ^(production|staging|homologation)$ && "$provider_secret_present" == "true" ]]; then
+      failed "O ambiente $app_environment não pode usar segredo em .env acessível por grupo/outros (modo $env_mode). Use secret manager, variável injetada pelo processo ou arquivo privado externo."
+    elif [[ "$provider_secret_present" == "true" ]]; then
+      warning "SEGREDO EM RISCO: .env permite acesso de grupo/outros (modo $env_mode). Use somente dados fictícios e mova a chave para variável exportada ou arquivo privado em filesystem Linux."
+    else
+      warning "O .env permite acesso de grupo/outros (modo $env_mode), mas não contém chave externa. Não adicione segredo neste arquivo."
+    fi
   elif [[ -n "$env_mode" ]]; then
     ok "O arquivo .env possui permissões privadas (modo $env_mode)."
   else
     warning "Não foi possível confirmar as permissões do arquivo .env."
+  fi
+  case "$env_filesystem" in
+    fuseblk|ntfs|msdos|vfat|exfat)
+      warning "O .env está em filesystem $env_filesystem; chmod pode não funcionar. Prefira variável exportada, arquivo em ext4/home Linux ou secret manager."
+      ;;
+    "")
+      warning "Não foi possível identificar o filesystem do .env."
+      ;;
+    *)
+      ok "O .env está em filesystem $env_filesystem, com suporte esperado a permissões Unix."
+      ;;
+  esac
+  if [[ -n "$openrouter_file" ]]; then
+    secret_file_mode="$(stat -c '%a' "$openrouter_file" 2>/dev/null || true)"
+    secret_file_owner="$(stat -c '%u' "$openrouter_file" 2>/dev/null || true)"
+    if [[ ! -f "$openrouter_file" ]]; then
+      failed "OPENROUTER_API_KEY_FILE não aponta para um arquivo regular acessível."
+    elif [[ "$secret_file_mode" =~ ^[0-7]{3,4}$ ]] && ((8#$secret_file_mode & 077)); then
+      failed "OPENROUTER_API_KEY_FILE permite acesso de grupo/outros. Use modo 600 ou 400."
+    elif [[ "$secret_file_owner" != "$(id -u)" && "$secret_file_owner" != "0" ]]; then
+      failed "OPENROUTER_API_KEY_FILE deve pertencer ao usuário atual ou ao root."
+    else
+      ok "OPENROUTER_API_KEY_FILE aponta para arquivo privado; o valor não foi exibido."
+    fi
   fi
   if git check-ignore -q .env 2>/dev/null; then
     ok "O arquivo .env está ignorado pelo Git."
