@@ -710,6 +710,10 @@ export interface AIGeneration {
   input_tokens: number;
   output_tokens: number;
   estimated_cost_usd: number | null;
+  cost_usd: string | null;
+  cost_currency: "USD";
+  cost_status: "CONFIRMED" | "ESTIMATED" | "UNKNOWN";
+  cost_origin: string | null;
   alternatives: AIAlternative[];
   simulated: boolean;
   requires_approval: true;
@@ -747,6 +751,9 @@ export interface PeriodReport {
   approved_strategies_total: number;
   calendar_entries_total: number;
   unavailable_metrics: string[];
+  ai_confirmed_cost_usd: string;
+  ai_estimated_cost_usd: string;
+  ai_unknown_cost_count: number;
 }
 
 export interface Notification {

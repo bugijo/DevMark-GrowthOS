@@ -4,6 +4,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -31,7 +32,14 @@ class ProviderResult:
     duration_ms: int
     input_tokens: int
     output_tokens: int
-    estimated_cost_usd: float | None = None
+    cost_usd: Decimal | None = None
+    cost_currency: str = "USD"
+    cost_status: str = "UNKNOWN"
+    cost_origin: str | None = None
+
+    @property
+    def estimated_cost_usd(self) -> Decimal | None:
+        return self.cost_usd if self.cost_status == "ESTIMATED" else None
 
 
 class AIProvider(Protocol):
@@ -57,6 +65,26 @@ def _extract_json(text: str) -> list[dict[str, object]]:
             raise AIProviderError("INVALID_SCHEMA")
         normalized.append(item)
     return normalized
+
+
+def _provider_cost(usage: object) -> tuple[Decimal | None, str, str | None]:
+    if not isinstance(usage, dict):
+        return None, "UNKNOWN", None
+    for field, status, origin in (
+        ("cost", "CONFIRMED", "PROVIDER_USAGE_COST"),
+        ("estimated_cost", "ESTIMATED", "PROVIDER_USAGE_ESTIMATE"),
+    ):
+        value = usage.get(field)
+        if value is None or isinstance(value, bool):
+            continue
+        try:
+            decimal_value = Decimal(str(value))
+        except (InvalidOperation, ValueError):
+            return None, "UNKNOWN", "INVALID_PROVIDER_VALUE"
+        if not decimal_value.is_finite() or decimal_value < 0:
+            return None, "UNKNOWN", "INVALID_PROVIDER_VALUE"
+        return decimal_value, status, origin
+    return None, "UNKNOWN", None
 
 
 class MockGrowthProvider:
@@ -85,6 +113,9 @@ class MockGrowthProvider:
             duration_ms=max(1, int((time.monotonic() - started) * 1000)),
             input_tokens=max(1, len(request.prompt) // 4),
             output_tokens=max(1, len(json.dumps(alternatives, ensure_ascii=False)) // 4),
+            cost_usd=Decimal("0"),
+            cost_status="CONFIRMED",
+            cost_origin="MOCK_EXTERNAL_COST_POLICY",
         )
 
 
@@ -153,17 +184,24 @@ class OpenAICompatibleProvider:
                 )
                 with urlopen(http_request, timeout=self.timeout) as response:
                     payload = json.load(response)
+                cost_usd: Decimal | None
+                cost_status: str
+                cost_origin: str | None
                 if self.native_ollama:
                     text = payload["message"]["content"]
                     input_tokens = int(payload.get("prompt_eval_count", 0))
                     output_tokens = int(payload.get("eval_count", 0))
                     answered_model = str(payload.get("model", self.model))
+                    cost_usd = Decimal("0")
+                    cost_status = "CONFIRMED"
+                    cost_origin = "LOCAL_PROVIDER_EXTERNAL_COST_POLICY"
                 else:
                     text = payload["choices"][0]["message"]["content"]
                     usage = payload.get("usage", {})
                     input_tokens = int(usage.get("prompt_tokens", 0))
                     output_tokens = int(usage.get("completion_tokens", 0))
                     answered_model = str(payload.get("model", self.model))
+                    cost_usd, cost_status, cost_origin = _provider_cost(usage)
                 return ProviderResult(
                     alternatives=_extract_json(text)[: request.alternatives],
                     provider=self.name,
@@ -171,6 +209,9 @@ class OpenAICompatibleProvider:
                     duration_ms=max(1, int((time.monotonic() - started) * 1000)),
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
+                    cost_usd=cost_usd,
+                    cost_status=cost_status,
+                    cost_origin=cost_origin,
                 )
             except HTTPError as exc:
                 last_code = f"HTTP_{exc.code}"

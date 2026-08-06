@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import (
@@ -25,6 +26,10 @@ class AIGeneration(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "ai_generations"
     __table_args__ = (
         CheckConstraint("alternative_count IN (1, 3)", name="ck_ai_generation_alternatives"),
+        CheckConstraint(
+            "cost_status IN ('CONFIRMED', 'ESTIMATED', 'UNKNOWN')",
+            name="ck_ai_generation_cost_status",
+        ),
         Index(
             "ix_ai_generations_org_business_created", "organization_id", "business_id", "created_at"
         ),
@@ -53,7 +58,14 @@ class AIGeneration(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    estimated_cost_usd: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
+    estimated_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), nullable=True)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
+    cost_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    cost_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNKNOWN")
+    cost_origin: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    cost_accounted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
 
@@ -81,6 +93,12 @@ class AIGenerationAlternative(UUIDPrimaryKeyMixin, Base):
 
 class AIGenerationAttempt(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "ai_generation_attempts"
+    __table_args__ = (
+        CheckConstraint(
+            "cost_status IN ('CONFIRMED', 'ESTIMATED', 'UNKNOWN')",
+            name="ck_ai_attempt_cost_status",
+        ),
+    )
 
     organization_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
@@ -93,6 +111,10 @@ class AIGenerationAttempt(UUIDPrimaryKeyMixin, Base):
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(18, 8), nullable=True)
+    cost_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    cost_status: Mapped[str] = mapped_column(String(16), nullable=False, default="UNKNOWN")
+    cost_origin: Mapped[str | None] = mapped_column(String(48), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
@@ -127,4 +149,11 @@ class AIUsageDaily(UUIDPrimaryKeyMixin, Base):
     generation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    confirmed_cost_usd: Mapped[Decimal] = mapped_column(
+        Numeric(18, 8), nullable=False, default=Decimal("0")
+    )
+    estimated_cost_usd: Mapped[Decimal] = mapped_column(
+        Numeric(18, 8), nullable=False, default=Decimal("0")
+    )
+    unknown_cost_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

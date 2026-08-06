@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Literal
 from uuid import UUID
@@ -60,7 +61,11 @@ class AIGenerationRead(BaseModel):
     duration_ms: int
     input_tokens: int
     output_tokens: int
-    estimated_cost_usd: float | None
+    estimated_cost_usd: Decimal | None
+    cost_usd: Decimal | None
+    cost_currency: str
+    cost_status: Literal["CONFIRMED", "ESTIMATED", "UNKNOWN"]
+    cost_origin: str | None
     error_code: str | None
     created_at: datetime
     alternatives: list[AIAlternativeRead]
@@ -80,6 +85,9 @@ class AIUsageRead(BaseModel):
     daily_limit: int
     input_tokens: int
     output_tokens: int
+    confirmed_cost_usd: Decimal
+    estimated_cost_usd: Decimal
+    unknown_cost_count: int
 
 
 class AIStatusRead(BaseModel):

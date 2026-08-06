@@ -285,6 +285,10 @@ def export_subject(session: Session, context: AuthContext) -> PrivacyExportRead:
                     if generation.estimated_cost_usd is not None
                     else None
                 ),
+                "cost_usd": str(generation.cost_usd) if generation.cost_usd is not None else None,
+                "cost_currency": generation.cost_currency,
+                "cost_status": generation.cost_status,
+                "cost_origin": generation.cost_origin,
                 "created_at": generation.created_at.isoformat(),
                 "alternatives": [
                     {
@@ -302,6 +306,10 @@ def export_subject(session: Session, context: AuthContext) -> PrivacyExportRead:
                         "model": item.model,
                         "status": item.status,
                         "duration_ms": item.duration_ms,
+                        "cost_usd": str(item.cost_usd) if item.cost_usd is not None else None,
+                        "cost_currency": item.cost_currency,
+                        "cost_status": item.cost_status,
+                        "cost_origin": item.cost_origin,
                         "created_at": item.created_at.isoformat(),
                     }
                     for item in attempts

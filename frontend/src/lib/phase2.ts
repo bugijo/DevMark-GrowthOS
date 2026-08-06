@@ -107,6 +107,9 @@ export function periodReportCsv(report: PeriodReport): string {
     ["Estratégias", report.strategies_total],
     ["Estratégias aprovadas", report.approved_strategies_total],
     ["Pautas no calendário", report.calendar_entries_total],
+    ["Custo IA confirmado (USD)", report.ai_confirmed_cost_usd],
+    ["Custo IA estimado (USD)", report.ai_estimated_cost_usd],
+    ["Custos IA não informados", report.ai_unknown_cost_count],
   ];
   Object.entries(report.content_by_status).forEach(([status, total]) => {
     rows.push([`Conteúdo · ${status}`, total]);

@@ -1,0 +1,16 @@
+{
+  "id": "gen-sanitized-fixture",
+  "model": "provider/free-model:free",
+  "choices": [
+    {
+      "message": {
+        "content": "{\"alternatives\":[{\"title\":\"Resposta sanitizada\"}]}"
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12,
+    "completion_tokens": 7,
+    "cost": "0.00012000"
+  }
+}

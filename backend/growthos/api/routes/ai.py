@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response, status
@@ -60,6 +61,9 @@ def ai_usage(
         daily_limit=settings.ai_daily_generation_limit,
         input_tokens=row.input_tokens if row else 0,
         output_tokens=row.output_tokens if row else 0,
+        confirmed_cost_usd=row.confirmed_cost_usd if row else Decimal("0"),
+        estimated_cost_usd=row.estimated_cost_usd if row else Decimal("0"),
+        unknown_cost_count=row.unknown_cost_count if row else 0,
     )
 
 

@@ -63,11 +63,15 @@ describe("helpers operacionais da Fase 2", () => {
       strategies_total: 1,
       approved_strategies_total: 1,
       calendar_entries_total: 5,
+      ai_confirmed_cost_usd: "0.00012000",
+      ai_estimated_cost_usd: "0.00000000",
+      ai_unknown_cost_count: 0,
       unavailable_metrics: ["impressões"],
     };
     const csv = periodReportCsv(report);
     expect(csv).toContain('"Conteúdos","3"');
     expect(csv).toContain('"Aprovação · TEXT · APPROVED","2"');
+    expect(csv).toContain('"Custo IA confirmado (USD)","0.00012000"');
     expect(csv).not.toContain("organization_id");
     expect(csv).toContain('"Métrica indisponível · impressões","sem integração"');
   });

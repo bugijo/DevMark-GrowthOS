@@ -10,6 +10,7 @@ import { Field, Select, Textarea } from "@/components/ui/form-controls";
 import { Card, PageHeader } from "@/components/ui/page";
 import { useAuth } from "@/contexts/auth-context";
 import { api, extractItems } from "@/lib/api";
+import { aiCostLabel } from "@/lib/ai-cost";
 import type {
   AIGeneration,
   AITask,
@@ -458,6 +459,7 @@ export default function ContentsPage() {
                 <p className="text-sm font-semibold text-slate-900">
                   {generation.provider} · {generation.model} · {generation.duration_ms} ms
                 </p>
+                <p className="text-xs text-slate-600">{aiCostLabel(generation)}</p>
                 <Button type="button" variant="secondary" onClick={() => void regenerateWithAI(generation)}>
                   Gerar outra versão
                 </Button>

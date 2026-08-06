@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -250,6 +251,10 @@ def generate(
                     model=chosen.model,
                     status="SUCCESS",
                     duration_ms=chosen.duration_ms,
+                    cost_usd=chosen.cost_usd,
+                    cost_currency=chosen.cost_currency,
+                    cost_status=chosen.cost_status,
+                    cost_origin=chosen.cost_origin,
                     created_at=started,
                 )
             )
@@ -266,6 +271,7 @@ def generate(
                     status="FAILED",
                     duration_ms=max(1, int((datetime.now(UTC) - started).total_seconds() * 1000)),
                     error_code=exc.code,
+                    cost_status="UNKNOWN",
                     created_at=started,
                 )
             )
@@ -307,6 +313,10 @@ def generate(
     generation.input_tokens = chosen.input_tokens or estimated_input
     generation.output_tokens = chosen.output_tokens
     generation.estimated_cost_usd = chosen.estimated_cost_usd
+    generation.cost_usd = chosen.cost_usd
+    generation.cost_currency = chosen.cost_currency
+    generation.cost_status = chosen.cost_status
+    generation.cost_origin = chosen.cost_origin
     if usage is None:
         usage = AIUsageDaily(
             organization_id=context.organization.id,
@@ -314,12 +324,23 @@ def generate(
             generation_count=0,
             input_tokens=0,
             output_tokens=0,
+            confirmed_cost_usd=Decimal("0"),
+            estimated_cost_usd=Decimal("0"),
+            unknown_cost_count=0,
             updated_at=utcnow(),
         )
         session.add(usage)
     usage.generation_count += 1
     usage.input_tokens += generation.input_tokens
     usage.output_tokens += generation.output_tokens
+    if generation.cost_accounted_at is None:
+        if chosen.cost_status == "CONFIRMED" and chosen.cost_usd is not None:
+            usage.confirmed_cost_usd += chosen.cost_usd
+        elif chosen.cost_status == "ESTIMATED" and chosen.cost_usd is not None:
+            usage.estimated_cost_usd += chosen.cost_usd
+        else:
+            usage.unknown_cost_count += 1
+        generation.cost_accounted_at = utcnow()
     usage.updated_at = utcnow()
     add_audit_log(
         session,

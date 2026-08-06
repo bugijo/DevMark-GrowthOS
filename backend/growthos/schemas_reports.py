@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -20,3 +21,6 @@ class PeriodReportRead(BaseModel):
     approved_strategies_total: int = Field(ge=0)
     calendar_entries_total: int = Field(ge=0)
     unavailable_metrics: list[str]
+    ai_confirmed_cost_usd: Decimal = Decimal("0")
+    ai_estimated_cost_usd: Decimal = Decimal("0")
+    ai_unknown_cost_count: int = Field(default=0, ge=0)
