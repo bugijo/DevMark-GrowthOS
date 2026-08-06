@@ -2,7 +2,18 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Index, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from growthos.domain.enums import JobStatus, NotificationCategory, NotificationImportance
@@ -12,6 +23,16 @@ from growthos.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, utcn
 class Notification(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "notifications"
     __table_args__ = (
+        CheckConstraint(
+            "category IN ('CONTENT_AWAITING_APPROVAL', 'CONTENT_CHANGES_REQUESTED', "
+            "'CONTENT_APPROVED', 'STRATEGY_AWAITING_APPROVAL', 'INVITATION', "
+            "'PROCESSING_FAILED', 'PUBLICATION_RECORDED', 'REPORT_AVAILABLE')",
+            name="ck_notification_category",
+        ),
+        CheckConstraint(
+            "importance IN ('NORMAL', 'URGENT')",
+            name="ck_notification_importance",
+        ),
         UniqueConstraint(
             "id",
             "organization_id",

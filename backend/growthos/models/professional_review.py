@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKeyConstraint,
@@ -19,6 +20,10 @@ from growthos.models.base import Base, UUIDPrimaryKeyMixin, utcnow
 class ProfessionalContentReview(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "professional_content_reviews"
     __table_args__ = (
+        CheckConstraint(
+            "decision IN ('APPROVED', 'CHANGES_REQUESTED')",
+            name="ck_professional_review_decision",
+        ),
         ForeignKeyConstraint(
             ["content_version_id", "organization_id", "business_id", "content_item_id"],
             [
