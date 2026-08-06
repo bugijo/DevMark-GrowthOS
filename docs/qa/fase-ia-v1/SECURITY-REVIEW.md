@@ -2,7 +2,7 @@
 
 ## Parecer
 
-**LGPD da camada de IA aprovada no escopo QA-004.** Exportação, anonimização e retenção agora incluem IA com isolamento e minimização conservadora. A aprovação geral do piloto continua condicionada a QA-006, CI do novo head e aceite dos riscos restantes.
+**LGPD da camada de IA aprovada no escopo QA-004 e ciclo funcional QA-006 corrigido.** Exportação, anonimização e retenção incluem os novos vínculos sem remover histórico. A aprovação geral do piloto continua condicionada ao QA-012 alto e ao aceite dos riscos restantes.
 
 ## Evidências positivas
 
@@ -21,6 +21,8 @@
 - QA-002 CRÍTICO: **resolvido**; testes recusam provider/rede externa e usam configuração offline dedicada.
 - QA-003 CRÍTICO: **mitigado**; `.env` em fuseblk está sem chave, e o segredo local foi movido para arquivo Linux modo 600 validado pela aplicação.
 - QA-004 ALTO: **resolvido**; snapshots seguem potencialmente identificáveis e são exportados, anonimizados e retidos por política tenant-scoped.
+- QA-006 ALTO: **resolvido**; idempotência, cancelamento e aplicação exigem capability, escopo de tenant, audit log e nunca aprovam/publicam.
+- QA-012 ALTO: **aberto**; `js-yaml` possui vulnerabilidade de consumo quadrático de CPU e precisa de análise/atualização isolada.
 - QA-008 MÉDIO: CSP permite `unsafe-inline` em script/style.
 - HSTS não foi exigido no HTTP local; deve ser validado no terminador TLS de produção.
 - Hermes configurado não significa saudável; a indisponibilidade só fica clara no uso.
@@ -31,4 +33,4 @@ IDOR, escalada de papel, CSRF, enumeração, uploads e tenant crossing foram ava
 
 ## Recomendação
 
-Manter a matriz LGPD atualizada quando surgir vínculo de alternativa aplicada; revalidar CSP em produção; manter a chave fora do fuseblk e preservar bloqueios de rede. Antes do piloto, resolver ou aceitar QA-006 e repetir auditoria de dependências reproduzível.
+Manter a matriz LGPD atualizada com o vínculo de alternativa aplicada; revalidar CSP em produção; manter a chave fora do fuseblk e preservar bloqueios de rede. Antes do piloto, resolver ou aceitar QA-012 e repetir a auditoria de dependências.

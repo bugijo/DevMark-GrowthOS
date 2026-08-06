@@ -25,10 +25,12 @@ anônimos.
 | tokens e custo | técnico, uso e auditoria financeira | sim | agregado pode ser preservado sem identificador pessoal |
 | `ai_generation_attempts` | técnico/auditoria | provider, modelo, status, duração e data; erro interno não | apagável pela política própria; erros podem ser minimizados separadamente |
 | alternativas/resultados | potencialmente identificável | sim | payload substituído por marcador na anonimização; alternativas não aplicadas podem expirar |
+| cancelamento e autoria da aplicação | pessoal/auditoria | estado e data, sem expor chave idempotente | identificadores de usuário viram `NULL`; datas e evento técnico permanecem |
+| vínculo alternativa → conteúdo/versão | técnico, proveniência e auditoria | sim, quando a geração pertence ao titular | preservado sem copiar conteúdo; segue exclusão/retensão das entidades vinculadas |
 | feedback, comentário e `user_id` | pessoal/potencialmente identificável | somente feedback do titular | `user_id` vira `NULL` e comentário recebe marcador; pode expirar por política |
 | `ai_usage_daily` | agregado técnico | não na seção individual enquanto não houver atribuição ao titular | preservável legitimamente; política tenant-scoped pode expirar agregados antigos |
 | `context_hash` | não existe no schema atual | não aplicável | qualquer inclusão futura exige revisão desta matriz antes da migration |
-| referências diretas a conteúdo/estratégia | não existem no schema atual | não aplicável | a versão atual referencia empresa e geração pai; aplicação de alternativa está fora do contrato |
+| chave/fingerprint de idempotência | técnico, antifraude/replay | não, por minimização | preservado durante a retenção operacional; nunca é registrado em logs |
 
 ## Anonimização
 
@@ -53,9 +55,8 @@ As políticas aceitas para IA são `ai_generations`,
 `ai_generation_errors`. A execução exige `ORGANIZATION_MANAGE`, respeita o
 tenant, recusa legal hold, oferece `dry_run`, é idempotente e gera audit log.
 
-Como a versão atual não possui contrato de “alternativa aplicada”, a política
-`ai_generations` contabiliza candidatos mas não apaga a geração consolidada.
-Isso evita destruir evidência que possa sustentar histórico de aprovação. A
-minimização deve ser feita por `ai_generation_snapshots`; exclusão definitiva
-só poderá ser ativada depois que a aplicação de alternativa tiver vínculo
-persistido e testado.
+O vínculo de alternativa aplicada é persistido e permite comprovar a origem da
+versão de conteúdo. A política `ai_generations` continua conservadora: contabiliza
+candidatos mas não apaga automaticamente a geração consolidada, evitando destruir
+proveniência e evidência necessária ao histórico. A minimização de conteúdo continua
+em `ai_generation_snapshots` e nos payloads das alternativas.

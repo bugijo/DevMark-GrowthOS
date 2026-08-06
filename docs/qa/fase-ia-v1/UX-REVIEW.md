@@ -17,9 +17,9 @@ Os fluxos essenciais da agência e cliente passaram nos testes automatizados WCA
 
 - não houve inspeção humana com leitor de tela;
 - 768 e 1280 px não receberam comparação visual página a página;
-- a jornada de “aplicar alternativa” não existe, impedindo avaliar continuidade da geração para uma versão de conteúdo;
+- a jornada de “aplicar alternativa” agora cria um rascunho rastreável e possui controles mobile; ainda requer inspeção humana com leitor de tela;
 - status “Hermes configurado” pode ser confundido com “Hermes saudável”;
-- custo ausente não é explicado porque a aplicação não o captura;
+- custo ausente é identificado como não informado; a clareza da linguagem ainda deve ser validada com usuário piloto;
 - tarefas de IA compartilham um formulário genérico; não há evidência de ajuda contextual adequada para cada uma das 12 tarefas.
 
 ## Recomendação

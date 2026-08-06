@@ -66,7 +66,7 @@
 - Correção: exportação `1.1` inclui somente IA do titular no tenant; identificadores viram `NULL`; instrução, feedback, snapshot e resultados recebem marcador sem conteúdo; métricas e auditoria mínima são preservadas. A retenção oferece dry-run, legal hold, isolamento, idempotência e audit log.
 - Evidências: migration `0015_ai_privacy`, inventário `docs/19-lgpd-dados-ia.md` e testes de exportação, tenant, papel, anonimização, métricas e retenção. Downgrade bloqueia se referências já foram anonimizadas para impedir reidentificação ou `NOT NULL` inválido.
 - Testes: regressão total passou com 234 backend, 41 worker, 54 frontend e 10 E2E offline.
-- Risco residual: não existe vínculo persistido de alternativa aplicada (QA-006); por segurança, a política de gerações não apaga o registro consolidado e minimiza snapshots.
+- Risco residual: o vínculo persistido de alternativa aplicada foi adicionado no QA-006; a política continua conservadora e não apaga automaticamente a geração consolidada, preservando proveniência enquanto minimiza snapshots.
 
 ## QA-005 — Custo do OpenRouter não é persistido
 
@@ -88,10 +88,15 @@
 ## QA-006 — Recursos de ciclo de IA sem contrato completo
 
 - Área/severidade: IA/funcional — **ALTO**
-- Atual: existem criar, listar, consultar, regenerar e feedback. Não foram encontrados endpoints para cancelar geração, aplicar alternativa a conteúdo ou chave de idempotência; concorrência não tem evidência.
+- Estado: **RESOLVIDO** em `cb48c6c`.
+- Atual anterior: existiam criar, listar, consultar, regenerar e feedback. Não havia endpoints para cancelar geração, aplicar alternativa a conteúdo ou chave de idempotência; concorrência não tinha evidência.
 - Risco: duplicidade, falta de cancelamento e jornada incompleta entre geração e conteúdo versionado.
 - Recomendação: definir critérios antes de implementar e manter aprovação humana.
 - Regressão: concorrência, repetição com idempotency key, cancelamento e aplicação criando versão sem publicação.
+- Causa raiz: o ciclo terminava na geração e não persistia chave/fingerprint da requisição, estado de cancelamento nem vínculo entre alternativa e versão de conteúdo.
+- Correção: criação e regeneração aceitam idempotência tenant-scoped; repetição igual retorna o mesmo recurso e payload divergente recebe 409. O banco possui unicidade para múltiplos processos e o serviço serializa chaves no processo. Cancelamento é idempotente e auditado. Aplicação é idempotente, cria exatamente um conteúdo `DRAFT` e uma versão, preserva autoria, sensibilidade e vínculo, sem approval ou publicação.
+- Evidências: migration `0017_ai_lifecycle`; testes positivos, inválidos, concorrentes, idempotentes, sem permissão, outro tenant, inexistentes e auditados em `test_ai_lifecycle.py`; fluxo E2E offline ampliado.
+- Risco residual: o cancelamento invalida uma geração já concluída porque a execução atual é síncrona; ele não interrompe uma chamada HTTP em andamento. A proteção local usa locks particionados e a garantia entre processos permanece no PostgreSQL.
 
 ## QA-007 — Hermes aparece configurado sem healthcheck efetivo
 
@@ -129,10 +134,17 @@
 - Atual: Compose usa Bake, mas buildx não está instalado; build cai para driver padrão e funciona.
 - Recomendação: documentar buildx como opcional ou eliminar o aviso.
 
-## Contagem após QA-004/QA-005
+## QA-012 — `js-yaml` com vulnerabilidade alta no frontend
 
-- resolvidos/mitigados: 5 (QA-001 a QA-005);
-- abertos altos: 1 (QA-006);
+- Área/severidade: Dependências frontend — **ALTO**
+- Atual: `npm --prefix frontend audit --audit-level=high` aponta CVE-2026-59870/GHSA-5p4m-2wfm-xmqj em `js-yaml` 4.x, com correção indicada pelo npm.
+- Risco: consumo quadrático de CPU ao resolver `!!omap` caso entrada YAML não confiável alcance a dependência vulnerável; a explorabilidade no produto ainda não foi analisada.
+- Recomendação: investigar a árvore transitiva, atualizar sem força, repetir lint/build/testes/audit e registrar impacto. Não foi corrigido nesta rodada para preservar o escopo exclusivo do QA-006.
+
+## Contagem após QA-006
+
+- resolvidos/mitigados: 6 (QA-001 a QA-006);
+- abertos altos: 1 (QA-012);
 - abertos médios: 3 (QA-007 a QA-009);
 - aberto baixo: 1 (QA-010);
 - melhoria: 1 (QA-011);

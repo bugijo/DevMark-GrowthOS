@@ -19,6 +19,8 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
   em tentativas, uso diário, relatórios, exportação e interface;
 - migrations `0015_ai_privacy` e `0016_ai_costs`, preservando custos antigos como
   nulos e desconhecidos.
+- ciclo de IA idempotente e tenant-scoped, com cancelamento auditado e aplicação
+  de alternativa em conteúdo `DRAFT`, pela migration `0017_ai_lifecycle`.
 
 - documentação inicial de visão, escopo, arquitetura, dados, fluxos, providers, segurança, testes, operação e riscos da versão 1.0;
 - regras de contribuição e orientação para agentes de programação;

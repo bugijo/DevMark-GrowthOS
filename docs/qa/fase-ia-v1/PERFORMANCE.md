@@ -17,3 +17,7 @@ Build estático: 0,95 MiB. Memória: backend 103,7 MiB; frontend 98,57 MiB; work
 Geração OpenRouter real observada anteriormente: 2.499 tokens de entrada, 1.345 de saída; o teste backend contaminado levou aproximadamente 46 s. Não foi feita carga concorrente externa para evitar consumo de cota.
 
 Achado principal: a lista de conteúdos domina latência e payload. Medições específicas de comparação, aprovação, exportação LGPD e IA em série permanecem pendentes.
+
+QA-006 adicionou somente locks particionados por chave durante gerações idempotentes e
+locks de linha nas mutações de cancelamento/aplicação. Não foi executada carga externa
+concorrente para evitar consumo de cota; a concorrência offline com Mock passou.

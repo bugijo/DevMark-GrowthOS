@@ -6,11 +6,11 @@
 
 ## Por quê
 
-QA-001 a QA-005 estão resolvidos ou mitigados, a validação local está verde e o run de CI 31094333781 passou integralmente. O NO-GO permanece porque QA-006 segue alto.
+QA-001 a QA-006 estão resolvidos ou mitigados e a validação funcional local está verde. O NO-GO permanece porque a auditoria atual encontrou QA-012 alto em `js-yaml` e ainda existem gates manuais.
 
 ## Ordem obrigatória de correção
 
-1. Fechar ou aceitar formalmente idempotência, cancelamento e aplicação de alternativa (QA-006).
+1. Corrigir ou aceitar formalmente a vulnerabilidade `js-yaml` (QA-012).
 2. Diferenciar provider configurado de saudável e ampliar testes Hermes fake.
 3. Atualizar o pip da imagem worker ou aceitar formalmente o risco da ferramenta de build.
 4. Rodar matriz manual UX/a11y e instalação independente.
@@ -27,4 +27,4 @@ QA-001 a QA-005 estão resolvidos ou mitigados, a validação local está verde 
 
 ## Próximo prompt recomendado
 
-> Avalie exclusivamente QA-006 e defina primeiro o contrato observável de idempotência, cancelamento e aplicação de alternativa. Preserve tenant, histórico, custo, LGPD, testes offline e o PR #4 em Draft. Não faça merge.
+> Avalie exclusivamente QA-012, identifique a origem de `js-yaml` na árvore e atualize sem `--force`. Repita audit, lint, tipos, build, testes e E2E. Preserve o PR #4 em Draft e não faça merge.

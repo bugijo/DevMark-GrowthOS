@@ -6,12 +6,12 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 |---|---|---|
 | Ambiente, branch, remote, URLs | PASS | inventário em `QA-REPORT.md` |
 | Stack e healthchecks | PASS | seis serviços saudáveis |
-| Migração atual | PASS | 0014 head |
-| Base→0014 e 0008→0014 | PASS | bancos temporários isolados |
+| Migração atual | PASS | 0017 head |
+| Base→0017, 0008→0017 e 0016→0017 | PASS | bancos temporários isolados |
 | Downgrade base e reupgrade | PASS | dois bancos temporários |
 | Alembic drift | PASS | nove constraints alinhadas; base/0008/0013/0014 e `alembic check`; QA-001 resolvido |
 | Lint, tipos e build | PASS | `make lint` |
-| Backend | PASS | 220/220; ambiente de teste força providers offline |
+| Backend | PASS | 240/240; ambiente de teste força providers offline |
 | Worker | PASS | 41/41 |
 | Frontend unitário | PASS | 52/52 |
 | E2E | PASS | 10/10 offline por configuração dedicada |
@@ -39,21 +39,21 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 | OpenRouter 401/timeout/invalid schema | PARCIAL | falsos/unitários e fallback; 429 real não provocado para evitar abuso |
 | 12 tarefas de IA × 1/3 alternativas | PARCIAL | enum/UI existem; não há matriz funcional completa por tarefa |
 | Regeneração e feedback | PARCIAL | contratos presentes; cobertura limitada |
-| Aplicar alternativa/cancelar/idempotência | FAIL | contratos não encontrados; QA-006 |
+| Aplicar alternativa/cancelar/idempotência | PASS | tenant, papéis, inexistentes, concorrência, replay, audit e E2E offline; QA-006 resolvido |
 | Hermes/Ollama | PARCIAL | indisponibilidade e fallback confirmados; instalação proibida; health/model fake incompletos |
 | Mock offline | PASS | APP_ENV/pytest/Makefile/Compose/provider bloqueiam rede externa; QA-002 resolvido |
 | Provider/modelo/fallback/selo no frontend | PASS | proxy/histórico e componentes |
 | Backup PostgreSQL/MinIO/checksum | PASS | backup e verify |
 | Restore isolado | PASS | banco e objetos restaurados e descartados |
 | Backup corrompido/ausente | PARCIAL | scripts validam; não corrompido deliberadamente nesta rodada |
-| npm audit | PASS | zero vulnerabilidades frontend/E2E |
+| npm audit | FAIL | uma alta em `js-yaml`; QA-012 aberto |
 | pip-audit | PARCIAL | backend sem vulnerabilidade conhecida; imagem worker acusou seis advisories do pip 25.0.1, ferramenta de build não exposta; CI atualiza pip antes da auditoria |
 | Segredos Git/logs | PASS | zero padrões; `.env` ignorado |
 | Permissão do `.env` | PASS | `.env` fuseblk permanece 777, mas está sem segredo; chave local em arquivo Linux 600 e doctor impede uso inseguro; QA-003 mitigado |
 | Headers/CSP | PARCIAL | headers defensivos presentes; unsafe-inline; QA-008 |
 | Performance | PARCIAL | sete endpoints e memória; IA/aprovação/LGPD não medidos em série |
 | Instalação limpa e falhas de recursos | PARCIAL | doctor/setup existentes; máquina limpa externa/CAV1 não repetida |
-| Git/PR/CI | PASS | pasta Git duplicada não rastreada preservada; validação local e CI run 31067219680 verdes; PR Draft preservado |
+| Git/PR/CI | FAIL | head funcional no run 31129195136: backend/worker e Compose passaram; frontend bloqueado pelo audit QA-012; E2E local passou; PR Draft preservado |
 
 ## Perfis
 
