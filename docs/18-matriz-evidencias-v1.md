@@ -1,10 +1,12 @@
 # Matriz final de evidências da versão 1.0
 
-**Data do gate local:** 2026-08-03  
-**Branch:** `agent/fechamento-v1`  
-**Decisão:** tecnicamente apta ao piloto local com dados fictícios, mas a versão
-1.0 ainda não pode ser declarada concluída. O aceite independente `CAV1-23` e a
-CI/revisão do Draft PR permanecem pendentes.
+**Data do gate local:** 2026-08-07
+
+**Branch:** `agent/camada-ia-v1`
+
+**Decisão:** **GO FOR CONTROLLED PILOT**, exclusivamente interno e com dados
+fictícios. A versão 1.0, dados reais, produção e merge continuam bloqueados pelo
+`CAV1-23` e pelos gates operacionais descritos abaixo. O PR #4 permanece Draft.
 
 `PASS` significa evidência reproduzida neste gate. `BLOCKED` significa que a
 evidência depende de outra pessoa ou ambiente e não pode ser presumida.
@@ -24,12 +26,12 @@ evidência depende de outra pessoa ou ambiente e não pode ser presumida.
 | 9 | Conteúdo sensível | PASS | classificação determinística e bloqueio até revisão profissional auditada |
 | 10 | LGPD operacional | PASS | consentimento, finalidades e IA em exportação 1.1, anonimização, retenção dry-run/real e auditoria |
 | 11 | Isolamento/RBAC | PASS | testes negativos entre organizações, clientes e papéis nas novas rotas |
-| 12 | Migrações | PASS | `base/0008/0014 → 0016`, `0016 → base → 0016`; Alembic sem drift e custos legados `NULL/UNKNOWN` |
+| 12 | Migrações | PASS | caminhos base/0008/0014/0016 até `0017_ai_lifecycle`; Alembic sem drift |
 | 13 | Recuperação | PASS | backup PostgreSQL/MinIO, checksums e restauração em ambiente descartável |
 | 14 | Operação Compose | PASS | `make setup`, healthchecks e `make doctor`: 36 OK, 0 erro |
-| 15 | Desempenho | PASS | 30 amostras com enforcement; pior p95 observado: conteúdos, 337 ms |
-| 16 | Acessibilidade/móvel | PASS | Vitest e Playwright com axe, teclado e viewport de 360 px |
-| 17 | Dependências e segredos | PASS | npm audit sem achados; pip-audit sem CVE conhecida; busca de padrões sem segredo |
+| 15 | Desempenho | PASS condicionado | conteúdos p95 máximo 719,3 ms para orçamento 750 ms; comparação, aprovação, LGPD e IA medidos |
+| 16 | Acessibilidade/móvel | PASS condicionado | axe, teclado e 27 combinações em 360/768/1280; leitor de tela humano ainda ausente |
+| 17 | Dependências e segredos | PASS condicionado | npm audit limpo e busca sem segredo; seis advisories no pip 25.0.1 aceitos apenas no piloto fictício |
 | 18 | Entrega independente | BLOCKED | uma segunda pessoa ainda precisa executar instalação limpa usando apenas o README |
 
 ### Preparação do gate independente
@@ -40,6 +42,8 @@ conhecimento implícito, modelo em `docs/templates/cav1-23-relatorio.md` e
 verificador opcional `scripts/cav1-23-check.sh`. O script registra preflight,
 setup, saúde, acessos, migration, seed e E2E em `.data/cav1-23/`; ele não altera
 código, não corrige falhas e termina com código não zero quando houver erro.
+
+Contagem: **17 PASS/PASS condicionado e 1 BLOCKED** entre os 18 gates.
 
 ## 25 critérios CAV1
 
@@ -71,18 +75,21 @@ código, não corrige falhas e termina com código não zero quando houver erro.
 | CAV1-24 | PASS | `.env` ignorado e busca em arquivos rastreados sem padrão de chave privada |
 | CAV1-25 | PASS | mock determinístico cobre o fluxo sem provider pago ou rede externa obrigatória |
 
+Contagem: **24 PASS e 1 BLOCKED** entre os 25 critérios. `CAV1-23` não pode ser
+promovido sem execução por uma pessoa que não participou da implementação.
+
 ## Evidência técnica do gate
 
-- Backend: 209 testes aprovados; existe 1 aviso de depreciação do adaptador
+- Backend: 240 testes aprovados; existe 1 aviso de depreciação do adaptador
   `httpx` usado por `starlette.testclient`, sem falha funcional.
 - Worker: 41 testes aprovados.
-- Frontend: 52 testes aprovados.
-- E2E: 9 cenários aprovados, incluindo 2 verificações automatizadas WCAG 2.1 AA.
+- Frontend: 54 testes aprovados.
+- E2E: 10 cenários aprovados, incluindo 2 verificações automatizadas WCAG 2.1 AA.
 - `make validate`, `make lint`, `make test`, `make e2e`, build do Next.js,
   `npm audit --audit-level=high` e `git diff --check` executados no fechamento.
-- `pip-audit`: nenhuma vulnerabilidade conhecida nas dependências instaladas;
-  `devmark-growthos-backend` e `growthos-worker` são pacotes locais sem registro
-  no PyPI e, por isso, foram corretamente ignorados pelo scanner.
+- `pip-audit`: seis advisories no instalador `pip 25.0.1`; os pacotes funcionais
+  não apresentaram achado conhecido. O risco não possui caminho pelo aplicativo,
+  foi aceito somente para o piloto fictício e bloqueia dados reais até correção.
 - O Python 3.12 deste host não possui `ensurepip`; o scanner foi instalado em
   diretório temporário usando o pip do `.venv`, sem alterar dependências do projeto.
 
@@ -96,11 +103,14 @@ código, não corrige falhas e termina com código não zero quando houver erro.
 3. Base legal, contratos, retenção definitiva, infraestrutura, e-mail
    transacional e profissional habilitado são dependências de go-live, não
    resultados que o software possa autoaprovar.
-4. A CI remota precisa permanecer verde no Draft PR antes da decisão humana de release.
+4. A CI remota está verde, mas precisa permanecer assim após qualquer mudança.
+5. QA-007, QA-008 e QA-009 foram aceitos somente no piloto controlado; não são
+   aceitos para dados reais.
 
 ## Como fechar a decisão de release
 
-Uma pessoa que não participou da implementação deve clonar a branch em ambiente
+O piloto interno pode começar na branch com dados fictícios e monitoramento. Para
+fechar a versão, uma pessoa que não participou da implementação deve clonar a branch em ambiente
 limpo, seguir apenas o README, executar `make setup`, `make status`, o roteiro
 manual e `make e2e`, e anexar ao PR o relatório preenchido. Com `CAV1-23` em
 `PASS`, CI verde e revisão aprovada, a matriz poderá declarar os 43 itens verdes

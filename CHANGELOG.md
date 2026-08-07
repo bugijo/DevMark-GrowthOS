@@ -116,6 +116,19 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Validação
 
+- rodada final de release QA aprovou piloto interno controlado com dados fictícios:
+  240 testes backend, 41 worker, 54 frontend e 10 E2E offline; 17/18 gates e
+  24/25 critérios CAV1 estão verdes, com CAV1-23 ainda bloqueado;
+- inspeção de UX em 360, 768 e 1280 px, teclado, headers, CSRF, permissões,
+  MinIO privado, logs e busca de segredos concluída; leitor de tela humano continua pendente;
+- OpenRouter real respondeu em 26,9 s com modelo gratuito, sem fallback, Mock ou
+  publicação/aprovação automática; Mock offline permaneceu explicitamente simulado;
+- performance repetida: conteúdos atingiu p95 máximo de 719,3 ms para orçamento
+  de 750 ms; comparação, aprovação, exportação LGPD e histórico de IA ficaram abaixo;
+- QA-007 a QA-009 aceitos somente para piloto fictício; `pip 25.0.1`, buildx e
+  avisos de actions permanecem documentados. Dados reais, produção, merge e
+  conclusão da 1.0 continuam bloqueados.
+
 - camada de IA validada com 214 testes backend, 41 worker, 52 frontend e 10 E2E;
 - E2E do Growth Agent aprovado sem internet, usando provider mock e confirmando ausência de
   publicação e aprovação automáticas;

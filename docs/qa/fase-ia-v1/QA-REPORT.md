@@ -12,9 +12,9 @@ PR: #4, aberto e em Draft
 
 ## Conclusão executiva
 
-QA-012 foi corrigido com a atualização transitiva mínima de `js-yaml` 4.3.0 para 4.3.1 no lockfile do frontend. As auditorias npm e a CI integral estão verdes, sem regressão em QA-001 a QA-006. O PR permanece em Draft porque a decisão formal de release continua NO-GO pelos gates manuais e riscos médios restantes.
+A rodada final reavaliou QA-007 a QA-011, executou inspeção visual em 360/768/1280, teclado, segurança manual, desempenho, regressão completa, auditorias e OpenRouter real. Não existe bloqueador, crítico ou alto aberto. Nenhum dos achados restantes exige correção para um piloto interno com dados fictícios.
 
-Recomendação: **NO-GO para merge**. O bloqueio alto QA-012 foi removido, mas o piloto ainda depende de QA-007, QA-008, QA-009 e dos gates manuais registrados na recomendação de release.
+Recomendação formal: **GO FOR CONTROLLED PILOT**, mantendo o PR em Draft até autorização explícita. A decisão não libera dados reais, produção, merge nem conclusão da versão 1.0; CAV1-23 continua bloqueado.
 
 ## Ambiente
 
@@ -49,11 +49,14 @@ Nenhuma chave foi registrada neste relatório. A busca no Git, histórico e logs
 | Frontend | PASS: 54 em 20 arquivos |
 | E2E offline | PASS: 10, incluindo IA mock e acessibilidade |
 | npm audit frontend/E2E | PASS: 0 vulnerabilidades altas ou críticas; QA-012 resolvido |
-| pip-audit | backend sem vulnerabilidades conhecidas; worker acusou seis advisories no pip 25.0.1 da imagem; dependências locais do projeto foram ignoradas por não existirem no PyPI |
+| pip-audit | seis advisories no instalador `pip 25.0.1`; nenhuma dependência funcional conhecida afetada; correção obrigatória antes de dados reais |
 | Backup + verificação + restauração | PASS |
 | Migrações base/0008/0016 até 0017, downgrade e reupgrade | PASS; dados anteriores compatíveis |
 | `alembic check` | PASS em todos os caminhos validados |
-| CI do commit `cd7fc31` | PASS no run 31149722340: Compose/contratos, backend/worker, frontend com audit/build e E2E vertical |
+| CI do head auditado `4f3aee3` | PASS no run 31150092463: Compose/contratos, backend/worker, frontend com audit/build e E2E vertical |
+| Segurança manual | PASS condicionado: CSRF sem token 403, provider negado ao cliente 403, MinIO privado 403, cookies HttpOnly/SameSite=Lax, headers presentes; CSP ainda usa unsafe-inline |
+| Desempenho | PASS condicionado: conteúdos p95 máximo 719,3 ms para orçamento de 750 ms; demais endpoints medidos abaixo |
+| OpenRouter real | PASS: 26,9 s, `google/gemma-4-26b-a4b-it:free`, sem fallback/mock, aprovação obrigatória |
 
 Contagem da rodada automatizada: 240 backend + 41 worker + 54 frontend + 10 E2E = **345 aprovados**. Não houve falha de teste.
 
@@ -63,7 +66,7 @@ Foram exercitados por testes existentes: autenticação, convite e recuperação
 
 Foram comprovados manualmente pela API e pelo proxy do frontend: autenticação OpenRouter, structured JSON, três alternativas persistidas, provider/modelo real, tokens, ausência de publicação automática, histórico no frontend e fallback OpenRouter → Hermes indisponível → Mock simulado.
 
-Permanecem sem evidência completa: todas as 12 tarefas em combinações 1/3, interrupção de chamada HTTP síncrona já iniciada, limite diário/429 real, leitor de tela, outros navegadores e falhas destrutivas de backup.
+Permanecem sem evidência completa: todas as 12 tarefas em combinações 1/3, interrupção de chamada HTTP síncrona já iniciada, limite diário/429 real, sessão humana com leitor de tela, outros navegadores, falhas destrutivas de backup e instalação realmente independente CAV1-23.
 
 ## Cinco problemas prioritários
 
@@ -77,7 +80,27 @@ Detalhes reproduzíveis estão em `BUGS.md`.
 
 ## Decisão
 
-- PR #4 pode sair de Draft? **Não**.
-- Pode ser mesclado? **Não**.
-- Pronto para piloto? **Ainda não**; QA-001 a QA-006 e QA-012 estão resolvidos/mitigados, mas faltam os gates manuais e o tratamento/aceite dos riscos médios.
-- Pronto para dados reais? **Condicionalmente não** até o gate acima e o aceite dos riscos restantes.
+- Piloto com dados fictícios? **Sim, controlado**.
+- Piloto interno? **Sim**, na branch e com monitoramento.
+- Dados reais? **Não**.
+- Produção? **Não**.
+- PR #4 pode sair de Draft? **Tecnicamente sim para revisão, mas somente após autorização explícita; permanece Draft nesta rodada**.
+- Pode ser mesclado? **Não**, até CAV1-23, revisão humana e fechamento dos gates de dados reais.
+
+## Condições do piloto
+
+- somente dados fictícios, sem prontuário, dado clínico identificável, cliente real ou segredo no `.env` fuseblk;
+- OpenRouter pode receber apenas contexto sanitizado de marca demo; Hermes deve ser tratado como indisponível; Mock precisa permanecer claramente simulado;
+- monitorar latência/payload de conteúdos, fallback, rate limit, custo, erros 5xx, isolamento e logs;
+- interromper imediatamente em vazamento/tenant crossing, segredo em log, publicação/aprovação automática, conteúdo sensível sem revisão, custo inesperado, p95 repetido acima de 750 ms ou fallback não identificado.
+
+## Dependências e infraestrutura
+
+| Item | Classificação | Justificativa |
+|---|---|---|
+| `pip 25.0.1` | MUST FIX BEFORE REAL DATA | seis advisories, sem caminho de execução pelo app no piloto |
+| `actions/checkout@v4` / Node 20 | BACKLOG | runner força Node 24 e a CI passa; atualizar antes da remoção do suporte |
+| Starlette/httpx | BACKLOG | aviso limitado ao adaptador de testes, sem falha funcional |
+| Docker buildx | BACKLOG | builder padrão funciona; apenas ruído e desempenho de build |
+| Hermes/Ollama ausente | ACCEPTABLE FOR CONTROLLED PILOT | opcional, OpenRouter prioritário e Mock obrigatório; bloquear dados reais até health confiável |
+| CSP `unsafe-inline` | MUST FIX BEFORE REAL DATA | defesa em profundidade insuficiente para exposição pública, aceitável somente em ambiente interno fictício |

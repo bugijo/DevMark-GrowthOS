@@ -2,7 +2,7 @@
 
 ## Parecer
 
-**LGPD da camada de IA aprovada no escopo QA-004, ciclo funcional QA-006 corrigido e QA-012 resolvido.** Exportação, anonimização e retenção incluem os novos vínculos sem remover histórico. A aprovação geral do piloto continua condicionada ao aceite dos riscos restantes e aos gates manuais.
+**Apta somente para piloto interno com dados fictícios.** LGPD da camada de IA, ciclo funcional e dependências altas estão corrigidos. Dados reais permanecem bloqueados por CSP, infraestrutura/segredos, validação legal e observabilidade Hermes.
 
 ## Evidências positivas
 
@@ -15,6 +15,8 @@
 - headers: frame deny, nosniff, referrer policy, permissions policy, COOP/CORP e cache no-store da API;
 - Mock permanece disponível e respostas simuladas são identificadas;
 - conteúdo sensível exige revisão e não há publicação/aprovação automática.
+- teste manual confirmou CSRF 403 sem token, endpoint de providers 403 para cliente, raiz privada do MinIO 403, cookie HttpOnly/SameSite=Lax e zero chave em Git, histórico, `.env` e logs;
+- frontend e API entregam frame deny, nosniff, referrer/permissions policy; API usa `Cache-Control: no-store`.
 
 ## Achados
 
@@ -24,6 +26,8 @@
 - QA-006 ALTO: **resolvido**; idempotência, cancelamento e aplicação exigem capability, escopo de tenant, audit log e nunca aprovam/publicam.
 - QA-012 ALTO: **resolvido** em `cd7fc31`; a dependência transitiva de lint passou de `js-yaml` 4.3.0 para 4.3.1, sem override, e os audits frontend/E2E retornaram zero vulnerabilidades.
 - QA-008 MÉDIO: CSP permite `unsafe-inline` em script/style.
+- QA-007 MÉDIO: teste Hermes retorna indisponível, mas a listagem sem configuração persistida volta a `NOT_CHECKED`.
+- `pip 25.0.1` possui seis advisories atuais; o aplicativo não executa pip nem instala entrada do usuário, mas a imagem deve ser corrigida antes de dados reais.
 - HSTS não foi exigido no HTTP local; deve ser validado no terminador TLS de produção.
 - Hermes configurado não significa saudável; a indisponibilidade só fica clara no uso.
 
@@ -33,4 +37,4 @@ IDOR, escalada de papel, CSRF, enumeração, uploads e tenant crossing foram ava
 
 ## Recomendação
 
-Manter a matriz LGPD atualizada com o vínculo de alternativa aplicada; revalidar CSP em produção; manter a chave fora do fuseblk e preservar bloqueios de rede. Antes do piloto, concluir os gates manuais e tratar ou aceitar formalmente os riscos médios restantes.
+Para o piloto, usar somente dados fictícios e acesso restrito. Antes de dados reais: remover/justificar `unsafe-inline`, corrigir pip da imagem, validar TLS/HSTS, secret manager, base legal, retenção e estado saudável do Hermes. Interromper o piloto diante de tenant crossing, segredo em log, custo inesperado ou automação de aprovação/publicação.

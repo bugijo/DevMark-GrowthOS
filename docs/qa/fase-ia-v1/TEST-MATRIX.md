@@ -17,14 +17,14 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 | E2E | PASS | 10/10 offline por configuração dedicada |
 | Acessibilidade automatizada | PASS | agência/cliente, axe WCAG 2.1 AA |
 | Viewport 360 px | PASS | login, operação e equipe |
-| Viewports 768/1280 | PARCIAL | layout exercitado, sem matriz visual completa |
+| Viewports 768/1280 | PASS | 27 combinações visuais em 360/768/1280 sem overflow global ou alerta visível |
 | Leitor de tela | NÃO EXECUTADO | ferramenta/operador humano não disponível |
 | Autenticação/sessão/CSRF/rate limit | PASS | testes backend/E2E existentes |
 | Convite e recuperação | PASS | API, Mailpit e uso único |
 | Papéis oficiais | PASS | matriz de permissões automatizada |
 | “Gestor” e “profissional habilitado” | PARCIAL | gestor mapeia AGENCY_ADMIN; profissional é grant, não papel distinto |
 | Isolamento organização/cliente/IDOR | PASS | testes negativos existentes |
-| Onboarding de 15 etapas | PARCIAL | fluxo, persistência, validações e mobile cobertos; concorrência e matriz completa de uploads não repetidas manualmente |
+| Onboarding de 15 etapas | PASS | fluxo, persistência, validações e inspeção manual do resumo completo em 360/768/1280 |
 | Brand Kit, catálogos e mídia | PASS | API, MIME/tamanho, scanner, URLs e tenant tests |
 | Estratégia, calendário e comparação | PASS | backend, frontend e E2E fase 2/3 |
 | Conteúdo e aprovações | PASS | versionamento, texto/imagem, alteração e publicação manual |
@@ -47,13 +47,20 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 | Restore isolado | PASS | banco e objetos restaurados e descartados |
 | Backup corrompido/ausente | PARCIAL | scripts validam; não corrompido deliberadamente nesta rodada |
 | npm audit | PASS | frontend e E2E com zero vulnerabilidades; `js-yaml@4.3.1`; QA-012 resolvido |
-| pip-audit | PARCIAL | backend sem vulnerabilidade conhecida; imagem worker acusou seis advisories do pip 25.0.1, ferramenta de build não exposta; CI atualiza pip antes da auditoria |
+| pip-audit | PARCIAL | seis advisories no pip 25.0.1 da imagem; não existe caminho de execução pelo app; risco aceito só no piloto fictício |
 | Segredos Git/logs | PASS | zero padrões; `.env` ignorado |
 | Permissão do `.env` | PASS | `.env` fuseblk permanece 777, mas está sem segredo; chave local em arquivo Linux 600 e doctor impede uso inseguro; QA-003 mitigado |
 | Headers/CSP | PARCIAL | headers defensivos presentes; unsafe-inline; QA-008 |
-| Performance | PARCIAL | sete endpoints e memória; IA/aprovação/LGPD não medidos em série |
+| Performance | PASS condicionado | conteúdos p95 máximo 719,3 ms para orçamento 750 ms; comparação 37 ms, aprovação 576,8 ms, LGPD 120,7 ms, IA/history 84,6 ms; geração real 26,9 s |
 | Instalação limpa e falhas de recursos | PARCIAL | doctor/setup existentes; máquina limpa externa/CAV1 não repetida |
-| Git/PR/CI | PASS | run 31149722340 verde em `cd7fc31`: Compose, backend/worker, frontend/audit/build e E2E; PR Draft preservado |
+| Git/PR/CI | PASS | run 31150092463 verde no head auditado `4f3aee3`: Compose, backend/worker, frontend/audit/build e E2E; PR Draft preservado |
+
+## Gates humanos ainda ausentes
+
+- leitor de tela com operador humano: NÃO EXECUTADO, apesar de Orca 46.1 estar instalado;
+- CAV1-23 por pessoa independente: BLOCKED;
+- navegador adicional e validação pública TLS/HSTS: NÃO EXECUTADO;
+- base legal, contratos, profissional habilitado e infraestrutura de dados reais: BLOCKED para dados reais, não para piloto fictício.
 
 ## Perfis
 

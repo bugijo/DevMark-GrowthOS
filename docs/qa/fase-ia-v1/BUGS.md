@@ -101,38 +101,61 @@
 ## QA-007 — Hermes aparece configurado sem healthcheck efetivo
 
 - Área/severidade: Providers/operação — **MÉDIO**
+- Classificação de release: **ACCEPTABLE FOR CONTROLLED PILOT** e **MUST FIX BEFORE REAL DATA**.
+- Estado: **RISCO ACEITO SOMENTE PARA PILOTO FICTÍCIO**, em 2026-08-07.
 - Atual: presença de `HERMES_BASE_URL` marca configuração; Ollama estava indisponível e só foi detectado durante geração/fallback.
+- Causa raiz confirmada: o Compose define URL local padrão e a listagem deriva `configured_by_environment` apenas da presença da URL. O teste consulta `/api/tags` e retorna `UNAVAILABLE`, mas sem linha persistida a listagem volta a `NOT_CHECKED`.
 - Risco: painel sugere disponibilidade inexistente e adiciona latência.
+- Impacto de release: não bloqueia piloto interno com Hermes declarado indisponível, OpenRouter prioritário e Mock obrigatório; bloqueia operação com dados reais por prejudicar observabilidade e resposta a falhas.
 - Recomendação: diferenciar configurado, saudável e modelo instalado; cachear healthcheck sem expor detalhes.
 - Regressão: Ollama falso saudável, modelo ausente, timeout e resposta inválida.
+- Esforço/risco de regressão: 1–2 dias; risco médio em rede, cache e painel.
 
 ## QA-008 — CSP permite `unsafe-inline`
 
 - Área/severidade: Segurança frontend — **MÉDIO**
+- Classificação de release: **ACCEPTABLE FOR CONTROLLED PILOT** e **MUST FIX BEFORE REAL DATA**.
+- Estado: **RISCO ACEITO SOMENTE PARA PILOTO FICTÍCIO**, em 2026-08-07.
 - Evidência: cabeçalho da página `/login`.
+- Causa raiz confirmada: a CSP estática do Next.js permite scripts e estilos inline para compatibilidade de renderização; nonce/hash por requisição ainda não foi implementado.
 - Risco: reduz a proteção contra XSS caso outra barreira falhe.
+- Impacto de release: não bloqueia uso local, restrito e com dados fictícios; bloqueia exposição pública ou uso de dados reais sem CSP endurecida e TLS/HSTS validados.
 - Recomendação: avaliar nonce/hash no deploy de produção; manter compatibilidade Next.js documentada.
 - Regressão: teste de headers por ambiente.
+- Esforço/risco de regressão: 2–4 dias; risco médio/alto de quebrar hidratação ou estilos.
 
 ## QA-009 — Lista de conteúdos é o endpoint mais pesado medido
 
 - Área/severidade: Desempenho — **MÉDIO**
-- Atual: 135.082 bytes, p50 329,4 ms, p95/máximo 410,3 ms em 10 amostras locais.
+- Classificação de release: **ACCEPTABLE FOR CONTROLLED PILOT** e **MUST FIX BEFORE REAL DATA**.
+- Estado: **RISCO ACEITO SOMENTE PARA PILOTO FICTÍCIO**, em 2026-08-07.
+- Atual: após crescimento da base local, 187.551 bytes, p50 entre 372,2 e 460,9 ms e p95 entre 420,9 e 719,3 ms em duas séries de 10 amostras.
+- Causa raiz confirmada: a listagem serializa até 50 conteúdos com versão, aprovações e revisões completas; o custo cresce com volume e payload.
 - Risco: degradação em bases maiores e mobile.
+- Impacto de release: ainda passa o orçamento local de 750 ms, mas está próximo do limite; aceitável apenas com base pequena e monitoramento, não para escala/dados reais.
 - Recomendação: revisar payload, paginação real, índices e queries antes do piloto ampliado.
 - Regressão: orçamento de payload e p95 com volume representativo.
+- Esforço/risco de regressão: 2–4 dias; risco médio por alterar read model e contrato de listagem.
 
 ## QA-010 — Ambiente de desenvolvimento incompleto para auditoria Python isolada
 
 - Área/severidade: Instalação — **BAIXO**
+- Classificação de release: **BACKLOG**.
+- Estado: **RISCO ACEITO**; não afeta runtime.
 - Atual: `python3.12-venv`/ensurepip ausente; criação de venv isolado falhou. A CI executou pip-audit com sucesso.
+- Causa raiz/impacto: pacote opcional do host não instalado; reduz conveniência local, mas Docker e CI permanecem reproduzíveis.
 - Recomendação: confirmar pré-requisito no README/doctor ou oferecer alvo Docker isolado.
+- Esforço/risco de regressão: horas; baixo.
 
 ## QA-011 — Buildx ausente gera warnings repetidos
 
 - Área/severidade: Operação — **MELHORIA**
+- Classificação de release: **BACKLOG**.
+- Estado: **RISCO ACEITO**.
 - Atual: Compose usa Bake, mas buildx não está instalado; build cai para driver padrão e funciona.
+- Causa raiz/impacto: plugin opcional ausente neste host; produz ruído e build mais lento, sem falha funcional.
 - Recomendação: documentar buildx como opcional ou eliminar o aviso.
+- Esforço/risco de regressão: horas; baixo.
 
 ## QA-012 — `js-yaml` com vulnerabilidade alta no frontend
 

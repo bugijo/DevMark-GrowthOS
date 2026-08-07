@@ -2,30 +2,37 @@
 
 ## Decisão
 
-**NO-GO. Manter PR #4 em Draft. Não mesclar.**
+**GO FOR CONTROLLED PILOT. Manter PR #4 em Draft até autorização explícita. Não mesclar.**
 
 ## Por quê
 
-QA-001 a QA-006 e QA-012 estão resolvidos ou mitigados, as auditorias npm estão limpas e a CI está integralmente verde. O NO-GO permanece porque ainda existem riscos médios e gates manuais sem evidência completa.
+Não existe achado bloqueador, crítico ou alto aberto. Regressão, CI, Compose, migrações, npm audit, segurança negativa, UX em três viewports e OpenRouter real passaram. QA-007 a QA-009 são aceitos exclusivamente em ambiente interno, com dados fictícios e monitoramento. QA-010 e QA-011 ficam no backlog.
 
-## Ordem obrigatória de correção
+## Riscos aceitos no piloto
 
-1. Diferenciar provider configurado de saudável e ampliar testes Hermes fake.
-2. Avaliar a CSP sem `unsafe-inline` no ambiente de produção.
-3. Medir e reduzir o custo da lista de conteúdos com volume representativo.
-4. Atualizar o pip da imagem worker ou aceitar formalmente o risco da ferramenta de build.
-5. Rodar matriz manual UX/a11y e instalação independente.
+1. Hermes indisponível e estado `NOT_CHECKED` inconsistente; tratá-lo como desligado.
+2. CSP com `unsafe-inline`; acesso restrito, sem exposição pública.
+3. Lista de conteúdos próxima do orçamento; base pequena e p95 monitorado.
+4. `pip 25.0.1` com seis advisories sem caminho de execução pelo app.
+5. Buildx ausente e aviso Node 20 das actions v4, sem falha funcional.
 
-## Gates para sair de Draft
+## Limites obrigatórios
 
-- CI integral verde, inclusive E2E;
-- zero rede externa nas suítes padrão mesmo com chave local presente;
-- `alembic check` limpo em base e upgrade 0008;
-- nenhum segredo em `.env`/filesystem inseguro; arquivo seguro ou secret manager validado;
-- testes de LGPD sobre IA passando;
-- auditoria de dependências repetível;
-- riscos altos resolvidos ou formalmente aceitos com responsável e prazo.
+- somente dados fictícios e contexto demo sanitizado;
+- ambiente interno, sem exposição pública, redes sociais ou e-mail real;
+- revisão e aprovação humana continuam obrigatórias;
+- OpenRouter sem gasto automático; Hermes considerado indisponível; Mock sempre marcado;
+- interromper em tenant crossing, segredo exposto, automação indevida, custo inesperado, erro 5xx recorrente ou p95 de conteúdos acima de 750 ms.
+
+## Bloqueios para dados reais/produção
+
+- CAV1-23 independente continua BLOCKED;
+- CSP/headers no terminador TLS, secret manager e filesystem seguro;
+- correção do pip da imagem e health/modelo Hermes confiável;
+- performance com volume representativo;
+- base legal, contratos, retenção definitiva, e-mail transacional e profissional habilitado;
+- sessão humana com leitor de tela e revisão de release.
 
 ## Próximo prompt recomendado
 
-> Avalie exclusivamente QA-007, diferencie Hermes configurado de saudável usando providers falsos e preserve a ordem OpenRouter → Hermes → Mock. Repita as suítes offline, mantenha o PR #4 em Draft e não faça merge.
+> Execute a validação independente CAV1-23 em clone novo, seguindo somente o README, e anexe o relatório completo ao PR #4. Não use dados reais, não retire o PR de Draft e não faça merge.
