@@ -1,20 +1,20 @@
 # QA Report — Fase IA v1
 
-Data: 2026-08-06
+Data: 2026-08-07
 
 QA Lead: Codex
 
 Branch: `agent/camada-ia-v1`
 
-Commits corretivos auditados: `99552a7`, `ea42bd7`, `423aa33`, `8c2418d`, `8aa3e9c`, `cb48c6c`
+Commits corretivos auditados: `99552a7`, `ea42bd7`, `423aa33`, `8c2418d`, `8aa3e9c`, `cb48c6c`, `cd7fc31`
 
 PR: #4, aberto e em Draft
 
 ## Conclusão executiva
 
-QA-006 foi corrigido com idempotência, cancelamento e aplicação rastreável de alternativa em um novo rascunho. Migrações e validação local completa passaram, sem regressão em QA-001 a QA-005. A auditoria npm, porém, encontrou o novo QA-012 alto em `js-yaml`; o PR permanece em Draft.
+QA-012 foi corrigido com a atualização transitiva mínima de `js-yaml` 4.3.0 para 4.3.1 no lockfile do frontend. As auditorias npm e a CI integral estão verdes, sem regressão em QA-001 a QA-006. O PR permanece em Draft porque a decisão formal de release continua NO-GO pelos gates manuais e riscos médios restantes.
 
-Recomendação: **NO-GO para merge**. O piloto ainda depende de tratar ou aceitar formalmente QA-012 e cumprir os gates manuais restantes.
+Recomendação: **NO-GO para merge**. O bloqueio alto QA-012 foi removido, mas o piloto ainda depende de QA-007, QA-008, QA-009 e dos gates manuais registrados na recomendação de release.
 
 ## Ambiente
 
@@ -48,12 +48,12 @@ Nenhuma chave foi registrada neste relatório. A busca no Git, histórico e logs
 | Worker | PASS: 41 |
 | Frontend | PASS: 54 em 20 arquivos |
 | E2E offline | PASS: 10, incluindo IA mock e acessibilidade |
-| npm audit frontend | FAIL: 1 alta em `js-yaml`; QA-012 aberto |
+| npm audit frontend/E2E | PASS: 0 vulnerabilidades altas ou críticas; QA-012 resolvido |
 | pip-audit | backend sem vulnerabilidades conhecidas; worker acusou seis advisories no pip 25.0.1 da imagem; dependências locais do projeto foram ignoradas por não existirem no PyPI |
 | Backup + verificação + restauração | PASS |
 | Migrações base/0008/0016 até 0017, downgrade e reupgrade | PASS; dados anteriores compatíveis |
 | `alembic check` | PASS em todos os caminhos validados |
-| CI do head funcional `cb48c6c` | PARCIAL no run 31129195136: backend/worker e Compose/contratos passaram; frontend passou lint/tipos/testes e falhou no audit por QA-012; build e E2E foram pulados pelo workflow, embora ambos tenham passado localmente |
+| CI do commit `cd7fc31` | PASS no run 31149722340: Compose/contratos, backend/worker, frontend com audit/build e E2E vertical |
 
 Contagem da rodada automatizada: 240 backend + 41 worker + 54 frontend + 10 E2E = **345 aprovados**. Não houve falha de teste.
 
@@ -67,11 +67,11 @@ Permanecem sem evidência completa: todas as 12 tarefas em combinações 1/3, in
 
 ## Cinco problemas prioritários
 
-1. QA-012 — vulnerabilidade alta nova em `js-yaml`.
-2. QA-007 — Hermes configurado ainda não equivale a saudável.
-3. QA-008 — CSP ainda permite `unsafe-inline`.
-4. QA-009 — lista de conteúdos é o endpoint mais pesado medido.
-5. QA-010 — auditoria Python local e pip antigo na imagem worker.
+1. QA-007 — Hermes configurado ainda não equivale a saudável.
+2. QA-008 — CSP ainda permite `unsafe-inline`.
+3. QA-009 — lista de conteúdos é o endpoint mais pesado medido.
+4. QA-010 — auditoria Python local e pip antigo na imagem worker.
+5. QA-011 — buildx ausente e actions v4 emitem avisos operacionais.
 
 Detalhes reproduzíveis estão em `BUGS.md`.
 
@@ -79,5 +79,5 @@ Detalhes reproduzíveis estão em `BUGS.md`.
 
 - PR #4 pode sair de Draft? **Não**.
 - Pode ser mesclado? **Não**.
-- Pronto para piloto? **Ainda não**; QA-001 a QA-006 estão resolvidos/mitigados, mas QA-012 alto precisa de resolução ou aceite formal.
+- Pronto para piloto? **Ainda não**; QA-001 a QA-006 e QA-012 estão resolvidos/mitigados, mas faltam os gates manuais e o tratamento/aceite dos riscos médios.
 - Pronto para dados reais? **Condicionalmente não** até o gate acima e o aceite dos riscos restantes.

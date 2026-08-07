@@ -13,7 +13,7 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 | Lint, tipos e build | PASS | `make lint` |
 | Backend | PASS | 240/240; ambiente de teste força providers offline |
 | Worker | PASS | 41/41 |
-| Frontend unitário | PASS | 52/52 |
+| Frontend unitário | PASS | 54/54 |
 | E2E | PASS | 10/10 offline por configuração dedicada |
 | Acessibilidade automatizada | PASS | agência/cliente, axe WCAG 2.1 AA |
 | Viewport 360 px | PASS | login, operação e equipe |
@@ -46,14 +46,14 @@ Legenda: PASS, FAIL, PARCIAL, NÃO EXECUTADO.
 | Backup PostgreSQL/MinIO/checksum | PASS | backup e verify |
 | Restore isolado | PASS | banco e objetos restaurados e descartados |
 | Backup corrompido/ausente | PARCIAL | scripts validam; não corrompido deliberadamente nesta rodada |
-| npm audit | FAIL | uma alta em `js-yaml`; QA-012 aberto |
+| npm audit | PASS | frontend e E2E com zero vulnerabilidades; `js-yaml@4.3.1`; QA-012 resolvido |
 | pip-audit | PARCIAL | backend sem vulnerabilidade conhecida; imagem worker acusou seis advisories do pip 25.0.1, ferramenta de build não exposta; CI atualiza pip antes da auditoria |
 | Segredos Git/logs | PASS | zero padrões; `.env` ignorado |
 | Permissão do `.env` | PASS | `.env` fuseblk permanece 777, mas está sem segredo; chave local em arquivo Linux 600 e doctor impede uso inseguro; QA-003 mitigado |
 | Headers/CSP | PARCIAL | headers defensivos presentes; unsafe-inline; QA-008 |
 | Performance | PARCIAL | sete endpoints e memória; IA/aprovação/LGPD não medidos em série |
 | Instalação limpa e falhas de recursos | PARCIAL | doctor/setup existentes; máquina limpa externa/CAV1 não repetida |
-| Git/PR/CI | FAIL | head funcional no run 31129195136: backend/worker e Compose passaram; frontend bloqueado pelo audit QA-012; E2E local passou; PR Draft preservado |
+| Git/PR/CI | PASS | run 31149722340 verde em `cd7fc31`: Compose, backend/worker, frontend/audit/build e E2E; PR Draft preservado |
 
 ## Perfis
 

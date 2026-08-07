@@ -137,14 +137,19 @@
 ## QA-012 — `js-yaml` com vulnerabilidade alta no frontend
 
 - Área/severidade: Dependências frontend — **ALTO**
-- Atual: `npm --prefix frontend audit --audit-level=high` aponta CVE-2026-59870/GHSA-5p4m-2wfm-xmqj em `js-yaml` 4.x, com correção indicada pelo npm.
+- Estado: **RESOLVIDO** em `cd7fc31`.
+- Atual anterior: `npm --prefix frontend audit --audit-level=high` apontava CVE-2026-59870/GHSA-5p4m-2wfm-xmqj em `js-yaml` 4.3.0.
 - Risco: consumo quadrático de CPU ao resolver `!!omap` caso entrada YAML não confiável alcance a dependência vulnerável; a explorabilidade no produto ainda não foi analisada.
-- Recomendação: investigar a árvore transitiva, atualizar sem força, repetir lint/build/testes/audit e registrar impacto. Não foi corrigido nesta rodada para preservar o escopo exclusivo do QA-006.
+- Causa raiz: `eslint@9.39.5` dependia de `@eslint/eslintrc@3.3.6`, que aceitava `js-yaml ^4.3.0`; o lockfile ainda fixava a versão vulnerável 4.3.0. Era uma dependência transitiva de desenvolvimento, sem uso no runtime ou em YAML recebido pelo produto.
+- Correção: o lockfile passou a resolver `js-yaml` 4.3.1, primeira versão corrigida dentro da faixa já aceita pelo pacote pai. Não houve atualização de framework, dependência direta, override ou `--force`.
+- Evidências: instalação limpa com `npm ci`; `npm ls` confirmou a árvore ESLint → `@eslint/eslintrc` → `js-yaml@4.3.1`; audits de frontend e E2E retornaram zero vulnerabilidades; lint, tipos, build, 240 backend, 41 worker, 54 frontend e 10 E2E passaram.
+- CI: run 31149722340 integralmente verde em `cd7fc31`, incluindo auditoria npm, build, migrações e E2E offline.
+- Risco residual: a dependência permanece na ferramenta de lint, não no runtime. Atualizações futuras do lockfile devem manter o audit impeditivo. O aviso de Node 20 das actions v4 e os riscos QA-007 a QA-011 são independentes desta correção.
 
-## Contagem após QA-006
+## Contagem após QA-012
 
-- resolvidos/mitigados: 6 (QA-001 a QA-006);
-- abertos altos: 1 (QA-012);
+- resolvidos/mitigados: 7 (QA-001 a QA-006 e QA-012);
+- abertos altos: 0;
 - abertos médios: 3 (QA-007 a QA-009);
 - aberto baixo: 1 (QA-010);
 - melhoria: 1 (QA-011);
