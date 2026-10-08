@@ -8,6 +8,10 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- pipeline comercial interno DevMarkia tenant-scoped (leads, etapas, briefing determinístico,
+  rascunho de proposta e tarefas); intake público preparado, mas desligado por padrão e
+  bloqueado até revisões jurídica, de segurança e privacidade;
+
 - Growth Agent multiempresa para auditoria, estratégia, calendário, ideias, legendas, títulos,
   CTAs, roteiros, prompts visuais, reaproveitamento, revisão de tom e classificação sensível;
 - providers OpenRouter opcional, Ollama local pelo adapter Hermes e mock obrigatório, com fallback,

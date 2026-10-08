@@ -42,6 +42,11 @@ import type {
   RetentionPolicy,
   SecurityMessage,
   Service,
+  SalesLead,
+  SalesLeadStage,
+  SalesLeadTask,
+  SalesBriefing,
+  SalesProposalDraft,
   StrategyInput,
   StrategyVersionComparison,
   StrategyVersionHistory,
@@ -208,6 +213,15 @@ function query(params: Record<string, string | undefined>): string {
 }
 
 export const api = {
+  sales: {
+    list: () => apiRequest<SalesLead[]>("/sales/leads"),
+    create: (input: Pick<SalesLead, "name" | "company" | "email" | "whatsapp" | "business_type" | "goal" | "desired_timeline" | "additional_info">) => apiRequest<SalesLead>("/sales/leads", { method: "POST", body: JSON.stringify(input) }),
+    changeStage: (id: string, stage: SalesLeadStage) => apiRequest<SalesLead>(`/sales/leads/${id}/stage`, { method: "PATCH", body: JSON.stringify({ stage }) }),
+    briefing: (id: string) => apiRequest<SalesBriefing>(`/sales/leads/${id}/briefing`),
+    draftProposal: (id: string) => apiRequest<SalesProposalDraft>(`/sales/leads/${id}/proposal-draft`, { method: "POST" }),
+    tasks: (id: string) => apiRequest<SalesLeadTask[]>(`/sales/leads/${id}/tasks`),
+    createTask: (id: string, title: string, notes = "") => apiRequest<SalesLeadTask>(`/sales/leads/${id}/tasks`, { method: "POST", body: JSON.stringify({ title, notes }) }),
+  },
   ai: {
     generate: (businessId: string, input: AIGenerationInput) =>
       apiRequest<AIGeneration>(`/businesses/${businessId}/ai/generations`, {

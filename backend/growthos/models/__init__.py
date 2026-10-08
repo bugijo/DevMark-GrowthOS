@@ -31,6 +31,7 @@ from growthos.models.planning import CalendarEntry, ContentPlan, ContentStrategy
 from growthos.models.privacy import ConsentRecord, DataPurpose, PrivacyRequest, RetentionPolicy
 from growthos.models.professional_review import ProfessionalContentReview
 from growthos.models.provider_config import ProviderConfig
+from growthos.models.sales import SalesLead, SalesLeadTask
 
 __all__ = [
     "AIGeneration",
@@ -70,6 +71,8 @@ __all__ = [
     "ProfessionalContentReview",
     "ProviderConfig",
     "RetentionPolicy",
+    "SalesLead",
+    "SalesLeadTask",
     "Service",
     "StrategyVersion",
     "User",

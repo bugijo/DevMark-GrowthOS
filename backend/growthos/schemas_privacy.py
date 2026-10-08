@@ -75,7 +75,8 @@ class PrivacyExportRead(BaseModel):
 class RetentionRunCreate(BaseModel):
     resource_type: str = Field(
         pattern="^(ai_generations|ai_generation_attempts|ai_generation_alternatives|"
-        "ai_generation_feedback|ai_generation_snapshots|ai_usage_daily|ai_generation_errors)$"
+        "ai_generation_feedback|ai_generation_snapshots|ai_usage_daily|ai_generation_errors|"
+        "sales_leads)$"
     )
     dry_run: bool = True
 

@@ -66,6 +66,8 @@ class Capability(StrEnum):
     NOTIFICATION_PREFERENCE_UPDATE_OWN = "notification.preference_update_own"
     PUBLICATION_RECORD = "publication.record"
     REPORT_VIEW = "report.view"
+    SALES_LEAD_VIEW = "sales_lead.view"
+    SALES_LEAD_MANAGE = "sales_lead.manage"
 
     PROVIDER_CONFIG_VIEW = "provider_config.view"
     PROVIDER_CONFIG_MANAGE = "provider_config.manage"
@@ -87,6 +89,7 @@ READ_ONLY_CAPABILITIES: Final[frozenset[Capability]] = frozenset(
         Capability.CONTENT_VIEW,
         Capability.NOTIFICATION_VIEW_OWN,
         Capability.REPORT_VIEW,
+        Capability.SALES_LEAD_VIEW,
         Capability.PROVIDER_CONFIG_VIEW,
         Capability.AUDIT_VIEW_ORGANIZATION,
         Capability.AUDIT_VIEW_SCOPED,
@@ -146,6 +149,8 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.PUBLICATION_RECORD,
             Capability.REPORT_VIEW,
+            Capability.SALES_LEAD_VIEW,
+            Capability.SALES_LEAD_MANAGE,
             Capability.PROVIDER_CONFIG_VIEW,
             Capability.PROVIDER_CONFIG_MANAGE,
             Capability.AUDIT_VIEW_ORGANIZATION,
@@ -184,6 +189,8 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.PUBLICATION_RECORD,
             Capability.REPORT_VIEW,
+            Capability.SALES_LEAD_VIEW,
+            Capability.SALES_LEAD_MANAGE,
             Capability.PROVIDER_CONFIG_VIEW,
             Capability.AUDIT_VIEW_SCOPED,
         }

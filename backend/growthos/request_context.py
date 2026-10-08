@@ -61,6 +61,7 @@ def _log_context(
     status_code: int,
     started: float,
 ) -> dict[str, object]:
+    public_quote_endpoint = "/public/quote-requests" in request.url.path
     return {
         "event": "http.request",
         "request_id": request_id,
@@ -68,5 +69,5 @@ def _log_context(
         "path": request.url.path,
         "status_code": status_code,
         "duration_ms": round((time.perf_counter() - started) * 1000, 2),
-        "client_ip": client_ip,
+        "client_ip": "[redacted]" if public_quote_endpoint else client_ip,
     }

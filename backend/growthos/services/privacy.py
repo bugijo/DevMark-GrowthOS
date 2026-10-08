@@ -13,6 +13,7 @@ from growthos.models import (
     AIGenerationFeedback,
     AIUsageDaily,
     Membership,
+    SalesLead,
     User,
 )
 from growthos.models.privacy import ConsentRecord, DataPurpose, PrivacyRequest, RetentionPolicy
@@ -533,6 +534,16 @@ def run_retention(
             session.execute(
                 update(AIGenerationAttempt).where(*errors_predicate).values(error_code=None)
             )
+    elif data.resource_type == "sales_leads":
+        leads_predicate = (
+            SalesLead.organization_id == organization_id,
+            SalesLead.created_at < cutoff,
+        )
+        affected = (
+            session.scalar(select(func.count()).select_from(SalesLead).where(*leads_predicate)) or 0
+        )
+        if not data.dry_run:
+            session.execute(delete(SalesLead).where(*leads_predicate))
     else:
         # Sem vínculo de “alternativa aplicada” nesta versão, gerações são preservadas e
         # seus dados pessoais são minimizados pela política específica de snapshots.

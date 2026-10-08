@@ -10,6 +10,31 @@ export type Role =
 
 export type MembershipStatus = "ACTIVE" | "SUSPENDED" | "REVOKED";
 export type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+export type SalesLeadStage = "NEW_LEAD" | "CONTACT_PENDING" | "BRIEFING" | "PROPOSAL_PREPARATION" | "PROPOSAL_SENT" | "NEGOTIATION" | "CONTRACTED" | "IN_PRODUCTION" | "DELIVERED" | "AFTER_SALES";
+
+export interface SalesLead {
+  id: string; organization_id: string; source: string; stage: SalesLeadStage;
+  service_classification: "IN_SCOPE_LANDING_PAGE" | "OUT_OF_SCOPE" | "HUMAN_REVIEW";
+  classification_reason: string;
+  name: string; company: string; email: string; whatsapp: string;
+  business_type: string; goal: string; desired_timeline: string;
+  additional_info: string; privacy_notice_version: string | null;
+  consented_at: string | null; proposal_draft: string | null;
+  created_at: string; updated_at: string;
+}
+
+export interface SalesLeadTask {
+  id: string; lead_id: string; title: string; due_at: string | null;
+  completed_at: string | null; notes: string; created_at: string;
+}
+
+export interface SalesBriefing {
+  lead_id: string; brand: string; requested_service: string;
+  scope_reference: string; client_inputs: Record<string, string>;
+  missing_before_proposal: string[]; ai_used: boolean;
+}
+
+export interface SalesProposalDraft { lead_id: string; status: string; body: string; ai_used: boolean; }
 
 export interface User {
   id: string;

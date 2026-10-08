@@ -1,6 +1,7 @@
 import os
 from functools import lru_cache
 from typing import Self
+from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -85,6 +86,15 @@ class Settings(BaseSettings):
     demo_admin_password: str = "local-demo-only-change-before-use"
     demo_client_email: str = "client@clinicafeliz.local"
     demo_client_password: str = "local-demo-client-only-change-before-use"
+
+    public_quote_intake_enabled: bool = False
+    public_quote_target_organization_slug: str = ""
+    public_quote_privacy_notice_url: str = ""
+    public_quote_privacy_notice_version: str = "draft-v1"
+    public_quote_legal_review_approved: bool = False
+    public_quote_security_review_approved: bool = False
+    public_quote_rate_limit_attempts: int = Field(default=5, ge=1, le=100)
+    public_quote_rate_limit_window_seconds: int = Field(default=900, ge=30, le=86400)
 
     antimalware_provider: str = "mock"
     antimalware_fail_closed: bool = True
@@ -178,6 +188,19 @@ class Settings(BaseSettings):
 
         if self.seed_demo_data:
             problems.extend(self._demo_credentials_problems())
+
+        if self.public_quote_intake_enabled:
+            privacy_url = urlparse(self.public_quote_privacy_notice_url)
+            if not self.public_quote_target_organization_slug.strip():
+                problems.append("PUBLIC_QUOTE_TARGET_ORGANIZATION_SLUG é obrigatória")
+            if privacy_url.scheme != "https" or not privacy_url.netloc:
+                problems.append("PUBLIC_QUOTE_PRIVACY_NOTICE_URL deve ser HTTPS")
+            if not self.public_quote_privacy_notice_version.strip():
+                problems.append("PUBLIC_QUOTE_PRIVACY_NOTICE_VERSION é obrigatória")
+            if not self.public_quote_legal_review_approved:
+                problems.append("PUBLIC_QUOTE_LEGAL_REVIEW_APPROVED requer revisão prévia")
+            if not self.public_quote_security_review_approved:
+                problems.append("PUBLIC_QUOTE_SECURITY_REVIEW_APPROVED requer revisão prévia")
 
         if problems:
             raise UnsafeConfigurationError("Configuração insegura: " + "; ".join(problems))

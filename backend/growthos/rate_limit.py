@@ -77,13 +77,62 @@ class InMemoryLoginRateLimiter:
         if current is not None and now - current.started_at >= window_seconds:
             self._windows.pop(key, None)
             return None
+            return current
+
+
+class InMemoryFixedWindowRateLimiter:
+    """Limita volume por chave em processo único; não substitui backend compartilhado."""
+
+    def __init__(
+        self,
+        clock: Callable[[], float] = time.monotonic,
+        *,
+        max_entries: int = 10_000,
+    ) -> None:
+        if max_entries < 1:
+            raise ValueError("max_entries deve ser positivo")
+        self._clock = clock
+        self._max_entries = max_entries
+        self._windows: dict[str, _AttemptWindow] = {}
+        self._lock = Lock()
+
+    def allow(self, key: str, *, limit: int, window_seconds: int) -> int | None:
+        now = self._clock()
+        with self._lock:
+            current = self._active_window(key, now, window_seconds)
+            if current is None:
+                if len(self._windows) >= self._max_entries:
+                    self._windows.pop(next(iter(self._windows)))
+                self._windows[key] = _AttemptWindow(failures=1, started_at=now)
+                return None
+            if current.failures >= limit:
+                return max(1, math.ceil(window_seconds - (now - current.started_at)))
+            current.failures += 1
+            return None
+
+    def reset(self) -> None:
+        with self._lock:
+            self._windows.clear()
+
+    def _active_window(
+        self,
+        key: str,
+        now: float,
+        window_seconds: int,
+    ) -> _AttemptWindow | None:
+        current = self._windows.get(key)
+        if current is not None and now - current.started_at >= window_seconds:
+            self._windows.pop(key, None)
+            return None
         return current
 
 
 login_rate_limiter = InMemoryLoginRateLimiter()
 security_rate_limiter = InMemoryLoginRateLimiter()
+public_quote_rate_limiter = InMemoryFixedWindowRateLimiter()
 
 
 def reset_login_rate_limiter() -> None:
     login_rate_limiter.reset()
     security_rate_limiter.reset()
+    public_quote_rate_limiter.reset()
