@@ -15,6 +15,8 @@ substitui parecer de profissional especializado.
   duplicação, ausência de PII em logs/resposta, consentimento e `Retry-After`.
 - O CRM interno aplica capabilities e consultas por `organization_id`; briefing
   e proposta são determinísticos e não enviados.
+- Há teste integrado com dados fictícios que percorre intake público, lead no
+  CRM, briefing, proposta não enviada e tarefa de acompanhamento.
 - Retenção `sales_leads` é por organização, auditada e com dry-run como padrão.
 - A exportação autenticada existente cobre a conta do usuário, não a localização
   e exportação de leads recebidos anonimamente. A exclusão desses leads só está

@@ -94,6 +94,62 @@ def test_public_quote_consent_idempotency_and_minimal_receipt(client, monkeypatc
     assert no_consent.status_code == 422
 
 
+def test_public_intake_to_internal_brief_proposal_and_follow_up_task(client, monkeypatch):
+    owner = create_identity(
+        slug="devmarkia-test", email="owner@example.test", role=Role.AGENCY_ADMIN
+    )
+    from growthos.config import get_settings
+    from growthos.main import app
+
+    monkeypatch.setitem(app.dependency_overrides, get_settings, enabled_quote_settings)
+    reset_login_rate_limiter()
+    intake = client.post(
+        "/api/v1/public/quote-requests",
+        headers={"Idempotency-Key": "full-flow-test-0001"},
+        json={
+            "name": "Contato Fictício",
+            "company": "Empresa de Teste",
+            "email": "contato@example.test",
+            "goal": "Landing page para apresentar um serviço",
+            "privacy_consent": True,
+        },
+    )
+    assert intake.status_code == 202
+    lead_id = intake.json()["reference"]
+
+    csrf = login(client, owner)
+    headers = csrf_headers(csrf)
+    leads = client.get("/api/v1/sales/leads")
+    assert leads.status_code == 200
+    assert len(leads.json()) == 1 and leads.json()[0]["id"] == lead_id
+
+    for stage in ("CONTACT_PENDING", "BRIEFING"):
+        response = client.patch(
+            f"/api/v1/sales/leads/{lead_id}/stage",
+            headers=headers,
+            json={"stage": stage},
+        )
+        assert response.status_code == 200
+
+    briefing = client.get(f"/api/v1/sales/leads/{lead_id}/briefing")
+    assert briefing.status_code == 200 and briefing.json()["ai_used"] is False
+    proposal = client.post(f"/api/v1/sales/leads/{lead_id}/proposal-draft", headers=headers)
+    assert proposal.status_code == 200
+    assert proposal.json()["status"] == "DRAFT_NOT_SENT"
+    assert proposal.json()["ai_used"] is False
+
+    task = client.post(
+        f"/api/v1/sales/leads/{lead_id}/tasks",
+        headers=headers,
+        json={"title": "Revisar escopo com contato", "notes": "Rascunho de teste"},
+    )
+    assert task.status_code == 201
+    assert task.json()["lead_id"] == lead_id
+    assert client.get(f"/api/v1/sales/leads/{lead_id}/tasks").json()[0]["title"] == (
+        "Revisar escopo com contato"
+    )
+
+
 def test_public_quote_honeypot_is_not_saved_and_rate_limit_applies(client, monkeypatch):
     create_identity(slug="devmarkia-test", email="owner@example.test", role=Role.AGENCY_ADMIN)
     from growthos.config import get_settings
