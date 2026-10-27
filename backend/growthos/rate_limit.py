@@ -77,7 +77,7 @@ class InMemoryLoginRateLimiter:
         if current is not None and now - current.started_at >= window_seconds:
             self._windows.pop(key, None)
             return None
-            return current
+        return current
 
 
 class InMemoryFixedWindowRateLimiter:
