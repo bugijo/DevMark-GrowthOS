@@ -33,6 +33,7 @@ dev = [
 
 [project.scripts]
 growthos-seed = "growthos.seed:main"
+growthos-integration-token = "growthos.integration_tokens_cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["growthos"]
