@@ -52,6 +52,11 @@ import type {
   BusinessLead,
   BusinessLeadSource,
   BusinessLeadSummary,
+  BusinessAvailability,
+  LeadExport,
+  LeadPrivacy,
+  LeadPrivacyContent,
+  LeadRetentionResult,
   StrategyInput,
   StrategyVersionComparison,
   StrategyVersionHistory,
@@ -232,6 +237,21 @@ export const api = {
       apiRequest<BusinessLead>(`/businesses/${businessId}/leads`, { method: "POST", body: JSON.stringify(input) }),
     updateLead: (leadId: string, input: Partial<Pick<BusinessLead, "status" | "notes" | "next_action" | "next_action_due_at">>) =>
       apiRequest<BusinessLead>(`/business-leads/${leadId}`, { method: "PATCH", body: JSON.stringify(input) }),
+    exportLead: (leadId: string) => apiRequest<LeadExport>(`/business-leads/${leadId}/export`),
+    anonymizeLead: (leadId: string) =>
+      apiRequest<BusinessLead>(`/business-leads/${leadId}/anonymize`, { method: "POST" }),
+    runRetention: (businessId: string, dryRun: boolean) =>
+      apiRequest<LeadRetentionResult>(`/businesses/${businessId}/leads/retention`, { method: "POST", body: JSON.stringify({ dry_run: dryRun }) }),
+    privacy: (businessId: string) => apiRequest<LeadPrivacy>(`/businesses/${businessId}/lead-privacy`),
+    savePrivacy: (businessId: string, input: LeadPrivacyContent) =>
+      apiRequest<LeadPrivacy>(`/businesses/${businessId}/lead-privacy`, { method: "PUT", body: JSON.stringify(input) }),
+    approvePrivacy: (businessId: string, version: number, note: string) =>
+      apiRequest<LeadPrivacy>(`/businesses/${businessId}/lead-privacy/approve`, {
+        method: "POST", body: JSON.stringify({ version, note, acknowledged_not_legal_advice: true }),
+      }),
+    availability: (businessId: string) => apiRequest<BusinessAvailability>(`/businesses/${businessId}/availability`),
+    saveAvailability: (businessId: string, input: Pick<BusinessAvailability, "slots" | "notes" | "confirmed_by_business">) =>
+      apiRequest<BusinessAvailability>(`/businesses/${businessId}/availability`, { method: "PUT", body: JSON.stringify(input) }),
   },
   sales: {
     list: () => apiRequest<SalesLead[]>("/sales/leads"),

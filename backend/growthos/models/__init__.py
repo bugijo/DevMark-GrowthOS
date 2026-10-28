@@ -19,7 +19,12 @@ from growthos.models.catalog import (
 from growthos.models.content import Approval, ContentItem, ContentVersion
 from growthos.models.identity import Membership, Organization, User
 from growthos.models.integration import IntegrationToken
-from growthos.models.landing import BusinessLead, LandingPage
+from growthos.models.landing import (
+    BusinessAvailability,
+    BusinessLead,
+    LandingPage,
+    LeadPrivacySettings,
+)
 from growthos.models.notification_preferences import (
     NotificationCategoryPreference,
     NotificationDelivery,
@@ -47,6 +52,7 @@ __all__ = [
     "Base",
     "BrandProfile",
     "Business",
+    "BusinessAvailability",
     "BusinessLead",
     "BusinessOnboarding",
     "CalendarEntry",
@@ -60,6 +66,7 @@ __all__ = [
     "IntegrationToken",
     "Job",
     "LandingPage",
+    "LeadPrivacySettings",
     "MarketingObjective",
     "MediaAsset",
     "Membership",

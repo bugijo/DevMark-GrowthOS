@@ -88,14 +88,65 @@ Valores a confirmar pelo responsável antes de qualquer peça pública. Não há
 pacotes, descontos, duração, formas de pagamento ou política de cancelamento
 definidos; nenhum desses itens deve ser presumido.
 
+## Operação da Villa Pet (preparada em 2026-10-28)
+
+| Peça | Onde | Quem |
+| --- | --- | --- |
+| Usuário do responsável (`CLIENT_OWNER`, limitado à Villa Pet) | `growthos-pilot-client --org devmark-demo --business "Villa Pet"` | agência provisiona |
+| Aprovação de conteúdos | `/aprovacoes` (fluxo existente `CONTENT_DECIDE_CLIENT`) | responsável |
+| Painel de solicitações, status e próxima ação | `/solicitacoes` | responsável e agência; revisor só consulta |
+| Horários de atendimento | `/atendimento` — começa vazio, nada é sugerido | responsável e agência |
+| Aviso de privacidade | `/atendimento` — agência redige, **só o responsável aprova** | ambos |
+| Exportar / anonimizar pedido, retenção | `/solicitacoes`, `/atendimento` | responsável e administração da agência |
+| Auditoria | toda ação grava `audit_logs`, sem nome ou telefone | — |
+
+Credencial demo do responsável: `DEMO_PILOT_CLIENT_EMAIL` /
+`DEMO_PILOT_CLIENT_PASSWORD` do `.env.example` (valores locais, trocar antes de
+qualquer uso real).
+
+### Portões para pedidos reais
+
+`POST /public/landing/{slug}/requests` aceita nome e telefone **somente** com os
+três portões abertos; hoje todos estão fechados:
+
+1. `PUBLIC_LEAD_COLLECTION_ENABLED=true`, que a configuração recusa sem
+   `PUBLIC_LEAD_LEGAL_REVIEW_APPROVED` e `PUBLIC_LEAD_SECURITY_REVIEW_APPROVED`
+   (declarações de revisão humana);
+2. aviso de privacidade do estabelecimento aprovado pelo responsável, na versão
+   exibida ao tutor (o pedido carrega a versão aceita);
+3. landing fora do modo demonstração (não há botão para isso ainda — é uma
+   decisão a tomar depois da revisão).
+
+Proteções já implementadas: `extra="forbid"`, limite por IP e página, campo-isca
+contra robôs (descarta e audita), deduplicação por telefone em 24 h, validação
+de telefone, contato fora da auditoria e da integração com o Hermes.
+
+Aprovar o aviso **não** declara conformidade com a LGPD: a tela e a API exigem
+reconhecer que a aprovação é do estabelecimento e não substitui revisão
+jurídica.
+
+### Direitos do titular e retenção
+
+- Exportação: `GET /business-leads/{id}/export` (dados + histórico de ações).
+- Anonimização: `POST /business-leads/{id}/anonymize` apaga nome, telefone,
+  observações e próxima ação; mantém serviço/status para estatística.
+- Retenção: `POST /businesses/{id}/leads/retention` com `dry_run` (padrão
+  `true`); usa os dias definidos no aviso. Execução manual, sem agendamento.
+
+### Hermes como supervisor
+
+O Hermes lê com token `leads:read` + `contents:read` (contagens de conteúdos
+pendentes, sem texto) e gera um relatório local sob demanda:
+`python3 ~/.hermes/dev-controller/growthos_report.py [--save]`. Não há envio
+automático por nenhum canal.
+
 ## Pendências antes de captação real
 
 - Responsável da Villa Pet confirmar preços, serviços, endereço, canal oficial
   e aprovar textos (`VILLA_PET_CAMPANHA_APROVACAO.md`).
-- Gate de privacidade (`docs/22-gate-privacidade-ativacao-comercial.md`):
-  aviso legal, base legal, retenção, exportação/exclusão por titular e rate
-  limit compartilhado. Só então adicionar campos de contato com consentimento
-  e desligar `demo_mode`.
-- Usuário-cliente da Villa Pet para aprovar conteúdos e ver seus interessados
-  (hoje as rotas de interessados usam as capabilities comerciais da agência).
+- Revisão jurídica humana do aviso e da base legal; o responsável aprova o
+  texto final em `/atendimento`.
+- Responsável informar os horários reais em `/atendimento`.
+- Rate limit compartilhado entre réplicas (hoje é em memória, por processo).
+- Decidir quem desliga `demo_mode` e como (não existe ação para isso ainda).
 - Hospedagem pública com HTTPS e domínio; hoje tudo roda só em `127.0.0.1`.

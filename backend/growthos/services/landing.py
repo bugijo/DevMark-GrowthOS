@@ -34,6 +34,7 @@ _CLOSED_STATUSES = {
     BusinessLeadStatus.CANCELADO,
     BusinessLeadStatus.NAO_COMPARECEU,
 }
+_AWAITING_RESPONSE = {BusinessLeadStatus.NOVO.value, BusinessLeadStatus.AGUARDANDO_DADOS.value}
 _ALLOWED_TRANSITIONS: dict[BusinessLeadStatus, set[BusinessLeadStatus]] = {
     BusinessLeadStatus.NOVO: {
         BusinessLeadStatus.AGUARDANDO_DADOS,
@@ -341,5 +342,7 @@ def summarize(session: Session, business_id: UUID) -> BusinessLeadSummary:
         by_source=dict(Counter(lead.source for lead in leads)),
         open_without_next_action=sum(1 for lead in open_leads if not lead.next_action),
         overdue_next_actions=sum(1 for lead in open_leads if _overdue(lead)),
+        awaiting_response=sum(1 for lead in open_leads if lead.status in _AWAITING_RESPONSE),
+        real=sum(1 for lead in leads if not lead.is_demo),
         landing_status=LandingStatus(page.status) if page else None,
     )

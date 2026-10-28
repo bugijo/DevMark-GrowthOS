@@ -93,6 +93,12 @@ class Settings(BaseSettings):
     public_quote_privacy_notice_version: str = "draft-v1"
     public_quote_legal_review_approved: bool = False
     public_quote_security_review_approved: bool = False
+    # Pedidos reais pelas landings (com contato). Desligado até revisão humana.
+    public_lead_collection_enabled: bool = False
+    public_lead_legal_review_approved: bool = False
+    public_lead_security_review_approved: bool = False
+    demo_pilot_client_email: str = "responsavel@villapet.local"
+    demo_pilot_client_password: str = "local-demo-pilot-only-change-before-use"
     public_quote_rate_limit_attempts: int = Field(default=5, ge=1, le=100)
     public_quote_rate_limit_window_seconds: int = Field(default=900, ge=30, le=86400)
 
@@ -157,6 +163,13 @@ class Settings(BaseSettings):
             )
         if len(self.auth_secret_key) < 32:
             problems.append("AUTH_SECRET_KEY deve ter ao menos 32 caracteres")
+        if self.public_lead_collection_enabled and not (
+            self.public_lead_legal_review_approved and self.public_lead_security_review_approved
+        ):
+            problems.append(
+                "PUBLIC_LEAD_COLLECTION_ENABLED exige PUBLIC_LEAD_LEGAL_REVIEW_APPROVED e "
+                "PUBLIC_LEAD_SECURITY_REVIEW_APPROVED após revisão humana"
+            )
         if self.token_secret_key is not None and len(self.token_secret_key) < 32:
             problems.append("TOKEN_SECRET_KEY deve ter ao menos 32 caracteres")
 

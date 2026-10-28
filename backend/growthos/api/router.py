@@ -12,6 +12,7 @@ from growthos.api.routes import (
     integrations,
     invitations,
     landing,
+    lead_privacy,
     media,
     members,
     notifications,
@@ -39,6 +40,7 @@ api_router.include_router(planning.router, tags=["planning"])
 api_router.include_router(reports.router, tags=["reports"])
 api_router.include_router(sales.router, tags=["sales"])
 api_router.include_router(landing.router, tags=["landing"])
+api_router.include_router(lead_privacy.router, tags=["lead-privacy"])
 api_router.include_router(integrations.router, tags=["integrations"])
 api_router.include_router(providers.router, tags=["providers"])
 api_router.include_router(privacy.router, tags=["privacy"])

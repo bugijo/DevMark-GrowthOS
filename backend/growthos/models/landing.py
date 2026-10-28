@@ -61,8 +61,8 @@ class BusinessLead(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "business_leads"
     __table_args__ = (
         CheckConstraint(
-            "source IN ('LANDING_DEMO','INSTAGRAM_POST','INSTAGRAM_STORY','INDICACAO',"
-            "'WHATSAPP_DIRETO','OUTRO')",
+            "source IN ('LANDING_DEMO','LANDING_PAGE','INSTAGRAM_POST','INSTAGRAM_STORY',"
+            "'INDICACAO','WHATSAPP_DIRETO','OUTRO')",
             name="ck_business_lead_source",
         ),
         CheckConstraint(
@@ -93,4 +93,73 @@ class BusinessLead(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     next_action: Mapped[str] = mapped_column(String(200), nullable=False, default="")
     next_action_due_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # Dados de contato só existem em pedidos reais, aceitos com aviso aprovado.
+    contact_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    privacy_notice_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    consent_recorded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    anonymized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class LeadPrivacySettings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Aviso de privacidade e regras de tratamento dos pedidos de um estabelecimento.
+
+    APPROVED significa apenas que o responsável pelo estabelecimento revisou e
+    aprovou o texto; não é uma declaração de conformidade legal.
+    """
+
+    __tablename__ = "lead_privacy_settings"
+    __table_args__ = (
+        CheckConstraint("status IN ('DRAFT','APPROVED')", name="ck_lead_privacy_status"),
+        CheckConstraint(
+            "legal_basis IN ('CONSENTIMENTO','PROCEDIMENTOS_PRELIMINARES','LEGITIMO_INTERESSE')",
+            name="ck_lead_privacy_legal_basis",
+        ),
+        CheckConstraint("retention_days BETWEEN 1 AND 730", name="ck_lead_privacy_retention"),
+        UniqueConstraint("business_id", name="uq_lead_privacy_business"),
+    )
+
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    business_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="DRAFT")
+    controller_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    privacy_contact: Mapped[str] = mapped_column(String(200), nullable=False)
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    legal_basis: Mapped[str] = mapped_column(String(32), nullable=False)
+    data_categories: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    retention_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    notice_text: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    approved_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approval_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class BusinessAvailability(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Janelas semanais de atendimento informadas pelo estabelecimento (vazia por padrão)."""
+
+    __tablename__ = "business_availability"
+    __table_args__ = (UniqueConstraint("business_id", name="uq_business_availability_business"),)
+
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    business_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    slots: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    confirmed_by_business: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_by_user_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

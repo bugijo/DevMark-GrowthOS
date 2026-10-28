@@ -42,4 +42,11 @@ describe("navigationForRoles", () => {
     expect(labels).toContain("Equipe");
     expect(labels).toContain("Registros");
   });
+
+  it("leva o responsável do cliente às solicitações e aos horários, sem editar a landing", () => {
+    const labels = navigationForRoles(["CLIENT_OWNER"]).map((item) => item.label);
+    expect(labels).toContain("Solicitações");
+    expect(labels).toContain("Horários e privacidade");
+    expect(labels).not.toContain("Landing do cliente");
+  });
 });

@@ -68,6 +68,12 @@ class Capability(StrEnum):
     REPORT_VIEW = "report.view"
     SALES_LEAD_VIEW = "sales_lead.view"
     SALES_LEAD_MANAGE = "sales_lead.manage"
+    BUSINESS_LEAD_VIEW = "business_lead.view"
+    BUSINESS_LEAD_MANAGE = "business_lead.manage"
+    BUSINESS_LEAD_PRIVACY = "business_lead.privacy"
+    BUSINESS_AVAILABILITY_MANAGE = "business_availability.manage"
+    LEAD_PRIVACY_CONFIGURE = "lead_privacy.configure"
+    LEAD_PRIVACY_APPROVE = "lead_privacy.approve"
 
     PROVIDER_CONFIG_VIEW = "provider_config.view"
     PROVIDER_CONFIG_MANAGE = "provider_config.manage"
@@ -90,6 +96,7 @@ READ_ONLY_CAPABILITIES: Final[frozenset[Capability]] = frozenset(
         Capability.NOTIFICATION_VIEW_OWN,
         Capability.REPORT_VIEW,
         Capability.SALES_LEAD_VIEW,
+        Capability.BUSINESS_LEAD_VIEW,
         Capability.PROVIDER_CONFIG_VIEW,
         Capability.AUDIT_VIEW_ORGANIZATION,
         Capability.AUDIT_VIEW_SCOPED,
@@ -151,6 +158,11 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.REPORT_VIEW,
             Capability.SALES_LEAD_VIEW,
             Capability.SALES_LEAD_MANAGE,
+            Capability.BUSINESS_LEAD_VIEW,
+            Capability.BUSINESS_LEAD_MANAGE,
+            Capability.BUSINESS_AVAILABILITY_MANAGE,
+            Capability.LEAD_PRIVACY_CONFIGURE,
+            Capability.BUSINESS_LEAD_PRIVACY,
             Capability.PROVIDER_CONFIG_VIEW,
             Capability.PROVIDER_CONFIG_MANAGE,
             Capability.AUDIT_VIEW_ORGANIZATION,
@@ -191,6 +203,10 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.REPORT_VIEW,
             Capability.SALES_LEAD_VIEW,
             Capability.SALES_LEAD_MANAGE,
+            Capability.BUSINESS_LEAD_VIEW,
+            Capability.BUSINESS_LEAD_MANAGE,
+            Capability.BUSINESS_AVAILABILITY_MANAGE,
+            Capability.LEAD_PRIVACY_CONFIGURE,
             Capability.PROVIDER_CONFIG_VIEW,
             Capability.AUDIT_VIEW_SCOPED,
         }
@@ -274,6 +290,11 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.REPORT_VIEW,
             Capability.AUDIT_VIEW_SCOPED,
+            Capability.BUSINESS_LEAD_VIEW,
+            Capability.BUSINESS_LEAD_MANAGE,
+            Capability.BUSINESS_LEAD_PRIVACY,
+            Capability.BUSINESS_AVAILABILITY_MANAGE,
+            Capability.LEAD_PRIVACY_APPROVE,
         }
     ),
     Role.CLIENT_REVIEWER: frozenset(
@@ -295,6 +316,7 @@ _ROLE_CAPABILITIES: dict[Role, frozenset[Capability]] = {
             Capability.NOTIFICATION_PREFERENCE_UPDATE_OWN,
             Capability.REPORT_VIEW,
             Capability.AUDIT_VIEW_SCOPED,
+            Capability.BUSINESS_LEAD_VIEW,
         }
     ),
     Role.VIEWER: frozenset(

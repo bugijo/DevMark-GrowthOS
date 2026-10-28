@@ -53,19 +53,20 @@ export type BusinessLeadStatus =
   | "NOVO" | "AGUARDANDO_DADOS" | "HORARIO_OFERTADO" | "CONFIRMADO" | "REALIZADO" | "CANCELADO" | "NAO_COMPARECEU";
 
 export type BusinessLeadSource =
-  | "LANDING_DEMO" | "INSTAGRAM_POST" | "INSTAGRAM_STORY" | "INDICACAO" | "WHATSAPP_DIRETO" | "OUTRO";
+  | "LANDING_DEMO" | "LANDING_PAGE" | "INSTAGRAM_POST" | "INSTAGRAM_STORY" | "INDICACAO" | "WHATSAPP_DIRETO" | "OUTRO";
 
 export interface BusinessLead {
   id: string; business_id: string; source: BusinessLeadSource; status: BusinessLeadStatus; is_demo: boolean;
   service_requested: string; price_item_label: string; reference_price_cents: number | null;
   preferred_period: string; notes: string; next_action: string; next_action_due_at: string | null;
-  created_at: string; updated_at: string;
+  contact_name?: string | null; contact_phone?: string | null; privacy_notice_version?: number | null;
+  anonymized_at?: string | null; created_at: string; updated_at: string;
 }
 
 export interface BusinessLeadSummary {
   business_id: string; total: number; demo: number; by_status: Record<string, number>;
   by_source: Record<string, number>; open_without_next_action: number; overdue_next_actions: number;
-  landing_status: "DRAFT" | "APPROVED" | null;
+  awaiting_response?: number; real?: number; landing_status: "DRAFT" | "APPROVED" | null;
 }
 
 export interface SalesProposalDraft { lead_id: string; status: string; body: string; ai_used: boolean; }
@@ -921,4 +922,32 @@ export interface ApiProblem {
   detail?: string | Array<{ msg?: string; loc?: Array<string | number> }>;
   message?: string;
   error?: string;
+}
+
+export type LeadLegalBasis = "CONSENTIMENTO" | "PROCEDIMENTOS_PRELIMINARES" | "LEGITIMO_INTERESSE";
+
+export interface LeadPrivacyContent {
+  controller_name: string; privacy_contact: string; purpose: string; legal_basis: LeadLegalBasis;
+  data_categories: string[]; retention_days: number; notice_text: string;
+}
+
+export interface LeadPrivacy extends LeadPrivacyContent {
+  id: string; business_id: string; status: "DRAFT" | "APPROVED"; version: number;
+  approved_at: string | null; approval_note: string; updated_at: string;
+}
+
+export interface AvailabilitySlot { weekday: number; start: string; end: string; label?: string; }
+
+export interface BusinessAvailability {
+  business_id: string; slots: AvailabilitySlot[]; notes: string; confirmed_by_business: boolean;
+  version: number; updated_at: string | null;
+}
+
+export interface LeadExport {
+  exported_at: string; business_name: string; controller_name: string | null; lead: BusinessLead;
+  history: { action: string; at: string }[];
+}
+
+export interface LeadRetentionResult {
+  business_id: string; retention_days: number; cutoff: string; eligible: number; anonymized: number; dry_run: boolean;
 }

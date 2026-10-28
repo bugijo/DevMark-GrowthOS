@@ -16,6 +16,7 @@ class LandingStatus(StrEnum):
 
 class LeadSource(StrEnum):
     LANDING_DEMO = "LANDING_DEMO"
+    LANDING_PAGE = "LANDING_PAGE"
     INSTAGRAM_POST = "INSTAGRAM_POST"
     INSTAGRAM_STORY = "INSTAGRAM_STORY"
     INDICACAO = "INDICACAO"
@@ -171,6 +172,10 @@ class BusinessLeadRead(BaseModel):
     notes: str
     next_action: str
     next_action_due_at: datetime | None
+    contact_name: str | None = None
+    contact_phone: str | None = None
+    privacy_notice_version: int | None = None
+    anonymized_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -185,4 +190,6 @@ class BusinessLeadSummary(BaseModel):
     by_source: dict[str, int]
     open_without_next_action: int
     overdue_next_actions: int
+    awaiting_response: int = 0
+    real: int = 0
     landing_status: LandingStatus | None

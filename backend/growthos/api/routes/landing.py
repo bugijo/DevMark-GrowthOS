@@ -39,6 +39,27 @@ class LandingApproval(BaseModel):
     version: int = Field(ge=1)
 
 
+def enforce_public_rate_limit(slug: str, request: Request, settings: Settings) -> None:
+    client_ip = str(getattr(request.state, "client_ip", "unknown"))
+    limiter_key = (
+        "landing:"
+        + hmac.new(
+            settings.auth_secret_key.encode(), f"{slug}:{client_ip}".encode(), sha256
+        ).hexdigest()
+    )
+    retry_after = public_quote_rate_limiter.allow(
+        limiter_key,
+        limit=settings.public_quote_rate_limit_attempts,
+        window_seconds=settings.public_quote_rate_limit_window_seconds,
+    )
+    if retry_after is not None:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Tente novamente mais tarde",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
 @router.get("/public/landing/{slug}", response_model=PublicLandingRead)
 def read_public_landing(slug: str, session: Session = Depends(get_session)) -> PublicLandingRead:
     found = landing.get_public_landing(session, slug)
@@ -62,24 +83,7 @@ def receive_demo_lead(
     found = landing.get_public_landing(session, slug)
     if found is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Página não encontrada")
-    client_ip = str(getattr(request.state, "client_ip", "unknown"))
-    limiter_key = (
-        "landing:"
-        + hmac.new(
-            settings.auth_secret_key.encode(), f"{slug}:{client_ip}".encode(), sha256
-        ).hexdigest()
-    )
-    retry_after = public_quote_rate_limiter.allow(
-        limiter_key,
-        limit=settings.public_quote_rate_limit_attempts,
-        window_seconds=settings.public_quote_rate_limit_window_seconds,
-    )
-    if retry_after is not None:
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            "Tente novamente mais tarde",
-            headers={"Retry-After": str(retry_after)},
-        )
+    enforce_public_rate_limit(slug, request, settings)
     try:
         lead = landing.create_demo_lead(session, found[0], payload)
     except PermissionError as exc:
@@ -98,7 +102,7 @@ def read_landing(
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> LandingPage:
-    require_capability(context, Capability.SALES_LEAD_VIEW)
+    require_capability(context, Capability.BUSINESS_LEAD_VIEW)
     business = get_scoped_business(session, context, business_id)
     page = landing.get_landing(session, business.id)
     if page is None:
@@ -159,7 +163,7 @@ def list_business_leads(
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> list[BusinessLead]:
-    require_capability(context, Capability.SALES_LEAD_VIEW)
+    require_capability(context, Capability.BUSINESS_LEAD_VIEW)
     business = get_scoped_business(session, context, business_id)
     return landing.list_leads(session, business.id)
 
@@ -170,7 +174,7 @@ def summarize_business_leads(
     context: AuthContext = Depends(get_current_context),
     session: Session = Depends(get_session),
 ) -> BusinessLeadSummary:
-    require_capability(context, Capability.SALES_LEAD_VIEW)
+    require_capability(context, Capability.BUSINESS_LEAD_VIEW)
     business = get_scoped_business(session, context, business_id)
     return landing.summarize(session, business.id)
 
@@ -186,7 +190,7 @@ def create_business_lead(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
 ) -> BusinessLead:
-    require_capability(context, Capability.SALES_LEAD_MANAGE)
+    require_capability(context, Capability.BUSINESS_LEAD_MANAGE)
     business = get_scoped_business(session, context, business_id)
     try:
         return landing.create_manual_lead(session, context, business, payload)
@@ -201,7 +205,7 @@ def update_business_lead(
     context: AuthContext = Depends(require_csrf),
     session: Session = Depends(get_session),
 ) -> BusinessLead:
-    require_capability(context, Capability.SALES_LEAD_MANAGE)
+    require_capability(context, Capability.BUSINESS_LEAD_MANAGE)
     lead = landing.get_lead(session, context.organization.id, lead_id)
     if lead is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Interessado não encontrado")

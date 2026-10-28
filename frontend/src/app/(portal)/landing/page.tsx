@@ -2,7 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-import { formatPrice, LandingView } from "@/components/landing/landing-view";
+import Link from "next/link";
+
+import { LandingView } from "@/components/landing/landing-view";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState, LoadingState } from "@/components/ui/feedback";
 import { Field, Input, Select, Textarea } from "@/components/ui/form-controls";
@@ -10,29 +12,10 @@ import { Card, PageHeader } from "@/components/ui/page";
 import { ApiError, api, extractItems } from "@/lib/api";
 import type {
   Business,
-  BusinessLead,
-  BusinessLeadSource,
-  BusinessLeadStatus,
   BusinessLeadSummary,
   LandingPage,
   LandingPageContent,
 } from "@/types/api";
-
-const STATUS_LABEL: Record<BusinessLeadStatus, string> = {
-  NOVO: "Novo", AGUARDANDO_DADOS: "Aguardando dados", HORARIO_OFERTADO: "Horário ofertado",
-  CONFIRMADO: "Confirmado", REALIZADO: "Realizado", CANCELADO: "Cancelado", NAO_COMPARECEU: "Não compareceu",
-};
-const NEXT_STATUS: Record<BusinessLeadStatus, BusinessLeadStatus[]> = {
-  NOVO: ["AGUARDANDO_DADOS", "HORARIO_OFERTADO", "CANCELADO"],
-  AGUARDANDO_DADOS: ["HORARIO_OFERTADO", "CANCELADO"],
-  HORARIO_OFERTADO: ["CONFIRMADO", "AGUARDANDO_DADOS", "CANCELADO"],
-  CONFIRMADO: ["REALIZADO", "NAO_COMPARECEU", "CANCELADO"],
-  REALIZADO: [], CANCELADO: [], NAO_COMPARECEU: [],
-};
-const SOURCE_LABEL: Record<BusinessLeadSource, string> = {
-  LANDING_DEMO: "Landing (demo)", INSTAGRAM_POST: "Post Instagram", INSTAGRAM_STORY: "Story Instagram",
-  INDICACAO: "Indicação", WHATSAPP_DIRETO: "WhatsApp direto", OUTRO: "Outro",
-};
 
 interface EditorState {
   slug: string; headline: string; subheadline: string; cta_label: string; address: string;
@@ -76,7 +59,6 @@ export default function LandingWorkspacePage() {
   const [businessId, setBusinessId] = useState("");
   const [page, setPage] = useState<LandingPage | null>(null);
   const [editor, setEditor] = useState<EditorState>(emptyEditor);
-  const [leads, setLeads] = useState<BusinessLead[]>([]);
   const [summary, setSummary] = useState<BusinessLeadSummary | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -98,8 +80,7 @@ export default function LandingWorkspacePage() {
     if (!id) return;
     setBusy(true); setError("");
     try {
-      const [nextLeads, nextSummary] = await Promise.all([api.landing.leads(id), api.landing.summary(id)]);
-      setLeads(nextLeads); setSummary(nextSummary);
+      setSummary(await api.landing.summary(id));
       try {
         const nextPage = await api.landing.get(id);
         setPage(nextPage); setEditor(toEditor(nextPage));
@@ -149,26 +130,6 @@ export default function LandingWorkspacePage() {
     } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível revogar."); }
   }
 
-  async function updateLead(lead: BusinessLead, input: Parameters<typeof api.landing.updateLead>[1]) {
-    setError("");
-    try { await api.landing.updateLead(lead.id, input); await load(businessId); }
-    catch (e) { setError(e instanceof Error ? e.message : "Não foi possível atualizar."); }
-  }
-
-  async function createLead(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const values = Object.fromEntries(new FormData(form)) as Record<string, string>;
-    setError("");
-    try {
-      await api.landing.createLead(businessId, {
-        source: values.source as BusinessLeadSource, service_requested: values.service_requested,
-        price_item_label: values.price_item_label ?? "", preferred_period: values.preferred_period, notes: values.notes,
-      });
-      form.reset(); setMessage("Interessado demonstrativo registrado."); await load(businessId);
-    } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível registrar."); }
-  }
-
   const setField = (key: keyof EditorState) => (value: string) => setEditor((current) => ({ ...current, [key]: value }));
 
   return (
@@ -176,7 +137,7 @@ export default function LandingWorkspacePage() {
       <PageHeader
         eyebrow="Clientes · captação"
         title="Landing e interessados"
-        description="Página do cliente com aprovação humana, captação demonstrativa sem dados pessoais e acompanhamento dos pedidos."
+        description="Página do cliente com aprovação humana e captação demonstrativa sem dados pessoais."
       />
       {error ? <Alert>{error}</Alert> : null}
       {message ? <Alert tone="success">{message}</Alert> : null}
@@ -239,56 +200,21 @@ export default function LandingWorkspacePage() {
             </form>
           </Card>
 
-          <div className="grid content-start gap-6">
-            <Card>
-              <h2 className="text-lg font-bold">Acompanhamento</h2>
-              {summary ? (
-                <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
-                  <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-600">Interessados</dt><dd className="text-2xl font-bold">{summary.total}</dd></div>
-                  <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-600">Sem próxima ação</dt><dd className="text-2xl font-bold">{summary.open_without_next_action}</dd></div>
-                  <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-600">Ações atrasadas</dt><dd className="text-2xl font-bold">{summary.overdue_next_actions}</dd></div>
-                </dl>
-              ) : null}
-              <p className="mt-3 text-xs text-slate-600">Todos os registros são demonstrativos enquanto o gate de privacidade não for aprovado. Nenhuma mensagem é enviada a partir desta tela.</p>
-              <div className="mt-4 grid gap-3">
-                {leads.length === 0 ? <EmptyState title="Sem interessados" description="Use a página aprovada ou o registro manual abaixo." /> : leads.map((lead) => (
-                  <div key={lead.id} className="rounded-xl border border-slate-200 p-3 text-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold">{lead.service_requested}{lead.price_item_label ? ` · ${lead.price_item_label}` : ""}{lead.reference_price_cents !== null ? ` · ref. ${formatPrice({ label: "", price_cents: lead.reference_price_cents })}` : ""}</p>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs">{STATUS_LABEL[lead.status]}{lead.is_demo ? " · demo" : ""}</span>
-                    </div>
-                    <p className="text-xs text-slate-600">{SOURCE_LABEL[lead.source]} · {lead.preferred_period || "sem período"} · {new Date(lead.created_at).toLocaleString("pt-BR")}</p>
-                    {lead.notes ? <p className="mt-1 text-xs text-slate-600">{lead.notes}</p> : null}
-                    <p className="mt-1 text-xs"><span className="font-semibold">Próxima ação:</span> {lead.next_action || "—"}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {NEXT_STATUS[lead.status].map((next) => (
-                        <Button key={next} variant="secondary" onClick={() => void updateLead(lead, { status: next })}>{STATUS_LABEL[next]}</Button>
-                      ))}
-                      <Button variant="secondary" onClick={() => {
-                        const action = window.prompt("Próxima ação (sem dados pessoais)", lead.next_action);
-                        if (action !== null) void updateLead(lead, { next_action: action });
-                      }}>Definir próxima ação</Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card>
-              <h2 className="text-lg font-bold">Registrar interessado (manual)</h2>
-              <p className="mt-1 text-xs text-slate-600">Use somente dados fictícios. Não registre nome, telefone ou e-mail.</p>
-              <form className="mt-3 grid gap-3" onSubmit={createLead}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Origem"><Select name="source" defaultValue="INSTAGRAM_POST">{(Object.keys(SOURCE_LABEL) as BusinessLeadSource[]).filter((s) => s !== "LANDING_DEMO").map((s) => <option key={s} value={s}>{SOURCE_LABEL[s]}</option>)}</Select></Field>
-                  <Field label="Serviço"><Select name="service_requested">{toContent(editor).service_options.map((s) => <option key={s}>{s}</option>)}</Select></Field>
-                  <Field label="Porte"><Select name="price_item_label"><option value="">—</option>{toContent(editor).price_items.map((p) => <option key={p.label}>{p.label}</option>)}</Select></Field>
-                  <Field label="Período"><Input name="preferred_period" maxLength={120} placeholder="Manhã" /></Field>
-                </div>
-                <Field label="Observações"><Textarea name="notes" maxLength={1000} /></Field>
-                <Button type="submit" disabled={!toContent(editor).service_options.length}>Registrar</Button>
-              </form>
-            </Card>
-          </div>
+          <Card>
+            <h2 className="text-lg font-bold">Acompanhamento</h2>
+            {summary ? (
+              <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-600">Interessados</dt><dd className="text-2xl font-bold">{summary.total}</dd></div>
+                <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-600">Precisam de resposta</dt><dd className="text-2xl font-bold">{summary.awaiting_response ?? 0}</dd></div>
+                <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-600">Ações atrasadas</dt><dd className="text-2xl font-bold">{summary.overdue_next_actions}</dd></div>
+              </dl>
+            ) : null}
+            <p className="mt-3 text-sm">
+              Os pedidos, o status de cada um e as próximas ações ficam em{" "}
+              <Link className="font-semibold text-emerald-700 underline" href="/solicitacoes">Solicitações</Link>; horários e aviso de privacidade em{" "}
+              <Link className="font-semibold text-emerald-700 underline" href="/atendimento">Horários e privacidade</Link>.
+            </p>
+          </Card>
         </div>
       ) : null}
 
