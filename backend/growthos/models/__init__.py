@@ -18,6 +18,7 @@ from growthos.models.catalog import (
 )
 from growthos.models.content import Approval, ContentItem, ContentVersion
 from growthos.models.identity import Membership, Organization, User
+from growthos.models.landing import BusinessLead, LandingPage
 from growthos.models.notification_preferences import (
     NotificationCategoryPreference,
     NotificationDelivery,
@@ -45,6 +46,7 @@ __all__ = [
     "Base",
     "BrandProfile",
     "Business",
+    "BusinessLead",
     "BusinessOnboarding",
     "CalendarEntry",
     "ConsentRecord",
@@ -55,6 +57,7 @@ __all__ = [
     "ContentVersionMedia",
     "DataPurpose",
     "Job",
+    "LandingPage",
     "MarketingObjective",
     "MediaAsset",
     "Membership",

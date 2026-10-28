@@ -47,6 +47,11 @@ import type {
   SalesLeadTask,
   SalesBriefing,
   SalesProposalDraft,
+  LandingPage,
+  LandingPageContent,
+  BusinessLead,
+  BusinessLeadSource,
+  BusinessLeadSummary,
   StrategyInput,
   StrategyVersionComparison,
   StrategyVersionHistory,
@@ -213,6 +218,21 @@ function query(params: Record<string, string | undefined>): string {
 }
 
 export const api = {
+  landing: {
+    get: (businessId: string) => apiRequest<LandingPage>(`/businesses/${businessId}/landing-page`),
+    save: (businessId: string, input: LandingPageContent) =>
+      apiRequest<LandingPage>(`/businesses/${businessId}/landing-page`, { method: "PUT", body: JSON.stringify(input) }),
+    approve: (businessId: string, version: number) =>
+      apiRequest<LandingPage>(`/businesses/${businessId}/landing-page/approve`, { method: "POST", body: JSON.stringify({ version }) }),
+    revoke: (businessId: string) =>
+      apiRequest<LandingPage>(`/businesses/${businessId}/landing-page/revoke`, { method: "POST" }),
+    leads: (businessId: string) => apiRequest<BusinessLead[]>(`/businesses/${businessId}/leads`),
+    summary: (businessId: string) => apiRequest<BusinessLeadSummary>(`/businesses/${businessId}/leads/summary`),
+    createLead: (businessId: string, input: { source: BusinessLeadSource; service_requested: string; price_item_label: string; preferred_period: string; notes: string }) =>
+      apiRequest<BusinessLead>(`/businesses/${businessId}/leads`, { method: "POST", body: JSON.stringify(input) }),
+    updateLead: (leadId: string, input: Partial<Pick<BusinessLead, "status" | "notes" | "next_action" | "next_action_due_at">>) =>
+      apiRequest<BusinessLead>(`/business-leads/${leadId}`, { method: "PATCH", body: JSON.stringify(input) }),
+  },
   sales: {
     list: () => apiRequest<SalesLead[]>("/sales/leads"),
     create: (input: Pick<SalesLead, "name" | "company" | "email" | "whatsapp" | "business_type" | "goal" | "desired_timeline" | "additional_info">) => apiRequest<SalesLead>("/sales/leads", { method: "POST", body: JSON.stringify(input) }),

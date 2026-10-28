@@ -16,6 +16,12 @@ export const NAVIGATION: NavigationItem[] = [
     roles: ["SUPER_ADMIN", "AGENCY_ADMIN", "STRATEGIST"],
   },
   {
+    href: "/landing",
+    label: "Landing e interessados",
+    shortLabel: "Landing",
+    roles: ["SUPER_ADMIN", "AGENCY_ADMIN", "STRATEGIST"],
+  },
+  {
     href: "/comercial",
     label: "Pipeline comercial",
     shortLabel: "Comercial",

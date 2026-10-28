@@ -34,6 +34,40 @@ export interface SalesBriefing {
   missing_before_proposal: string[]; ai_used: boolean;
 }
 
+export interface LandingPriceItem { label: string; price_cents: number | null; note?: string; }
+
+export interface LandingPageContent {
+  slug: string; headline: string; subheadline: string; cta_label: string; address: string;
+  contact_channel: string; highlights: string[]; service_options: string[];
+  price_items: LandingPriceItem[]; price_disclaimer: string;
+}
+
+export interface LandingPage extends LandingPageContent {
+  id: string; business_id: string; status: "DRAFT" | "APPROVED"; demo_mode: boolean;
+  version: number; approved_at: string | null; updated_at: string;
+}
+
+export interface PublicLanding extends LandingPageContent { business_name: string; demo_mode: boolean; }
+
+export type BusinessLeadStatus =
+  | "NOVO" | "AGUARDANDO_DADOS" | "HORARIO_OFERTADO" | "CONFIRMADO" | "REALIZADO" | "CANCELADO" | "NAO_COMPARECEU";
+
+export type BusinessLeadSource =
+  | "LANDING_DEMO" | "INSTAGRAM_POST" | "INSTAGRAM_STORY" | "INDICACAO" | "WHATSAPP_DIRETO" | "OUTRO";
+
+export interface BusinessLead {
+  id: string; business_id: string; source: BusinessLeadSource; status: BusinessLeadStatus; is_demo: boolean;
+  service_requested: string; price_item_label: string; reference_price_cents: number | null;
+  preferred_period: string; notes: string; next_action: string; next_action_due_at: string | null;
+  created_at: string; updated_at: string;
+}
+
+export interface BusinessLeadSummary {
+  business_id: string; total: number; demo: number; by_status: Record<string, number>;
+  by_source: Record<string, number>; open_without_next_action: number; overdue_next_actions: number;
+  landing_status: "DRAFT" | "APPROVED" | null;
+}
+
 export interface SalesProposalDraft { lead_id: string; status: string; body: string; ai_used: boolean; }
 
 export interface User {
