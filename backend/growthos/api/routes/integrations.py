@@ -9,15 +9,25 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from growthos.database import get_session
-from growthos.models import Business
+from growthos.domain.enums import ContentStatus
+from growthos.models import Business, ContentItem
 from growthos.schemas_landing import BusinessLeadStatus, BusinessLeadSummary, LeadSource
 from growthos.services import integrations, landing
 
 router = APIRouter(prefix="/integrations/v1")
+
+
+class IntegrationPendingContents(BaseModel):
+    """Somente contagens: o texto dos conteúdos não sai pela integração."""
+
+    business_id: UUID
+    by_status: dict[str, int]
+    awaiting_client_decision: int
+    oldest_waiting_since: datetime | None
 
 
 class IntegrationBusiness(BaseModel):
@@ -44,9 +54,8 @@ class IntegrationLead(BaseModel):
     updated_at: datetime
 
 
-def require_leads_read(
-    authorization: str | None = Header(default=None),
-    session: Session = Depends(get_session),
+def _authenticate(
+    authorization: str | None, session: Session, scope: str
 ) -> integrations.IntegrationContext:
     unauthorized = HTTPException(
         status.HTTP_401_UNAUTHORIZED,
@@ -58,9 +67,23 @@ def require_leads_read(
     context = integrations.authenticate(session, authorization[7:].strip())
     if context is None:
         raise unauthorized
-    if integrations.LEADS_READ not in context.scopes:
+    if scope not in context.scopes:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Escopo insuficiente")
     return context
+
+
+def require_leads_read(
+    authorization: str | None = Header(default=None),
+    session: Session = Depends(get_session),
+) -> integrations.IntegrationContext:
+    return _authenticate(authorization, session, integrations.LEADS_READ)
+
+
+def require_contents_read(
+    authorization: str | None = Header(default=None),
+    session: Session = Depends(get_session),
+) -> integrations.IntegrationContext:
+    return _authenticate(authorization, session, integrations.CONTENTS_READ)
 
 
 def _scoped_business(
@@ -120,3 +143,40 @@ def read_leads(
     ]
     integrations.record_read(session, context, resource="leads", business_id=business.id)
     return leads
+
+
+_PENDING_CONTENT = (
+    ContentStatus.INTERNAL_REVIEW,
+    ContentStatus.CLIENT_REVIEW,
+    ContentStatus.CHANGES_REQUESTED,
+)
+
+
+@router.get("/businesses/{business_id}/contents/pending", response_model=IntegrationPendingContents)
+def read_pending_contents(
+    business_id: UUID,
+    context: integrations.IntegrationContext = Depends(require_contents_read),
+    session: Session = Depends(get_session),
+) -> IntegrationPendingContents:
+    business = _scoped_business(session, context, business_id)
+    predicate = (
+        ContentItem.organization_id == context.organization_id,
+        ContentItem.business_id == business.id,
+        ContentItem.status.in_(_PENDING_CONTENT),
+    )
+    rows = session.execute(
+        select(ContentItem.status, func.count()).where(*predicate).group_by(ContentItem.status)
+    ).all()
+    by_status = {str(getattr(row[0], "value", row[0])): int(row[1]) for row in rows}
+    oldest = session.scalar(
+        select(func.min(ContentItem.updated_at)).where(
+            *predicate[:2], ContentItem.status == ContentStatus.CLIENT_REVIEW
+        )
+    )
+    integrations.record_read(session, context, resource="contents.pending", business_id=business.id)
+    return IntegrationPendingContents(
+        business_id=business.id,
+        by_status=by_status,
+        awaiting_client_decision=by_status.get(ContentStatus.CLIENT_REVIEW.value, 0),
+        oldest_waiting_since=oldest,
+    )

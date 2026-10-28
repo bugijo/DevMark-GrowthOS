@@ -4,9 +4,9 @@ from sqlalchemy import select
 
 from growthos.config import get_settings
 from growthos.database import get_session_factory
-from growthos.domain.enums import Role
+from growthos.domain.enums import ContentStatus, Role
 from growthos.integration_tokens_cli import main as token_cli
-from growthos.models import AuditLog, IntegrationToken, Organization
+from growthos.models import AuditLog, ContentItem, IntegrationToken, Organization
 from growthos.services import integrations
 from tests.conftest import create_identity, csrf_headers, login
 from tests.test_landing import VILLA_PET_PAGE
@@ -156,3 +156,45 @@ def test_cli_prints_only_the_token_on_stdout(client, capsys) -> None:
     lines = captured.out.strip().splitlines()
     assert len(lines) == 1 and "." in lines[0]
     assert "emitido" in captured.err and lines[0] not in captured.err
+
+
+def test_contents_scope_returns_only_pending_counts(client) -> None:
+    owner = _setup_with_lead(client, "integration-contents")
+    with get_session_factory()() as session:
+        for content_status in (
+            ContentStatus.CLIENT_REVIEW,
+            ContentStatus.CLIENT_REVIEW,
+            ContentStatus.INTERNAL_REVIEW,
+            ContentStatus.PUBLISHED,
+        ):
+            session.add(
+                ContentItem(
+                    organization_id=owner.organization_id,
+                    business_id=owner.business_id,
+                    status=content_status,
+                    created_by_user_id=owner.user_id,
+                )
+            )
+        session.commit()
+    url = f"/api/v1/integrations/v1/businesses/{owner.business_id}/contents/pending"
+
+    leads_only = {"Authorization": f"Bearer {_issue(owner.organization_id)}"}
+    assert client.get(url, headers=leads_only).status_code == 403
+
+    token = _issue(
+        owner.organization_id, scopes=[integrations.LEADS_READ, integrations.CONTENTS_READ]
+    )
+    response = client.get(url, headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["by_status"] == {"CLIENT_REVIEW": 2, "INTERNAL_REVIEW": 1}
+    assert body["awaiting_client_decision"] == 2 and body["oldest_waiting_since"]
+    assert set(body) == {
+        "business_id",
+        "by_status",
+        "awaiting_client_decision",
+        "oldest_waiting_since",
+    }
+    with get_session_factory()() as session:
+        reads = session.scalars(select(AuditLog).where(AuditLog.action == "integration.read")).all()
+    assert any(entry.details.get("resource") == "contents.pending" for entry in reads)

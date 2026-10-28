@@ -21,7 +21,8 @@ from growthos.services.tokens import (
 )
 
 LEADS_READ = "leads:read"
-ALLOWED_SCOPES = frozenset({LEADS_READ})
+CONTENTS_READ = "contents:read"
+ALLOWED_SCOPES = frozenset({LEADS_READ, CONTENTS_READ})
 MAX_TTL = timedelta(days=90)
 
 
