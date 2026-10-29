@@ -35,6 +35,7 @@ from growthos.schemas_lead_privacy import (
     LeadExport,
     LeadPrivacyUpsert,
     LeadRetentionResult,
+    PublicAvailabilityDay,
     PublicPrivacyNotice,
     RealLeadRequest,
 )
@@ -42,6 +43,15 @@ from growthos.services.audit import add_audit_log
 from growthos.services.landing import _price_for
 
 DUPLICATE_WINDOW = timedelta(hours=24)
+WEEKDAY_NAMES = (
+    "Segunda-feira",
+    "Terça-feira",
+    "Quarta-feira",
+    "Quinta-feira",
+    "Sexta-feira",
+    "Sábado",
+    "Domingo",
+)
 
 
 def _actor(context: AuthContext | None) -> UUID | None:
@@ -212,6 +222,44 @@ def upsert_availability(
     return AvailabilityRead.model_validate(row)
 
 
+def public_availability(session: Session, business_id: UUID) -> list[PublicAvailabilityDay]:
+    """Dias e períodos oferecidos no formulário — só o que o estabelecimento confirmou."""
+
+    availability = get_availability(session, business_id)
+    if not availability.confirmed_by_business:
+        return []
+    periods: dict[int, set[str]] = {}
+    for slot in availability.slots:
+        day = periods.setdefault(slot.weekday, set())
+        if slot.start < "12:00":
+            day.add("Manhã")
+        if slot.end > "12:00":
+            day.add("Tarde")
+    return [
+        PublicAvailabilityDay(
+            weekday=weekday,
+            periods=[p for p in ("Manhã", "Tarde") if p in periods[weekday]],
+        )
+        for weekday in sorted(periods)
+    ]
+
+
+def resolve_preference(
+    session: Session, business_id: UUID, weekday: int | None, period: str
+) -> str:
+    """Texto do dia/período pedido; recusa dia ou período fora dos horários confirmados.
+
+    É só uma preferência do tutor: a equipe ainda confirma o horário manualmente.
+    """
+
+    if weekday is None:
+        return period
+    offered = {day.weekday: day.periods for day in public_availability(session, business_id)}
+    if weekday not in offered or (period != "Sem preferência" and period not in offered[weekday]):
+        raise ValueError("Dia ou período fora dos horários informados pelo estabelecimento")
+    return f"{WEEKDAY_NAMES[weekday]} · {period}"
+
+
 # --- Pedido real ------------------------------------------------------------
 
 
@@ -227,6 +275,9 @@ def create_real_lead(
         raise ValueError("O aviso de privacidade mudou; recarregue a página")
     if data.service_requested not in page.service_options:
         raise ValueError("Serviço inválido")
+    period = resolve_preference(
+        session, page.business_id, data.preferred_weekday, data.preferred_period
+    )
     now = datetime.now(UTC)
     duplicate = session.scalar(
         select(BusinessLead).where(
@@ -249,7 +300,8 @@ def create_real_lead(
         service_requested=data.service_requested,
         price_item_label=label,
         reference_price_cents=price,
-        preferred_period=data.preferred_period,
+        preferred_period=period,
+        notes=f"Origem informada: {data.heard_from}",
         next_action="Responder ao tutor e confirmar horário e preço vigente",
         contact_name=data.contact_name,
         contact_phone=data.contact_phone,

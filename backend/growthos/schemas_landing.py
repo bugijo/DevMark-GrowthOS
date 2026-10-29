@@ -7,6 +7,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_WHATSAPP = re.compile(r"^[1-9][0-9]{9,14}$")
+PreferredPeriod = Literal["Manhã", "Tarde", "Sábado", "Sem preferência"]
+HeardFrom = Literal["INSTAGRAM_POST", "INSTAGRAM_STORY", "INDICACAO", "WHATSAPP_DIRETO", "OUTRO"]
 
 
 class LandingStatus(StrEnum):
@@ -49,6 +52,7 @@ class LandingPageUpsert(BaseModel):
     cta_label: str = Field(min_length=2, max_length=80)
     address: str = Field(default="", max_length=300)
     contact_channel: str = Field(default="", max_length=160)
+    whatsapp_number: str = Field(default="", max_length=32)
     highlights: list[str] = Field(default_factory=list, max_length=8)
     service_options: list[str] = Field(min_length=1, max_length=10)
     price_items: list[PriceItem] = Field(default_factory=list, max_length=12)
@@ -60,6 +64,14 @@ class LandingPageUpsert(BaseModel):
         if not _SLUG.fullmatch(value):
             raise ValueError("Use apenas letras minúsculas, números e hífens")
         return value
+
+    @field_validator("whatsapp_number")
+    @classmethod
+    def validate_whatsapp(cls, value: str) -> str:
+        digits = re.sub(r"[\s()+-]", "", value)
+        if digits and not _WHATSAPP.fullmatch(digits):
+            raise ValueError("Informe o WhatsApp com DDI e DDD, só números (ex.: 5516999999999)")
+        return digits
 
     @field_validator("highlights", "service_options")
     @classmethod
@@ -92,6 +104,7 @@ class LandingPageRead(BaseModel):
     cta_label: str
     address: str
     contact_channel: str
+    whatsapp_number: str
     highlights: list[str]
     service_options: list[str]
     price_items: list[PriceItem]
@@ -113,6 +126,7 @@ class PublicLandingRead(BaseModel):
     cta_label: str
     address: str
     contact_channel: str
+    whatsapp_number: str
     highlights: list[str]
     service_options: list[str]
     price_items: list[PriceItem]
@@ -130,10 +144,10 @@ class DemoLeadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     service_requested: str = Field(min_length=1, max_length=120)
     price_item_label: str = Field(default="", max_length=120)
-    preferred_period: Literal["Manhã", "Tarde", "Sábado", "Sem preferência"]
-    heard_from: Literal[
-        "INSTAGRAM_POST", "INSTAGRAM_STORY", "INDICACAO", "WHATSAPP_DIRETO", "OUTRO"
-    ] = "OUTRO"
+    preferred_period: PreferredPeriod
+    # 0 = segunda-feira; só aceito se o estabelecimento confirmou horários nesse dia.
+    preferred_weekday: int | None = Field(default=None, ge=0, le=6)
+    heard_from: HeardFrom = "OUTRO"
 
 
 class DemoLeadReceipt(BaseModel):
@@ -192,4 +206,19 @@ class BusinessLeadSummary(BaseModel):
     overdue_next_actions: int
     awaiting_response: int = 0
     real: int = 0
+    whatsapp_clicks_7d: int = 0
     landing_status: LandingStatus | None
+
+
+class LandingEvent(BaseModel):
+    """Evento anônimo da landing; só alimenta contagens diárias agregadas."""
+
+    model_config = ConfigDict(extra="forbid")
+    event: Literal["whatsapp_click"]
+
+
+class BusinessLeadHistoryEntry(BaseModel):
+    action: str
+    at: datetime
+    actor: str
+    changes: dict[str, object]

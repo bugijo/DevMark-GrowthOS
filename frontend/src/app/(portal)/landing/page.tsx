@@ -19,19 +19,20 @@ import type {
 
 interface EditorState {
   slug: string; headline: string; subheadline: string; cta_label: string; address: string;
-  contact_channel: string; highlights: string; service_options: string; prices: { label: string; price: string }[];
+  contact_channel: string; whatsapp_number: string; highlights: string; service_options: string; prices: { label: string; price: string }[];
   price_disclaimer: string;
 }
 
 const emptyEditor: EditorState = {
-  slug: "", headline: "", subheadline: "", cta_label: "Agendar", address: "", contact_channel: "",
+  slug: "", headline: "", subheadline: "", cta_label: "Agendar", address: "", contact_channel: "", whatsapp_number: "",
   highlights: "", service_options: "", prices: [{ label: "", price: "" }], price_disclaimer: "",
 };
 
 function toEditor(page: LandingPage): EditorState {
   return {
     slug: page.slug, headline: page.headline, subheadline: page.subheadline, cta_label: page.cta_label,
-    address: page.address, contact_channel: page.contact_channel, highlights: page.highlights.join("\n"),
+    address: page.address, contact_channel: page.contact_channel, whatsapp_number: page.whatsapp_number ?? "",
+    highlights: page.highlights.join("\n"),
     service_options: page.service_options.join("\n"),
     prices: page.price_items.length
       ? page.price_items.map((item) => ({ label: item.label, price: item.price_cents === null ? "" : (item.price_cents / 100).toFixed(2) }))
@@ -44,7 +45,8 @@ function toContent(editor: EditorState): LandingPageContent {
   const lines = (text: string) => text.split("\n").map((line) => line.trim()).filter(Boolean);
   return {
     slug: editor.slug.trim(), headline: editor.headline, subheadline: editor.subheadline, cta_label: editor.cta_label,
-    address: editor.address, contact_channel: editor.contact_channel, highlights: lines(editor.highlights),
+    address: editor.address, contact_channel: editor.contact_channel, whatsapp_number: editor.whatsapp_number.trim(),
+    highlights: lines(editor.highlights),
     service_options: lines(editor.service_options),
     price_items: editor.prices.filter((row) => row.label.trim()).map((row) => ({
       label: row.label.trim(),
@@ -173,6 +175,10 @@ export default function LandingWorkspacePage() {
                 <Field label="Endereço do estabelecimento"><Input value={editor.address} onChange={(e) => setField("address")(e.target.value)} /></Field>
                 <Field label="Canal de atendimento"><Input value={editor.contact_channel} onChange={(e) => setField("contact_channel")(e.target.value)} /></Field>
               </div>
+              <Field label="WhatsApp para agendamento (DDI + DDD + número)">
+                <Input value={editor.whatsapp_number} inputMode="tel" placeholder="55 16 9XXXX-XXXX" onChange={(e) => setField("whatsapp_number")(e.target.value)} />
+              </Field>
+              <p className="-mt-2 text-xs text-slate-600">Use só o número oficial confirmado pelo responsável. Vazio esconde o botão. O tutor abre a conversa e envia por conta própria; nada é enviado automaticamente.</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Destaques (um por linha)"><Textarea value={editor.highlights} onChange={(e) => setField("highlights")(e.target.value)} /></Field>
                 <Field label="Serviços do formulário (um por linha)" required><Textarea value={editor.service_options} onChange={(e) => setField("service_options")(e.target.value)} required /></Field>

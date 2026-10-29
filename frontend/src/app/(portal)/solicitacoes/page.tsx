@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { api } from "@/lib/api";
 import type {
   BusinessLead,
+  BusinessLeadHistoryEntry,
   BusinessLeadSource,
   BusinessLeadStatus,
   BusinessLeadSummary,
@@ -28,8 +29,8 @@ const STATUS_LABEL: Record<BusinessLeadStatus, string> = {
   CONFIRMADO: "Confirmado", REALIZADO: "Realizado", CANCELADO: "Cancelado", NAO_COMPARECEU: "Não compareceu",
 };
 const NEXT_STATUS: Record<BusinessLeadStatus, BusinessLeadStatus[]> = {
-  NOVO: ["AGUARDANDO_DADOS", "HORARIO_OFERTADO", "CANCELADO"],
-  AGUARDANDO_DADOS: ["HORARIO_OFERTADO", "CANCELADO"],
+  NOVO: ["AGUARDANDO_DADOS", "HORARIO_OFERTADO", "CONFIRMADO", "CANCELADO"],
+  AGUARDANDO_DADOS: ["HORARIO_OFERTADO", "CONFIRMADO", "CANCELADO"],
   HORARIO_OFERTADO: ["CONFIRMADO", "AGUARDANDO_DADOS", "CANCELADO"],
   CONFIRMADO: ["REALIZADO", "NAO_COMPARECEU", "CANCELADO"],
   REALIZADO: [], CANCELADO: [], NAO_COMPARECEU: [],
@@ -38,6 +39,22 @@ const SOURCE_LABEL: Record<BusinessLeadSource, string> = {
   LANDING_DEMO: "Landing (demo)", LANDING_PAGE: "Landing", INSTAGRAM_POST: "Post Instagram",
   INSTAGRAM_STORY: "Story Instagram", INDICACAO: "Indicação", WHATSAPP_DIRETO: "WhatsApp direto", OUTRO: "Outro",
 };
+const ACTION_LABEL: Record<string, string> = {
+  "business_lead.created": "Registrado pela equipe", "business_lead.demo_created": "Recebido pela página (demo)",
+  "business_lead.received": "Recebido pela página", "business_lead.updated": "Atualizado",
+  "business_lead.exported": "Dados exportados", "business_lead.anonymized": "Anonimizado",
+};
+
+function describeChanges(changes: Record<string, unknown>): string {
+  const status = typeof changes.status === "string" ? changes.status.split("->") : null;
+  const parts = status?.length === 2
+    ? [`${STATUS_LABEL[status[0] as BusinessLeadStatus] ?? status[0]} → ${STATUS_LABEL[status[1] as BusinessLeadStatus] ?? status[1]}`]
+    : [];
+  if (changes.next_action) parts.push("próxima ação");
+  if (changes.notes) parts.push("observações");
+  return parts.join(", ");
+}
+
 const FILTERS = [
   { value: "abertos", label: "Precisam de resposta" },
   { value: "todos", label: "Todos" },
@@ -63,6 +80,7 @@ export default function RequestsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [history, setHistory] = useState<{ leadId: string; entries: BusinessLeadHistoryEntry[] } | null>(null);
 
   const load = useCallback(async (id: string) => {
     if (!id) return;
@@ -77,7 +95,7 @@ export default function RequestsPage() {
   useEffect(() => { void load(businessId); }, [businessId, load]);
 
   async function run(action: () => Promise<unknown>, success: string) {
-    setError(""); setMessage("");
+    setError(""); setMessage(""); setHistory(null);
     try { await action(); setMessage(success); await load(businessId); }
     catch (e) { setError(e instanceof Error ? e.message : "Não foi possível concluir."); }
   }
@@ -122,11 +140,12 @@ export default function RequestsPage() {
       {!selection.loading && !businessId ? <EmptyState title="Nenhum cliente" description="Não há cliente disponível para este acesso." /> : null}
 
       {businessId && summary ? (
-        <dl className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-3 text-center sm:grid-cols-5">
           <div className="rounded-xl bg-white p-3 shadow-sm"><dt className="text-xs text-slate-600">Precisam de resposta</dt><dd className="text-2xl font-bold">{summary.awaiting_response ?? 0}</dd></div>
           <div className="rounded-xl bg-white p-3 shadow-sm"><dt className="text-xs text-slate-600">Sem próxima ação</dt><dd className="text-2xl font-bold">{summary.open_without_next_action}</dd></div>
           <div className="rounded-xl bg-white p-3 shadow-sm"><dt className="text-xs text-slate-600">Ações atrasadas</dt><dd className="text-2xl font-bold">{summary.overdue_next_actions}</dd></div>
           <div className="rounded-xl bg-white p-3 shadow-sm"><dt className="text-xs text-slate-600">Total ({summary.demo} demo)</dt><dd className="text-2xl font-bold">{summary.total}</dd></div>
+          <div className="rounded-xl bg-white p-3 shadow-sm" title="Contagem agregada de cliques no botão. Não identifica ninguém e não é um agendamento."><dt className="text-xs text-slate-600">Cliques no WhatsApp (7 dias)</dt><dd className="text-2xl font-bold">{summary.whatsapp_clicks_7d ?? 0}</dd></div>
         </dl>
       ) : null}
 
@@ -158,10 +177,27 @@ export default function RequestsPage() {
                   {lead.anonymized_at ? <p className="mt-1 text-xs text-slate-600">Dados de contato anonimizados em {new Date(lead.anonymized_at).toLocaleDateString("pt-BR")}.</p> : null}
                   {lead.notes ? <p className="mt-1 text-xs text-slate-600">{lead.notes}</p> : null}
                   <p className="mt-1 text-xs"><span className="font-semibold">Próxima ação:</span> {lead.next_action || "—"}</p>
+                  <button type="button" className="mt-1 text-xs font-semibold text-emerald-700 underline" onClick={() => {
+                    if (history?.leadId === lead.id) return setHistory(null);
+                    void api.landing.history(lead.id).then((entries) => setHistory({ leadId: lead.id, entries }), (e) => setError(e instanceof Error ? e.message : "Falha ao carregar histórico."));
+                  }}>{history?.leadId === lead.id ? "Ocultar histórico" : "Ver histórico"}</button>
+                  {history?.leadId === lead.id ? (
+                    <ol aria-label="Histórico do pedido" className="mt-1 grid gap-1 border-l-2 border-slate-200 pl-3 text-xs text-slate-700">
+                      {history.entries.map((entry, index) => (
+                        <li key={index}>
+                          {new Date(entry.at).toLocaleString("pt-BR")} · {ACTION_LABEL[entry.action] ?? entry.action}
+                          {describeChanges(entry.changes) ? ` (${describeChanges(entry.changes)})` : ""} · {entry.actor}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
                   {canManage ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {NEXT_STATUS[lead.status].map((next) => (
-                        <Button key={next} variant="secondary" onClick={() => void run(() => api.landing.updateLead(lead.id, { status: next }), `Pedido marcado como ${STATUS_LABEL[next].toLowerCase()}.`)}>{STATUS_LABEL[next]}</Button>
+                        <Button key={next} variant={next === "CONFIRMADO" ? "primary" : "secondary"} onClick={() => {
+                          if (next === "CONFIRMADO" && !window.confirm("Confirmar este agendamento? Faça isso só depois de combinar dia, horário e preço com o tutor. Nenhuma mensagem será enviada.")) return;
+                          void run(() => api.landing.updateLead(lead.id, { status: next }), `Pedido marcado como ${STATUS_LABEL[next].toLowerCase()}.`);
+                        }}>{next === "CONFIRMADO" ? "Confirmar agendamento" : STATUS_LABEL[next]}</Button>
                       ))}
                       <Button variant="secondary" onClick={() => {
                         const action = window.prompt("Próxima ação", lead.next_action);
@@ -189,10 +225,10 @@ export default function RequestsPage() {
           {canManage ? (
             <Card>
               <h2 className="text-lg font-bold">Registrar pedido recebido por outro canal</h2>
-              <p className="mt-1 text-xs text-slate-600">Enquanto a coleta real não for aprovada, use apenas dados fictícios. Não registre nome, telefone ou e-mail.</p>
+              <p className="mt-1 text-xs text-slate-600">Use para conversas do WhatsApp, Instagram ou indicação depois que o tutor falar com a equipe. Cliques no botão do WhatsApp não viram pedido sozinhos. Enquanto a coleta real não for aprovada, use apenas dados fictícios: não registre nome, telefone ou e-mail.</p>
               <form className="mt-3 grid gap-3" onSubmit={createLead}>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Origem"><Select name="source" defaultValue="INSTAGRAM_POST">{(Object.keys(SOURCE_LABEL) as BusinessLeadSource[]).filter((s) => !s.startsWith("LANDING")).map((s) => <option key={s} value={s}>{SOURCE_LABEL[s]}</option>)}</Select></Field>
+                  <Field label="Origem"><Select name="source" defaultValue="WHATSAPP_DIRETO">{(Object.keys(SOURCE_LABEL) as BusinessLeadSource[]).filter((s) => !s.startsWith("LANDING")).map((s) => <option key={s} value={s}>{SOURCE_LABEL[s]}</option>)}</Select></Field>
                   <Field label="Serviço"><Select name="service_requested">{(page?.service_options ?? []).map((s) => <option key={s}>{s}</option>)}</Select></Field>
                   <Field label="Porte"><Select name="price_item_label"><option value="">—</option>{(page?.price_items ?? []).map((p) => <option key={p.label}>{p.label}</option>)}</Select></Field>
                   <Field label="Período"><Input name="preferred_period" maxLength={120} placeholder="Manhã" /></Field>

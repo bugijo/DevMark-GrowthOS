@@ -8,16 +8,18 @@ Regras de segurança do piloto:
 """
 
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from growthos.dependencies import AuthContext
-from growthos.models import Business, BusinessLead, LandingPage
+from growthos.models import AuditLog, Business, BusinessLead, LandingDailyMetric, LandingPage, User
 from growthos.schemas_landing import (
     BusinessLeadCreate,
+    BusinessLeadHistoryEntry,
     BusinessLeadStatus,
     BusinessLeadSummary,
     BusinessLeadUpdate,
@@ -36,13 +38,16 @@ _CLOSED_STATUSES = {
 }
 _AWAITING_RESPONSE = {BusinessLeadStatus.NOVO.value, BusinessLeadStatus.AGUARDANDO_DADOS.value}
 _ALLOWED_TRANSITIONS: dict[BusinessLeadStatus, set[BusinessLeadStatus]] = {
+    # A equipe pode confirmar direto depois de combinar com o tutor (ex.: pelo WhatsApp).
     BusinessLeadStatus.NOVO: {
         BusinessLeadStatus.AGUARDANDO_DADOS,
         BusinessLeadStatus.HORARIO_OFERTADO,
+        BusinessLeadStatus.CONFIRMADO,
         BusinessLeadStatus.CANCELADO,
     },
     BusinessLeadStatus.AGUARDANDO_DADOS: {
         BusinessLeadStatus.HORARIO_OFERTADO,
+        BusinessLeadStatus.CONFIRMADO,
         BusinessLeadStatus.CANCELADO,
     },
     BusinessLeadStatus.HORARIO_OFERTADO: {
@@ -193,7 +198,9 @@ def _price_for(page: LandingPage | None, label: str) -> tuple[str, int | None]:
     raise ValueError("Opção de porte inválida")
 
 
-def create_demo_lead(session: Session, page: LandingPage, data: DemoLeadRequest) -> BusinessLead:
+def create_demo_lead(
+    session: Session, page: LandingPage, data: DemoLeadRequest, preferred_period: str
+) -> BusinessLead:
     if not page.demo_mode:
         raise PermissionError("Captação real ainda não liberada para esta página")
     if data.service_requested not in page.service_options:
@@ -209,7 +216,7 @@ def create_demo_lead(session: Session, page: LandingPage, data: DemoLeadRequest)
         service_requested=data.service_requested,
         price_item_label=label,
         reference_price_cents=price,
-        preferred_period=data.preferred_period,
+        preferred_period=preferred_period,
         notes=f"Origem informada: {data.heard_from}",
         next_action="Confirmar disponibilidade e preço vigente com a equipe",
     )
@@ -320,6 +327,75 @@ def update_lead(
     return lead
 
 
+def record_event(session: Session, page: LandingPage, event: str) -> None:
+    """Soma 1 na contagem do dia. Não cria interessado nem agendamento."""
+
+    today = datetime.now(UTC).date()
+    for _ in range(2):
+        row = session.scalar(
+            select(LandingDailyMetric).where(
+                LandingDailyMetric.landing_page_id == page.id,
+                LandingDailyMetric.day == today,
+                LandingDailyMetric.event == event,
+            )
+        )
+        if row is None:
+            session.add(
+                LandingDailyMetric(
+                    organization_id=page.organization_id,
+                    business_id=page.business_id,
+                    landing_page_id=page.id,
+                    day=today,
+                    event=event,
+                    count=1,
+                )
+            )
+        else:
+            row.count += 1
+        try:
+            session.commit()
+            return
+        except IntegrityError:
+            # Outro clique criou a linha do dia ao mesmo tempo; soma nela.
+            session.rollback()
+
+
+def count_events(session: Session, business_id: UUID, event: str, days: int) -> int:
+    since = datetime.now(UTC).date() - timedelta(days=days - 1)
+    total = session.scalar(
+        select(func.coalesce(func.sum(LandingDailyMetric.count), 0)).where(
+            LandingDailyMetric.business_id == business_id,
+            LandingDailyMetric.event == event,
+            LandingDailyMetric.day >= since,
+        )
+    )
+    return int(total or 0)
+
+
+def lead_history(session: Session, lead: BusinessLead) -> list[BusinessLeadHistoryEntry]:
+    """Trilha de auditoria do pedido, sem dados de contato (que nunca vão para ela)."""
+
+    rows = session.execute(
+        select(AuditLog, User.name)
+        .outerjoin(User, User.id == AuditLog.actor_user_id)
+        .where(
+            AuditLog.organization_id == lead.organization_id,
+            AuditLog.resource_type == "business_lead",
+            AuditLog.resource_id == lead.id,
+        )
+        .order_by(AuditLog.created_at)
+    ).all()
+    return [
+        BusinessLeadHistoryEntry(
+            action=entry.action,
+            at=entry.created_at,
+            actor=actor_name or "Página pública",
+            changes=dict(entry.details or {}),
+        )
+        for entry, actor_name in rows
+    ]
+
+
 def summarize(session: Session, business_id: UUID) -> BusinessLeadSummary:
     leads = list_leads(session, business_id)
     now = datetime.now(UTC)
@@ -344,5 +420,6 @@ def summarize(session: Session, business_id: UUID) -> BusinessLeadSummary:
         overdue_next_actions=sum(1 for lead in open_leads if _overdue(lead)),
         awaiting_response=sum(1 for lead in open_leads if lead.status in _AWAITING_RESPONSE),
         real=sum(1 for lead in leads if not lead.is_demo),
+        whatsapp_clicks_7d=count_events(session, business_id, "whatsapp_click", 7),
         landing_status=LandingStatus(page.status) if page else None,
     )

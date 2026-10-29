@@ -22,6 +22,7 @@ from growthos.models.integration import IntegrationToken
 from growthos.models.landing import (
     BusinessAvailability,
     BusinessLead,
+    LandingDailyMetric,
     LandingPage,
     LeadPrivacySettings,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "DataPurpose",
     "IntegrationToken",
     "Job",
+    "LandingDailyMetric",
     "LandingPage",
     "LeadPrivacySettings",
     "MarketingObjective",

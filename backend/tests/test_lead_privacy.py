@@ -125,6 +125,7 @@ def test_privacy_notice_is_drafted_by_agency_and_approved_only_by_owner(client) 
     assert client.get(f"/api/v1/public/landing/{slug}/intake").json() == {
         "collection_open": False,
         "notice": None,
+        "availability": [],
     }
     saved = client.put(f"{base}/lead-privacy", headers=csrf_headers(csrf), json=PRIVACY)
     assert saved.status_code == 200 and saved.json()["status"] == "DRAFT"

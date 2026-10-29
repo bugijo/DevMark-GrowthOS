@@ -3,20 +3,33 @@
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { DemoLeadChoice, LandingView } from "@/components/landing/landing-view";
-import type { PublicLanding } from "@/types/api";
+import { DemoLeadChoice, LandingView, RealLeadRequest } from "@/components/landing/landing-view";
+import type { PublicIntake, PublicLanding } from "@/types/api";
 
 const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "/api/v1").replace(/\/$/, "");
 
 type LoadState =
   | { kind: "loading" }
-  | { kind: "ready"; page: PublicLanding }
+  | { kind: "ready"; page: PublicLanding; intake: PublicIntake | null }
   | { kind: "not_found" }
   | { kind: "unavailable" };
 
 export default function PublicLandingPage() {
   const { slug } = useParams<{ slug: string }>();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
+
+  // Sem o intake o formulário fica no modo mais restrito (demonstração ou fechado).
+  const loadIntake = useCallback(async (): Promise<PublicIntake | null> => {
+    try {
+      const response = await fetch(`${apiBase}/public/landing/${encodeURIComponent(slug)}/intake`, {
+        credentials: "omit",
+        cache: "no-store",
+      });
+      return response.ok ? ((await response.json()) as PublicIntake) : null;
+    } catch {
+      return null;
+    }
+  }, [slug]);
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });
@@ -28,25 +41,43 @@ export default function PublicLandingPage() {
       });
       if (response.status === 404) return setState({ kind: "not_found" });
       if (!response.ok) return setState({ kind: "unavailable" });
-      setState({ kind: "ready", page: (await response.json()) as PublicLanding });
+      const page = (await response.json()) as PublicLanding;
+      setState({ kind: "ready", page, intake: await loadIntake() });
     } catch {
       // Network failure (e.g. backend or proxy restarting) is not the same as "page does not exist".
       setState({ kind: "unavailable" });
     }
-  }, [slug]);
+  }, [slug, loadIntake]);
 
   useEffect(() => { void load(); }, [load]);
 
-  async function submitDemo(choice: DemoLeadChoice): Promise<string> {
-    const response = await fetch(`${apiBase}/public/landing/${encodeURIComponent(slug)}/demo-leads`, {
+  async function post(path: string, body: unknown): Promise<string> {
+    const response = await fetch(`${apiBase}/public/landing/${encodeURIComponent(slug)}/${path}`, {
       method: "POST",
       credentials: "omit",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(choice),
+      body: JSON.stringify(body),
     });
-    if (!response.ok) throw new Error("Não foi possível registrar o pedido. Tente mais tarde.");
+    if (!response.ok) {
+      const detail = await response.json().then((data: { detail?: unknown }) => data.detail, () => null);
+      throw new Error(typeof detail === "string" ? detail : "Não foi possível registrar o pedido. Tente mais tarde.");
+    }
     const receipt = (await response.json()) as { message: string };
     return receipt.message;
+  }
+
+  const submitDemo = (choice: DemoLeadChoice) => post("demo-leads", choice);
+  const submitReal = (request: RealLeadRequest) => post("requests", request);
+
+  function countWhatsAppClick() {
+    // Só soma um clique no dia; não envia nada que identifique o visitante.
+    void fetch(`${apiBase}/public/landing/${encodeURIComponent(slug)}/events`, {
+      method: "POST",
+      credentials: "omit",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "whatsapp_click" }),
+    }).catch(() => undefined);
   }
 
   if (state.kind === "not_found") {
@@ -75,5 +106,13 @@ export default function PublicLandingPage() {
   if (state.kind === "loading") {
     return <main className="grid min-h-screen place-content-center text-slate-600">Carregando…</main>;
   }
-  return <LandingView page={state.page} onDemoSubmit={submitDemo} />;
+  return (
+    <LandingView
+      page={state.page}
+      intake={state.intake}
+      onDemoSubmit={submitDemo}
+      onRealSubmit={submitReal}
+      onWhatsAppClick={countWhatsAppClick}
+    />
+  );
 }

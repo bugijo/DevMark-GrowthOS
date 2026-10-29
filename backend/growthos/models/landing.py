@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -6,6 +6,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -43,6 +44,8 @@ class LandingPage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     cta_label: Mapped[str] = mapped_column(String(80), nullable=False)
     address: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     contact_channel: Mapped[str] = mapped_column(String(160), nullable=False, default="")
+    # Número oficial do estabelecimento (só dígitos, com DDI); vazio esconde o botão.
+    whatsapp_number: Mapped[str] = mapped_column(String(20), nullable=False, default="")
     highlights: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     service_options: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     price_items: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
@@ -163,3 +166,30 @@ class BusinessAvailability(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     updated_by_user_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+
+
+class LandingDailyMetric(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Contagem agregada por dia de eventos da landing (ex.: clique no WhatsApp).
+
+    Não guarda IP, cookie, identificador nem conteúdo da conversa: um clique não é
+    um interessado nem um agendamento.
+    """
+
+    __tablename__ = "landing_daily_metrics"
+    __table_args__ = (
+        CheckConstraint("event IN ('whatsapp_click')", name="ck_landing_metric_event"),
+        UniqueConstraint("landing_page_id", "day", "event", name="uq_landing_metric_day_event"),
+    )
+
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    business_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("businesses.id", ondelete="CASCADE"), nullable=False
+    )
+    landing_page_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("landing_pages.id", ondelete="CASCADE"), nullable=False
+    )
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    event: Mapped[str] = mapped_column(String(32), nullable=False)
+    count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -38,7 +38,7 @@ export interface LandingPriceItem { label: string; price_cents: number | null; n
 
 export interface LandingPageContent {
   slug: string; headline: string; subheadline: string; cta_label: string; address: string;
-  contact_channel: string; highlights: string[]; service_options: string[];
+  contact_channel: string; whatsapp_number: string; highlights: string[]; service_options: string[];
   price_items: LandingPriceItem[]; price_disclaimer: string;
 }
 
@@ -66,8 +66,11 @@ export interface BusinessLead {
 export interface BusinessLeadSummary {
   business_id: string; total: number; demo: number; by_status: Record<string, number>;
   by_source: Record<string, number>; open_without_next_action: number; overdue_next_actions: number;
-  awaiting_response?: number; real?: number; landing_status: "DRAFT" | "APPROVED" | null;
+  awaiting_response?: number; real?: number; whatsapp_clicks_7d?: number;
+  landing_status: "DRAFT" | "APPROVED" | null;
 }
+
+export interface BusinessLeadHistoryEntry { action: string; at: string; actor: string; changes: Record<string, unknown>; }
 
 export interface SalesProposalDraft { lead_id: string; status: string; body: string; ai_used: boolean; }
 
@@ -934,6 +937,14 @@ export interface LeadPrivacyContent {
 export interface LeadPrivacy extends LeadPrivacyContent {
   id: string; business_id: string; status: "DRAFT" | "APPROVED"; version: number;
   approved_at: string | null; approval_note: string; updated_at: string;
+}
+
+export interface PublicPrivacyNotice extends LeadPrivacyContent { version: number; }
+
+export interface PublicAvailabilityDay { weekday: number; periods: ("Manhã" | "Tarde")[]; }
+
+export interface PublicIntake {
+  collection_open: boolean; notice: PublicPrivacyNotice | null; availability: PublicAvailabilityDay[];
 }
 
 export interface AvailabilitySlot { weekday: number; start: string; end: string; label?: string; }

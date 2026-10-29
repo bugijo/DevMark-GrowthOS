@@ -26,6 +26,7 @@ from growthos.schemas_lead_privacy import (
     LeadPrivacyUpsert,
     LeadRetentionResult,
     LeadRetentionRun,
+    PublicAvailabilityDay,
     PublicPrivacyNotice,
     RealLeadRequest,
 )
@@ -37,6 +38,7 @@ router = APIRouter()
 class PublicIntakeRead(BaseModel):
     collection_open: bool
     notice: PublicPrivacyNotice | None
+    availability: list[PublicAvailabilityDay]
 
 
 @router.get("/public/landing/{slug}/intake", response_model=PublicIntakeRead)
@@ -52,6 +54,7 @@ def read_public_intake(
     return PublicIntakeRead(
         collection_open=lead_privacy.collection_blocker(settings, found[0], privacy) is None,
         notice=lead_privacy.public_notice(privacy),
+        availability=lead_privacy.public_availability(session, found[0].business_id),
     )
 
 

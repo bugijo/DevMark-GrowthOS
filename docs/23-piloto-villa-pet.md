@@ -140,6 +140,34 @@ pendentes, sem texto) e gera um relatório local sob demanda:
 `python3 ~/.hermes/dev-controller/growthos_report.py [--save]`. Não há envio
 automático por nenhum canal.
 
+## Dois caminhos de agendamento na landing (2026-10-28)
+
+1. **WhatsApp imediato.** O número vem do campo "WhatsApp para agendamento" da
+   landing (conteúdo da página: mudar o número devolve a página para rascunho e
+   exige nova aprovação). O link `wa.me` leva só o nome do estabelecimento, o
+   serviço e o porte escolhidos — nunca nome ou telefone do tutor. O tutor abre
+   a conversa e envia se quiser; nada é enviado pelo sistema. Cada clique soma
+   1 em `landing_daily_metrics` (contagem por dia, sem IP, cookie ou
+   identificador) e aparece em `/solicitacoes` como "Cliques no WhatsApp (7
+   dias)". Um clique **não** vira pedido nem agendamento: se a conversa render,
+   a equipe registra o pedido em `/solicitacoes` com origem "WhatsApp direto".
+2. **Solicitação pelo site.** Campos: nome, telefone, serviço, porte, dia e
+   período desejados e ciência do aviso de privacidade. Dias e períodos só
+   aparecem se o estabelecimento confirmou horários em `/atendimento`; o
+   backend recusa dia/período fora deles. Modos:
+   - **demonstração** (`demo_mode`): nome e telefone ficam bloqueados com
+     valores fictícios e não são enviados; grava só escolhas fechadas;
+   - **real**: só quando o intake responde `collection_open` (os três portões
+     acima); envia contato, versão do aviso e campo-isca;
+   - **fechado** (fora da demonstração, coleta não liberada): formulário
+     desativado, indicando o WhatsApp.
+
+Em `/solicitacoes` a equipe vê origem, serviço, porte, período, status e
+próxima ação; confirma o agendamento manualmente (com pedido de confirmação na
+tela, inclusive direto de "Novo" após combinar pelo WhatsApp) e consulta o
+histórico auditado de cada pedido (`GET /business-leads/{id}/history`). Nenhuma
+transição envia mensagem.
+
 ## Pendências antes de captação real
 
 - Responsável da Villa Pet confirmar preços, serviços, endereço, canal oficial
@@ -147,6 +175,8 @@ automático por nenhum canal.
 - Revisão jurídica humana do aviso e da base legal; o responsável aprova o
   texto final em `/atendimento`.
 - Responsável informar os horários reais em `/atendimento`.
+- Responsável confirmar o número oficial do WhatsApp; a agência cadastra na
+  landing e aprova a nova versão.
 - Rate limit compartilhado entre réplicas (hoje é em memória, por processo).
 - Decidir quem desliga `demo_mode` e como (não existe ação para isso ainda).
 - Hospedagem pública com HTTPS e domínio; hoje tudo roda só em `127.0.0.1`.

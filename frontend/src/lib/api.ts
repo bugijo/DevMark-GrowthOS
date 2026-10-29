@@ -50,6 +50,7 @@ import type {
   LandingPage,
   LandingPageContent,
   BusinessLead,
+  BusinessLeadHistoryEntry,
   BusinessLeadSource,
   BusinessLeadSummary,
   BusinessAvailability,
@@ -237,6 +238,7 @@ export const api = {
       apiRequest<BusinessLead>(`/businesses/${businessId}/leads`, { method: "POST", body: JSON.stringify(input) }),
     updateLead: (leadId: string, input: Partial<Pick<BusinessLead, "status" | "notes" | "next_action" | "next_action_due_at">>) =>
       apiRequest<BusinessLead>(`/business-leads/${leadId}`, { method: "PATCH", body: JSON.stringify(input) }),
+    history: (leadId: string) => apiRequest<BusinessLeadHistoryEntry[]>(`/business-leads/${leadId}/history`),
     exportLead: (leadId: string) => apiRequest<LeadExport>(`/business-leads/${leadId}/export`),
     anonymizeLead: (leadId: string) =>
       apiRequest<BusinessLead>(`/business-leads/${leadId}/anonymize`, { method: "POST" }),

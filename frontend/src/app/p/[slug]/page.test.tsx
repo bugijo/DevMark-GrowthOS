@@ -13,6 +13,7 @@ const landing = {
   cta_label: "Agendar banho e tosa",
   address: "",
   contact_channel: "",
+  whatsapp_number: "",
   highlights: [],
   service_options: ["Banho"],
   price_items: [{ label: "Pequeno", price_cents: 5500 }],
@@ -56,5 +57,24 @@ describe("PublicLandingPage", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(503, { detail: "API indisponível" })));
     render(<PublicLandingPage />);
     expect(await screen.findByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
+  });
+
+  it("conta o clique no WhatsApp sem credenciais e sem dados do visitante", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(200, { ...landing, whatsapp_number: "5516900000000" }))
+      .mockResolvedValueOnce(jsonResponse(200, { collection_open: false, notice: null, availability: [] }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PublicLandingPage />);
+
+    const link = await screen.findByRole("link", { name: "Agendar pelo WhatsApp" });
+    link.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(link);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/public/landing/villa-pet/events",
+      expect.objectContaining({ method: "POST", credentials: "omit", body: JSON.stringify({ event: "whatsapp_click" }) }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

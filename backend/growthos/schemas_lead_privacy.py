@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from growthos.schemas_landing import BusinessLeadRead
+from growthos.schemas_landing import BusinessLeadRead, HeardFrom, PreferredPeriod
 
 LegalBasis = Literal["CONSENTIMENTO", "PROCEDIMENTOS_PRELIMINARES", "LEGITIMO_INTERESSE"]
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -115,6 +115,13 @@ class AvailabilityUpsert(BaseModel):
         return self
 
 
+class PublicAvailabilityDay(BaseModel):
+    """Dia com atendimento confirmado pelo estabelecimento e os períodos cobertos."""
+
+    weekday: int
+    periods: list[Literal["Manhã", "Tarde"]]
+
+
 class AvailabilityRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     business_id: UUID
@@ -131,7 +138,9 @@ class RealLeadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     service_requested: str = Field(min_length=1, max_length=120)
     price_item_label: str = Field(default="", max_length=120)
-    preferred_period: Literal["Manhã", "Tarde", "Sábado", "Sem preferência"]
+    preferred_period: PreferredPeriod
+    preferred_weekday: int | None = Field(default=None, ge=0, le=6)
+    heard_from: HeardFrom = "OUTRO"
     contact_name: str = Field(min_length=2, max_length=120)
     contact_phone: str
     privacy_notice_version: int = Field(ge=1)

@@ -20,16 +20,18 @@ from growthos.models import BusinessLead, LandingPage
 from growthos.rate_limit import public_quote_rate_limiter
 from growthos.schemas_landing import (
     BusinessLeadCreate,
+    BusinessLeadHistoryEntry,
     BusinessLeadRead,
     BusinessLeadSummary,
     BusinessLeadUpdate,
     DemoLeadReceipt,
     DemoLeadRequest,
+    LandingEvent,
     LandingPageRead,
     LandingPageUpsert,
     PublicLandingRead,
 )
-from growthos.services import landing
+from growthos.services import landing, lead_privacy
 
 router = APIRouter()
 
@@ -39,10 +41,12 @@ class LandingApproval(BaseModel):
     version: int = Field(ge=1)
 
 
-def enforce_public_rate_limit(slug: str, request: Request, settings: Settings) -> None:
+def enforce_public_rate_limit(
+    slug: str, request: Request, settings: Settings, *, scope: str = "landing"
+) -> None:
     client_ip = str(getattr(request.state, "client_ip", "unknown"))
     limiter_key = (
-        "landing:"
+        f"{scope}:"
         + hmac.new(
             settings.auth_secret_key.encode(), f"{slug}:{client_ip}".encode(), sha256
         ).hexdigest()
@@ -85,7 +89,10 @@ def receive_demo_lead(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Página não encontrada")
     enforce_public_rate_limit(slug, request, settings)
     try:
-        lead = landing.create_demo_lead(session, found[0], payload)
+        period = lead_privacy.resolve_preference(
+            session, found[0].business_id, payload.preferred_weekday, payload.preferred_period
+        )
+        lead = landing.create_demo_lead(session, found[0], payload, period)
     except PermissionError as exc:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(exc)) from exc
     except ValueError as exc:
@@ -94,6 +101,23 @@ def receive_demo_lead(
         reference=lead.id,
         message="Pedido demonstrativo registrado. Nenhum contato será feito.",
     )
+
+
+@router.post("/public/landing/{slug}/events", status_code=status.HTTP_204_NO_CONTENT)
+def record_landing_event(
+    slug: str,
+    payload: LandingEvent,
+    request: Request,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """Conta um clique no WhatsApp. Não identifica o visitante nem cria pedido."""
+
+    found = landing.get_public_landing(session, slug)
+    if found is None or not found[0].whatsapp_number:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Página não encontrada")
+    enforce_public_rate_limit(slug, request, settings, scope="landing-event")
+    landing.record_event(session, found[0], payload.event)
 
 
 @router.get("/businesses/{business_id}/landing-page", response_model=LandingPageRead)
@@ -196,6 +220,20 @@ def create_business_lead(
         return landing.create_manual_lead(session, context, business, payload)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+
+@router.get("/business-leads/{lead_id}/history", response_model=list[BusinessLeadHistoryEntry])
+def read_business_lead_history(
+    lead_id: UUID,
+    context: AuthContext = Depends(get_current_context),
+    session: Session = Depends(get_session),
+) -> list[BusinessLeadHistoryEntry]:
+    require_capability(context, Capability.BUSINESS_LEAD_VIEW)
+    lead = landing.get_lead(session, context.organization.id, lead_id)
+    if lead is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Interessado não encontrado")
+    get_scoped_business(session, context, lead.business_id)
+    return landing.lead_history(session, lead)
 
 
 @router.patch("/business-leads/{lead_id}", response_model=BusinessLeadRead)
