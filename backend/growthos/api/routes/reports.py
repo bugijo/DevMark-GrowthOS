@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,7 +15,14 @@ from growthos.dependencies import (
 )
 from growthos.domain.enums import ApprovalComponent, ApprovalStatus, ContentStatus
 from growthos.domain.permissions import Capability
-from growthos.models import Approval, CalendarEntry, ContentItem, ContentStrategy, ContentVersion
+from growthos.models import (
+    AIGeneration,
+    Approval,
+    CalendarEntry,
+    ContentItem,
+    ContentStrategy,
+    ContentVersion,
+)
 from growthos.schemas_reports import PeriodReportRead
 
 router = APIRouter()
@@ -165,6 +173,31 @@ def get_period_report(
         )
         or 0
     )
+    ai_cost_rows = session.execute(
+        select(AIGeneration.cost_status, AIGeneration.cost_usd).where(
+            AIGeneration.organization_id == organization_id,
+            AIGeneration.business_id == business_id,
+            AIGeneration.created_at >= period_start,
+            AIGeneration.created_at < period_end,
+        )
+    ).all()
+    ai_confirmed_cost = sum(
+        (
+            cost
+            for cost_status, cost in ai_cost_rows
+            if cost_status == "CONFIRMED" and cost is not None
+        ),
+        Decimal("0"),
+    )
+    ai_estimated_cost = sum(
+        (
+            cost
+            for cost_status, cost in ai_cost_rows
+            if cost_status == "ESTIMATED" and cost is not None
+        ),
+        Decimal("0"),
+    )
+    ai_unknown_cost_count = sum(1 for cost_status, _ in ai_cost_rows if cost_status == "UNKNOWN")
 
     return PeriodReportRead(
         organization_id=organization_id,
@@ -182,4 +215,7 @@ def get_period_report(
         approved_strategies_total=approved_strategies_total,
         calendar_entries_total=calendar_entries_total,
         unavailable_metrics=list(_UNAVAILABLE_METRICS),
+        ai_confirmed_cost_usd=ai_confirmed_cost,
+        ai_estimated_cost_usd=ai_estimated_cost,
+        ai_unknown_cost_count=ai_unknown_cost_count,
     )

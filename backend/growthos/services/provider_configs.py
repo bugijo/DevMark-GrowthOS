@@ -14,6 +14,7 @@ from growthos.services.audit import add_audit_log
 
 _CATALOG = (
     ("TEXT", "MOCK", True),
+    ("TEXT", "OPENROUTER", False),
     ("TEXT", "HERMES", False),
     ("TEXT", "EXTERNAL_FUTURE", False),
     ("IMAGE", "MOCK", True),
@@ -29,6 +30,11 @@ _CATALOG = (
 def _environment_available(provider: str, secret_key: str | None) -> bool:
     if provider == "HERMES":
         return bool(os.getenv("HERMES_BASE_URL"))
+    if provider == "OPENROUTER":
+        return bool(
+            os.getenv("AI_EXTERNAL_ENABLED", "").casefold() == "true"
+            and os.getenv("OPENROUTER_API_KEY")
+        )
     if provider == "EXTERNAL_FUTURE":
         return bool(secret_key and os.getenv(secret_key))
     return True
@@ -86,7 +92,10 @@ def update_provider_config(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "Providers opcionais exigem fallback explícito para MOCK",
         )
-    if provider in {"MOCK", "MINIO", "SMTP", "HERMES"} and data.secret_environment_key:
+    if (
+        provider in {"MOCK", "MINIO", "SMTP", "HERMES", "OPENROUTER"}
+        and data.secret_environment_key
+    ):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "Este provider usa somente variáveis de ambiente próprias",
@@ -131,13 +140,19 @@ def _probe(provider: str, timeout: int) -> tuple[str, str]:
         return "HEALTHY", "SMTP configurado pelo ambiente; nenhuma mensagem foi enviada no teste."
     if provider == "EXTERNAL_FUTURE":
         return "DISABLED", "Provider futuro estrutural; conexão externa desabilitada na versão 1.0."
+    if provider == "OPENROUTER":
+        if os.getenv("AI_EXTERNAL_ENABLED", "").casefold() != "true":
+            return "DISABLED", "IA externa está bloqueada pelo botão de emergência do ambiente."
+        if not os.getenv("OPENROUTER_API_KEY"):
+            return "DISABLED", "Chave do OpenRouter ausente; nenhum segredo é salvo no sistema."
+        return "READY", "OpenRouter configurado; o teste não consome tokens nem realiza gasto."
     base_url = os.getenv("HERMES_BASE_URL", "").rstrip("/")
     if not base_url:
         return "DISABLED", "Hermes opcional não está configurado; o fallback mock permanece ativo."
     try:
-        with urlopen(Request(f"{base_url}/health", method="GET"), timeout=timeout) as response:
+        with urlopen(Request(f"{base_url}/api/tags", method="GET"), timeout=timeout) as response:
             if 200 <= response.status < 300:
-                return "HEALTHY", "Hermes respondeu ao healthcheck."
+                return "HEALTHY", "Ollama do Hermes respondeu e permite listar modelos."
     except (OSError, URLError, TimeoutError):
         return "UNAVAILABLE", "Hermes não respondeu; o fallback mock permanece ativo."
     return "UNAVAILABLE", "Hermes retornou estado indisponível; o fallback mock permanece ativo."

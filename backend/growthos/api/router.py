@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from growthos.api.routes import (
+    ai,
     audit_logs,
     auth,
     businesses,
@@ -8,7 +9,10 @@ from growthos.api.routes import (
     comparisons,
     contents,
     health,
+    integrations,
     invitations,
+    landing,
+    lead_privacy,
     media,
     members,
     notifications,
@@ -18,10 +22,12 @@ from growthos.api.routes import (
     privacy,
     providers,
     reports,
+    sales,
 )
 
 api_router = APIRouter()
 api_router.include_router(health.router)
+api_router.include_router(ai.router, tags=["ai"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(invitations.router, prefix="/auth", tags=["auth"])
 api_router.include_router(members.router, prefix="/members", tags=["members"])
@@ -32,6 +38,10 @@ api_router.include_router(catalogs.router, tags=["brand"])
 api_router.include_router(comparisons.router, tags=["comparisons"])
 api_router.include_router(planning.router, tags=["planning"])
 api_router.include_router(reports.router, tags=["reports"])
+api_router.include_router(sales.router, tags=["sales"])
+api_router.include_router(landing.router, tags=["landing"])
+api_router.include_router(lead_privacy.router, tags=["lead-privacy"])
+api_router.include_router(integrations.router, tags=["integrations"])
 api_router.include_router(providers.router, tags=["providers"])
 api_router.include_router(privacy.router, tags=["privacy"])
 api_router.include_router(contents.router, prefix="/contents", tags=["contents"])

@@ -10,6 +10,69 @@ export type Role =
 
 export type MembershipStatus = "ACTIVE" | "SUSPENDED" | "REVOKED";
 export type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+export type SalesLeadStage = "NEW_LEAD" | "CONTACT_PENDING" | "BRIEFING" | "PROPOSAL_PREPARATION" | "PROPOSAL_SENT" | "NEGOTIATION" | "CONTRACTED" | "IN_PRODUCTION" | "DELIVERED" | "AFTER_SALES";
+
+export interface SalesLead {
+  id: string; organization_id: string; source: string; stage: SalesLeadStage;
+  service_classification: "IN_SCOPE_LANDING_PAGE" | "OUT_OF_SCOPE" | "HUMAN_REVIEW";
+  classification_reason: string;
+  name: string; company: string; email: string; whatsapp: string;
+  business_type: string; goal: string; desired_timeline: string;
+  additional_info: string; privacy_notice_version: string | null;
+  consented_at: string | null; proposal_draft: string | null;
+  created_at: string; updated_at: string;
+}
+
+export interface SalesLeadTask {
+  id: string; lead_id: string; title: string; due_at: string | null;
+  completed_at: string | null; notes: string; created_at: string;
+}
+
+export interface SalesBriefing {
+  lead_id: string; brand: string; requested_service: string;
+  scope_reference: string; client_inputs: Record<string, string>;
+  missing_before_proposal: string[]; ai_used: boolean;
+}
+
+export interface LandingPriceItem { label: string; price_cents: number | null; note?: string; }
+
+export interface LandingPageContent {
+  slug: string; headline: string; subheadline: string; cta_label: string; address: string;
+  contact_channel: string; whatsapp_number: string; highlights: string[]; service_options: string[];
+  price_items: LandingPriceItem[]; price_disclaimer: string;
+}
+
+export interface LandingPage extends LandingPageContent {
+  id: string; business_id: string; status: "DRAFT" | "APPROVED"; demo_mode: boolean;
+  version: number; approved_at: string | null; updated_at: string;
+}
+
+export interface PublicLanding extends LandingPageContent { business_name: string; demo_mode: boolean; }
+
+export type BusinessLeadStatus =
+  | "NOVO" | "AGUARDANDO_DADOS" | "HORARIO_OFERTADO" | "CONFIRMADO" | "REALIZADO" | "CANCELADO" | "NAO_COMPARECEU";
+
+export type BusinessLeadSource =
+  | "LANDING_DEMO" | "LANDING_PAGE" | "INSTAGRAM_POST" | "INSTAGRAM_STORY" | "INDICACAO" | "WHATSAPP_DIRETO" | "OUTRO";
+
+export interface BusinessLead {
+  id: string; business_id: string; source: BusinessLeadSource; status: BusinessLeadStatus; is_demo: boolean;
+  service_requested: string; price_item_label: string; reference_price_cents: number | null;
+  preferred_period: string; notes: string; next_action: string; next_action_due_at: string | null;
+  contact_name?: string | null; contact_phone?: string | null; privacy_notice_version?: number | null;
+  anonymized_at?: string | null; created_at: string; updated_at: string;
+}
+
+export interface BusinessLeadSummary {
+  business_id: string; total: number; demo: number; by_status: Record<string, number>;
+  by_source: Record<string, number>; open_without_next_action: number; overdue_next_actions: number;
+  awaiting_response?: number; real?: number; whatsapp_clicks_7d?: number;
+  landing_status: "DRAFT" | "APPROVED" | null;
+}
+
+export interface BusinessLeadHistoryEntry { action: string; at: string; actor: string; changes: Record<string, unknown>; }
+
+export interface SalesProposalDraft { lead_id: string; status: string; body: string; ai_used: boolean; }
 
 export interface User {
   id: string;
@@ -666,6 +729,66 @@ export interface ContentGenerateInput {
   script?: string;
 }
 
+export type AITask =
+  | "AUDIT"
+  | "MONTHLY_STRATEGY"
+  | "EDITORIAL_CALENDAR"
+  | "CONTENT_IDEAS"
+  | "CAPTION"
+  | "TITLE"
+  | "CTA"
+  | "SCRIPT"
+  | "VISUAL_PROMPT"
+  | "CONTENT_REPURPOSE"
+  | "TONE_REVIEW"
+  | "SENSITIVITY_CLASSIFICATION";
+
+export interface AIGenerationInput {
+  task: AITask;
+  instruction: string;
+  alternatives: 1 | 3;
+  source_text?: string;
+  idempotency_key?: string;
+}
+
+export interface AIAlternative {
+  id: string;
+  position: number;
+  payload: Record<string, unknown>;
+  is_sensitive: boolean;
+  sensitivity_codes: string[];
+  applied_content_item_id: string | null;
+  applied_content_version_id: string | null;
+  applied_at: string | null;
+  created_at: string;
+}
+
+export interface AIGeneration {
+  id: string;
+  business_id: string;
+  task: AITask;
+  status: string;
+  instruction: string;
+  provider: string;
+  model: string;
+  used_fallback: boolean;
+  fallback_message: string | null;
+  duration_ms: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number | null;
+  cost_usd: string | null;
+  cost_currency: "USD";
+  cost_status: "CONFIRMED" | "ESTIMATED" | "UNKNOWN";
+  cost_origin: string | null;
+  cancelled_at: string | null;
+  alternatives: AIAlternative[];
+  simulated: boolean;
+  requires_approval: true;
+  can_publish_automatically: false;
+  created_at: string;
+}
+
 export interface VisualRevisionInput {
   visual_preset_id?: string | null;
   media_asset_id?: string | null;
@@ -696,6 +819,9 @@ export interface PeriodReport {
   approved_strategies_total: number;
   calendar_entries_total: number;
   unavailable_metrics: string[];
+  ai_confirmed_cost_usd: string;
+  ai_estimated_cost_usd: string;
+  ai_unknown_cost_count: number;
 }
 
 export interface Notification {
@@ -799,4 +925,40 @@ export interface ApiProblem {
   detail?: string | Array<{ msg?: string; loc?: Array<string | number> }>;
   message?: string;
   error?: string;
+}
+
+export type LeadLegalBasis = "CONSENTIMENTO" | "PROCEDIMENTOS_PRELIMINARES" | "LEGITIMO_INTERESSE";
+
+export interface LeadPrivacyContent {
+  controller_name: string; privacy_contact: string; purpose: string; legal_basis: LeadLegalBasis;
+  data_categories: string[]; retention_days: number; notice_text: string;
+}
+
+export interface LeadPrivacy extends LeadPrivacyContent {
+  id: string; business_id: string; status: "DRAFT" | "APPROVED"; version: number;
+  approved_at: string | null; approval_note: string; updated_at: string;
+}
+
+export interface PublicPrivacyNotice extends LeadPrivacyContent { version: number; }
+
+export interface PublicAvailabilityDay { weekday: number; periods: ("Manhã" | "Tarde")[]; }
+
+export interface PublicIntake {
+  collection_open: boolean; notice: PublicPrivacyNotice | null; availability: PublicAvailabilityDay[];
+}
+
+export interface AvailabilitySlot { weekday: number; start: string; end: string; label?: string; }
+
+export interface BusinessAvailability {
+  business_id: string; slots: AvailabilitySlot[]; notes: string; confirmed_by_business: boolean;
+  version: number; updated_at: string | null;
+}
+
+export interface LeadExport {
+  exported_at: string; business_name: string; controller_name: string | null; lead: BusinessLead;
+  history: { action: string; at: string }[];
+}
+
+export interface LeadRetentionResult {
+  business_id: string; retention_days: number; cutoff: string; eligible: number; anonymized: number; dry_run: boolean;
 }

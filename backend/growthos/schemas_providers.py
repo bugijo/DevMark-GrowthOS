@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
 KINDS = frozenset({"TEXT", "IMAGE", "EMAIL", "STORAGE", "ORCHESTRATION"})
-PROVIDERS = frozenset({"MOCK", "HERMES", "EXTERNAL_FUTURE", "SMTP", "MINIO"})
+PROVIDERS = frozenset({"MOCK", "OPENROUTER", "HERMES", "EXTERNAL_FUTURE", "SMTP", "MINIO"})
 
 
 class ProviderConfigUpdate(BaseModel):

@@ -58,7 +58,10 @@ function onboarding(
   };
 }
 
-describe("OnboardingWizard", () => {
+// O assistente renderiza um formulário grande e os testes digitam campo a campo.
+// Sob CPU disputada (suíte completa em paralelo, disco HDD) qualquer teste passa
+// de 5 s; o limite de 15 s, antes só no primeiro teste, vale para todos.
+describe("OnboardingWizard", { timeout: 15_000 }, () => {
   beforeEach(() => {
     vi.spyOn(api.businesses, "get").mockResolvedValue(business);
     vi.spyOn(api.onboarding, "get").mockResolvedValue(onboarding());
@@ -110,7 +113,7 @@ describe("OnboardingWizard", () => {
     );
     expect(await screen.findByRole("heading", { name: "Segmento" })).toBeVisible();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "7");
-  }, 15_000);
+  });
 
   it("reabre uma conclusão editada e exige uma nova revisão final", async () => {
     const completed = onboarding({

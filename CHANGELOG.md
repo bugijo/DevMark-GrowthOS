@@ -8,6 +8,24 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Adicionado
 
+- pipeline comercial interno DevMarkia tenant-scoped (leads, etapas, briefing determinístico,
+  rascunho de proposta e tarefas); intake público preparado, mas desligado por padrão e
+  bloqueado até revisões jurídica, de segurança e privacidade;
+
+- Growth Agent multiempresa para auditoria, estratégia, calendário, ideias, legendas, títulos,
+  CTAs, roteiros, prompts visuais, reaproveitamento, revisão de tom e classificação sensível;
+- providers OpenRouter opcional, Ollama local pelo adapter Hermes e mock obrigatório, com fallback,
+  modelo, duração, tokens, limite diário, feedback e histórico auditável;
+- migration `0014` para gerações, tentativas, alternativas, feedback e uso diário de IA.
+- LGPD da camada de IA com exportação versionada, anonimização conservadora e
+  retenção tenant-scoped com dry-run e auditoria;
+- custos de providers em Decimal, distinguindo confirmado, estimado e desconhecido
+  em tentativas, uso diário, relatórios, exportação e interface;
+- migrations `0015_ai_privacy` e `0016_ai_costs`, preservando custos antigos como
+  nulos e desconhecidos.
+- ciclo de IA idempotente e tenant-scoped, com cancelamento auditado e aplicação
+  de alternativa em conteúdo `DRAFT`, pela migration `0017_ai_lifecycle`.
+
 - documentação inicial de visão, escopo, arquitetura, dados, fluxos, providers, segurança, testes, operação e riscos da versão 1.0;
 - regras de contribuição e orientação para agentes de programação;
 - backlog priorizado e milestones executáveis para a clínica piloto;
@@ -102,6 +120,22 @@ O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o 
 
 ### Validação
 
+- rodada final de release QA aprovou piloto interno controlado com dados fictícios:
+  240 testes backend, 41 worker, 54 frontend e 10 E2E offline; 17/18 gates e
+  24/25 critérios CAV1 estão verdes, com CAV1-23 ainda bloqueado;
+- inspeção de UX em 360, 768 e 1280 px, teclado, headers, CSRF, permissões,
+  MinIO privado, logs e busca de segredos concluída; leitor de tela humano continua pendente;
+- OpenRouter real respondeu em 26,9 s com modelo gratuito, sem fallback, Mock ou
+  publicação/aprovação automática; Mock offline permaneceu explicitamente simulado;
+- performance repetida: conteúdos atingiu p95 máximo de 719,3 ms para orçamento
+  de 750 ms; comparação, aprovação, exportação LGPD e histórico de IA ficaram abaixo;
+- QA-007 a QA-009 aceitos somente para piloto fictício; `pip 25.0.1`, buildx e
+  avisos de actions permanecem documentados. Dados reais, produção, merge e
+  conclusão da 1.0 continuam bloqueados.
+
+- camada de IA validada com 214 testes backend, 41 worker, 52 frontend e 10 E2E;
+- E2E do Growth Agent aprovado sem internet, usando provider mock e confirmando ausência de
+  publicação e aprovação automáticas;
 - 209 testes do backend, 41 do worker, 52 do frontend e 9 cenários E2E aprovados;
 - Ruff, mypy, ESLint, TypeScript e builds aprovados;
 - auditorias de dependências executadas sem vulnerabilidade pendente no gate adotado;

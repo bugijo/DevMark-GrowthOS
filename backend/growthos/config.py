@@ -1,15 +1,14 @@
+import os
 from functools import lru_cache
 from typing import Self
+from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from growthos.client_ip import parse_trusted_proxy_cidrs
-
-
-class UnsafeConfigurationError(RuntimeError):
-    """Raised without echoing secret values when runtime configuration is unsafe."""
-
+from growthos.config_errors import UnsafeConfigurationError
+from growthos.secret_files import read_private_secret_file
 
 _INSECURE_PRODUCTION_SECRET_MARKERS = (
     "change-me",
@@ -56,6 +55,20 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     ai_provider: str = "mock"
     mock_provider_seed: str = "devmark-growthos"
+    ai_external_enabled: bool = False
+    ai_daily_generation_limit: int = Field(default=50, ge=1, le=10_000)
+    ai_max_input_tokens: int = Field(default=6000, ge=256, le=100_000)
+    ai_max_output_tokens: int = Field(default=2000, ge=128, le=32_000)
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "openrouter/free"
+    openrouter_api_key: str | None = None
+    openrouter_api_key_file: str = ""
+    openrouter_timeout_seconds: int = Field(default=30, ge=1, le=120)
+    openrouter_max_attempts: int = Field(default=2, ge=1, le=5)
+    hermes_base_url: str = ""
+    hermes_model: str = "qwen3:4b-instruct"
+    hermes_timeout_seconds: int = Field(default=60, ge=1, le=180)
+    hermes_max_attempts: int = Field(default=1, ge=1, le=5)
     storage_provider: str = "minio"
     s3_endpoint_url: str = "http://localhost:9000"
     s3_public_endpoint_url: str = "http://localhost:9000"
@@ -73,6 +86,21 @@ class Settings(BaseSettings):
     demo_admin_password: str = "local-demo-only-change-before-use"
     demo_client_email: str = "client@clinicafeliz.local"
     demo_client_password: str = "local-demo-client-only-change-before-use"
+
+    public_quote_intake_enabled: bool = False
+    public_quote_target_organization_slug: str = ""
+    public_quote_privacy_notice_url: str = ""
+    public_quote_privacy_notice_version: str = "draft-v1"
+    public_quote_legal_review_approved: bool = False
+    public_quote_security_review_approved: bool = False
+    # Pedidos reais pelas landings (com contato). Desligado até revisão humana.
+    public_lead_collection_enabled: bool = False
+    public_lead_legal_review_approved: bool = False
+    public_lead_security_review_approved: bool = False
+    demo_pilot_client_email: str = "responsavel@villapet.local"
+    demo_pilot_client_password: str = "local-demo-pilot-only-change-before-use"
+    public_quote_rate_limit_attempts: int = Field(default=5, ge=1, le=100)
+    public_quote_rate_limit_window_seconds: int = Field(default=900, ge=30, le=86400)
 
     antimalware_provider: str = "mock"
     antimalware_fail_closed: bool = True
@@ -119,8 +147,29 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def reject_unsafe_runtime_configuration(self) -> Self:
         problems: list[str] = []
+        if self.app_env == "test" or os.getenv("PYTEST_CURRENT_TEST") is not None:
+            self.ai_external_enabled = False
+            self.openrouter_api_key = None
+            self.openrouter_api_key_file = ""
+            self.hermes_base_url = ""
+        elif self.openrouter_api_key and self.openrouter_api_key_file:
+            problems.append(
+                "use somente OPENROUTER_API_KEY ou OPENROUTER_API_KEY_FILE, nunca ambos"
+            )
+        elif self.openrouter_api_key_file:
+            self.openrouter_api_key = read_private_secret_file(
+                self.openrouter_api_key_file,
+                variable_name="OPENROUTER_API_KEY_FILE",
+            )
         if len(self.auth_secret_key) < 32:
             problems.append("AUTH_SECRET_KEY deve ter ao menos 32 caracteres")
+        if self.public_lead_collection_enabled and not (
+            self.public_lead_legal_review_approved and self.public_lead_security_review_approved
+        ):
+            problems.append(
+                "PUBLIC_LEAD_COLLECTION_ENABLED exige PUBLIC_LEAD_LEGAL_REVIEW_APPROVED e "
+                "PUBLIC_LEAD_SECURITY_REVIEW_APPROVED após revisão humana"
+            )
         if self.token_secret_key is not None and len(self.token_secret_key) < 32:
             problems.append("TOKEN_SECRET_KEY deve ter ao menos 32 caracteres")
 
@@ -138,7 +187,9 @@ class Settings(BaseSettings):
             if not self.session_cookie_secure:
                 problems.append("SESSION_COOKIE_SECURE deve ser true")
             if self.ai_provider != "mock":
-                problems.append("AI_PROVIDER deve ser mock nesta versão")
+                problems.append("AI_PROVIDER deve permanecer mock; use AI_EXTERNAL_ENABLED")
+            if self.ai_external_enabled and not self.openrouter_api_key:
+                problems.append("OPENROUTER_API_KEY é obrigatória quando IA externa está ativa")
             if self.antimalware_provider == "disabled":
                 problems.append("ANTIMALWARE_PROVIDER não pode ser disabled")
             if not self.antimalware_fail_closed:
@@ -150,6 +201,19 @@ class Settings(BaseSettings):
 
         if self.seed_demo_data:
             problems.extend(self._demo_credentials_problems())
+
+        if self.public_quote_intake_enabled:
+            privacy_url = urlparse(self.public_quote_privacy_notice_url)
+            if not self.public_quote_target_organization_slug.strip():
+                problems.append("PUBLIC_QUOTE_TARGET_ORGANIZATION_SLUG é obrigatória")
+            if privacy_url.scheme != "https" or not privacy_url.netloc:
+                problems.append("PUBLIC_QUOTE_PRIVACY_NOTICE_URL deve ser HTTPS")
+            if not self.public_quote_privacy_notice_version.strip():
+                problems.append("PUBLIC_QUOTE_PRIVACY_NOTICE_VERSION é obrigatória")
+            if not self.public_quote_legal_review_approved:
+                problems.append("PUBLIC_QUOTE_LEGAL_REVIEW_APPROVED requer revisão prévia")
+            if not self.public_quote_security_review_approved:
+                problems.append("PUBLIC_QUOTE_SECURITY_REVIEW_APPROVED requer revisão prévia")
 
         if problems:
             raise UnsafeConfigurationError("Configuração insegura: " + "; ".join(problems))
@@ -189,6 +253,10 @@ class Settings(BaseSettings):
             for value in self.allowed_upload_mime_types.split(",")
             if value.strip()
         )
+
+    @property
+    def external_ai_allowed(self) -> bool:
+        return self.app_env != "test" and self.ai_external_enabled
 
 
 @lru_cache

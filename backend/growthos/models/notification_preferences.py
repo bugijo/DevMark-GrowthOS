@@ -62,6 +62,16 @@ class NotificationPreference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class NotificationCategoryPreference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "notification_category_preferences"
     __table_args__ = (
+        CheckConstraint(
+            "category IN ('CONTENT_AWAITING_APPROVAL', 'CONTENT_CHANGES_REQUESTED', "
+            "'CONTENT_APPROVED', 'STRATEGY_AWAITING_APPROVAL', 'INVITATION', "
+            "'PROCESSING_FAILED', 'PUBLICATION_RECORDED', 'REPORT_AVAILABLE')",
+            name="ck_notification_category_preference_category",
+        ),
+        CheckConstraint(
+            "delivery_mode IN ('IMMEDIATE', 'DAILY', 'WEEKLY', 'URGENT_ONLY')",
+            name="ck_notification_category_preference_mode",
+        ),
         ForeignKeyConstraint(
             ["preference_id", "organization_id", "user_id"],
             [
@@ -104,6 +114,14 @@ class NotificationCategoryPreference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class NotificationDigest(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "notification_digests"
     __table_args__ = (
+        CheckConstraint(
+            "frequency IN ('DAILY', 'WEEKLY')",
+            name="ck_notification_digest_frequency",
+        ),
+        CheckConstraint(
+            "status IN ('PENDING', 'EMPTY', 'DELIVERED', 'FAILED')",
+            name="ck_notification_digest_status",
+        ),
         ForeignKeyConstraint(
             ["preference_id", "organization_id", "user_id"],
             [
@@ -201,6 +219,14 @@ class NotificationDigestItem(UUIDPrimaryKeyMixin, Base):
 class NotificationDelivery(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "notification_deliveries"
     __table_args__ = (
+        CheckConstraint(
+            "delivery_mode IN ('IMMEDIATE', 'DAILY', 'WEEKLY', 'URGENT_ONLY')",
+            name="ck_notification_delivery_mode",
+        ),
+        CheckConstraint(
+            "status IN ('PENDING', 'PROCESSING', 'DELIVERED', 'FAILED', 'SKIPPED')",
+            name="ck_notification_delivery_status",
+        ),
         ForeignKeyConstraint(
             ["notification_id", "organization_id", "user_id"],
             [

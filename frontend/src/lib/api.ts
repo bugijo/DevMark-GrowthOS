@@ -1,5 +1,7 @@
 import type {
   ApiProblem,
+  AIGeneration,
+  AIGenerationInput,
   ApprovalComponent,
   AudienceSegment,
   AuditLog,
@@ -40,6 +42,22 @@ import type {
   RetentionPolicy,
   SecurityMessage,
   Service,
+  SalesLead,
+  SalesLeadStage,
+  SalesLeadTask,
+  SalesBriefing,
+  SalesProposalDraft,
+  LandingPage,
+  LandingPageContent,
+  BusinessLead,
+  BusinessLeadHistoryEntry,
+  BusinessLeadSource,
+  BusinessLeadSummary,
+  BusinessAvailability,
+  LeadExport,
+  LeadPrivacy,
+  LeadPrivacyContent,
+  LeadRetentionResult,
   StrategyInput,
   StrategyVersionComparison,
   StrategyVersionHistory,
@@ -206,6 +224,78 @@ function query(params: Record<string, string | undefined>): string {
 }
 
 export const api = {
+  landing: {
+    get: (businessId: string) => apiRequest<LandingPage>(`/businesses/${businessId}/landing-page`),
+    save: (businessId: string, input: LandingPageContent) =>
+      apiRequest<LandingPage>(`/businesses/${businessId}/landing-page`, { method: "PUT", body: JSON.stringify(input) }),
+    approve: (businessId: string, version: number) =>
+      apiRequest<LandingPage>(`/businesses/${businessId}/landing-page/approve`, { method: "POST", body: JSON.stringify({ version }) }),
+    revoke: (businessId: string) =>
+      apiRequest<LandingPage>(`/businesses/${businessId}/landing-page/revoke`, { method: "POST" }),
+    leads: (businessId: string) => apiRequest<BusinessLead[]>(`/businesses/${businessId}/leads`),
+    summary: (businessId: string) => apiRequest<BusinessLeadSummary>(`/businesses/${businessId}/leads/summary`),
+    createLead: (businessId: string, input: { source: BusinessLeadSource; service_requested: string; price_item_label: string; preferred_period: string; notes: string }) =>
+      apiRequest<BusinessLead>(`/businesses/${businessId}/leads`, { method: "POST", body: JSON.stringify(input) }),
+    updateLead: (leadId: string, input: Partial<Pick<BusinessLead, "status" | "notes" | "next_action" | "next_action_due_at">>) =>
+      apiRequest<BusinessLead>(`/business-leads/${leadId}`, { method: "PATCH", body: JSON.stringify(input) }),
+    history: (leadId: string) => apiRequest<BusinessLeadHistoryEntry[]>(`/business-leads/${leadId}/history`),
+    exportLead: (leadId: string) => apiRequest<LeadExport>(`/business-leads/${leadId}/export`),
+    anonymizeLead: (leadId: string) =>
+      apiRequest<BusinessLead>(`/business-leads/${leadId}/anonymize`, { method: "POST" }),
+    runRetention: (businessId: string, dryRun: boolean) =>
+      apiRequest<LeadRetentionResult>(`/businesses/${businessId}/leads/retention`, { method: "POST", body: JSON.stringify({ dry_run: dryRun }) }),
+    privacy: (businessId: string) => apiRequest<LeadPrivacy>(`/businesses/${businessId}/lead-privacy`),
+    savePrivacy: (businessId: string, input: LeadPrivacyContent) =>
+      apiRequest<LeadPrivacy>(`/businesses/${businessId}/lead-privacy`, { method: "PUT", body: JSON.stringify(input) }),
+    approvePrivacy: (businessId: string, version: number, note: string) =>
+      apiRequest<LeadPrivacy>(`/businesses/${businessId}/lead-privacy/approve`, {
+        method: "POST", body: JSON.stringify({ version, note, acknowledged_not_legal_advice: true }),
+      }),
+    availability: (businessId: string) => apiRequest<BusinessAvailability>(`/businesses/${businessId}/availability`),
+    saveAvailability: (businessId: string, input: Pick<BusinessAvailability, "slots" | "notes" | "confirmed_by_business">) =>
+      apiRequest<BusinessAvailability>(`/businesses/${businessId}/availability`, { method: "PUT", body: JSON.stringify(input) }),
+  },
+  sales: {
+    list: () => apiRequest<SalesLead[]>("/sales/leads"),
+    create: (input: Pick<SalesLead, "name" | "company" | "email" | "whatsapp" | "business_type" | "goal" | "desired_timeline" | "additional_info">) => apiRequest<SalesLead>("/sales/leads", { method: "POST", body: JSON.stringify(input) }),
+    changeStage: (id: string, stage: SalesLeadStage) => apiRequest<SalesLead>(`/sales/leads/${id}/stage`, { method: "PATCH", body: JSON.stringify({ stage }) }),
+    briefing: (id: string) => apiRequest<SalesBriefing>(`/sales/leads/${id}/briefing`),
+    draftProposal: (id: string) => apiRequest<SalesProposalDraft>(`/sales/leads/${id}/proposal-draft`, { method: "POST" }),
+    tasks: (id: string) => apiRequest<SalesLeadTask[]>(`/sales/leads/${id}/tasks`),
+    createTask: (id: string, title: string, notes = "") => apiRequest<SalesLeadTask>(`/sales/leads/${id}/tasks`, { method: "POST", body: JSON.stringify({ title, notes }) }),
+  },
+  ai: {
+    generate: (businessId: string, input: AIGenerationInput) =>
+      apiRequest<AIGeneration>(`/businesses/${businessId}/ai/generations`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    list: (businessId: string) =>
+      apiRequest<AIGeneration[]>(`/businesses/${businessId}/ai/generations`),
+    regenerate: (id: string, idempotencyKey = crypto.randomUUID()) =>
+      apiRequest<AIGeneration>(`/ai/generations/${id}/regenerate`, {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+      }),
+    cancel: (id: string) =>
+      apiRequest<AIGeneration>(`/ai/generations/${id}/cancel`, {
+        method: "POST",
+      }),
+    applyAlternative: (
+      generationId: string,
+      alternativeId: string,
+      input: { channel: string; format: string; objective: string },
+    ) =>
+      apiRequest<ContentItem>(
+        `/ai/generations/${generationId}/alternatives/${alternativeId}/apply`,
+        { method: "POST", body: JSON.stringify(input) },
+      ),
+    feedback: (id: string, rating: "HELPFUL" | "NOT_HELPFUL", comment = "") =>
+      apiRequest<void>(`/ai/generations/${id}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({ rating, comment }),
+      }),
+  },
   auth: {
     login: (input: { email: string; password: string }) =>
       apiRequest<LoginResponse>("/auth/login", {

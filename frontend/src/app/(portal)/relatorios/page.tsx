@@ -11,7 +11,7 @@ import { api, extractItems } from "@/lib/api";
 import { monthBounds, periodReportCsv } from "@/lib/phase2";
 import type { Business, PeriodReport } from "@/types/api";
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <p className="text-xs font-bold tracking-wide text-slate-500 uppercase">{label}</p>
@@ -135,6 +135,9 @@ export default function ReportsPage() {
             <Metric label="Estratégias" value={report.strategies_total} />
             <Metric label="Estratégias aprovadas" value={report.approved_strategies_total} />
             <Metric label="Pautas" value={report.calendar_entries_total} />
+            <Metric label="Custo IA confirmado (US$)" value={report.ai_confirmed_cost_usd} />
+            <Metric label="Custo IA estimado (US$)" value={report.ai_estimated_cost_usd} />
+            <Metric label="Custos IA não informados" value={report.ai_unknown_cost_count} />
           </section>
           <section className="grid gap-4 lg:grid-cols-3">
             <Card>

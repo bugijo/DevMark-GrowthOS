@@ -1,0 +1,116 @@
+from datetime import date, datetime
+from decimal import Decimal
+from enum import StrEnum
+from typing import Any, Literal
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class AITask(StrEnum):
+    AUDIT = "AUDIT"
+    MONTHLY_STRATEGY = "MONTHLY_STRATEGY"
+    EDITORIAL_CALENDAR = "EDITORIAL_CALENDAR"
+    CONTENT_IDEAS = "CONTENT_IDEAS"
+    CAPTION = "CAPTION"
+    TITLE = "TITLE"
+    CTA = "CTA"
+    SCRIPT = "SCRIPT"
+    VISUAL_PROMPT = "VISUAL_PROMPT"
+    CONTENT_REPURPOSE = "CONTENT_REPURPOSE"
+    TONE_REVIEW = "TONE_REVIEW"
+    SENSITIVITY_CLASSIFICATION = "SENSITIVITY_CLASSIFICATION"
+
+
+class AIGenerationCreate(BaseModel):
+    task: AITask
+    instruction: str = Field(default="", max_length=2000)
+    alternatives: Literal[1, 3] = 1
+    source_text: str = Field(default="", max_length=12_000)
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=200)
+
+    @field_validator("instruction", "source_text")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+
+class AIAlternativeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    position: int
+    payload: dict[str, Any]
+    is_sensitive: bool
+    sensitivity_codes: list[str]
+    applied_content_item_id: UUID | None
+    applied_content_version_id: UUID | None
+    applied_at: datetime | None
+    created_at: datetime
+
+
+class AIGenerationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    organization_id: UUID
+    business_id: UUID
+    parent_generation_id: UUID | None
+    task: str
+    status: str
+    instruction: str
+    alternative_count: int
+    provider: str
+    model: str
+    used_fallback: bool
+    fallback_message: str | None = None
+    duration_ms: int
+    input_tokens: int
+    output_tokens: int
+    estimated_cost_usd: Decimal | None
+    cost_usd: Decimal | None
+    cost_currency: str
+    cost_status: Literal["CONFIRMED", "ESTIMATED", "UNKNOWN"]
+    cost_origin: str | None
+    error_code: str | None
+    cancelled_at: datetime | None
+    created_at: datetime
+    alternatives: list[AIAlternativeRead]
+    simulated: bool
+    requires_approval: bool = True
+    can_publish_automatically: bool = False
+
+
+class AIFeedbackCreate(BaseModel):
+    rating: Literal["HELPFUL", "NOT_HELPFUL"]
+    comment: str = Field(default="", max_length=2000)
+
+
+class AIAlternativeApplyCreate(BaseModel):
+    channel: str = Field(default="INSTAGRAM", min_length=2, max_length=80)
+    format: str = Field(default="FEED", min_length=2, max_length=80)
+    objective: str = Field(
+        default="Conteúdo criado a partir de alternativa de IA",
+        min_length=2,
+        max_length=1000,
+    )
+
+
+class AIUsageRead(BaseModel):
+    usage_date: date
+    generation_count: int
+    daily_limit: int
+    input_tokens: int
+    output_tokens: int
+    confirmed_cost_usd: Decimal
+    estimated_cost_usd: Decimal
+    unknown_cost_count: int
+
+
+class AIStatusRead(BaseModel):
+    external_enabled: bool
+    order: list[str]
+    openrouter_configured: bool
+    hermes_configured: bool
+    mock_available: bool = True
+    daily_limit: int
+    max_input_tokens: int
+    max_output_tokens: int

@@ -56,13 +56,16 @@ seed: ## Reaplica o seed fictício e idempotente
 test: test-backend test-worker test-frontend ## Executa testes unitários e de integração locais
 
 test-backend: ## Executa testes do backend
-	$(VENV)/pytest backend/tests
+	APP_ENV=test AI_EXTERNAL_ENABLED=false OPENROUTER_API_KEY= HERMES_BASE_URL= \
+		$(VENV)/pytest backend/tests
 
 test-worker: ## Executa testes do worker
-	$(VENV)/pytest worker/tests
+	APP_ENV=test AI_EXTERNAL_ENABLED=false OPENROUTER_API_KEY= HERMES_BASE_URL= \
+		$(VENV)/pytest worker/tests
 
 test-frontend: ## Executa testes do frontend
-	npm --prefix frontend test
+	APP_ENV=test AI_EXTERNAL_ENABLED=false OPENROUTER_API_KEY= HERMES_BASE_URL= \
+		npm --prefix frontend test
 
 lint: lint-backend lint-worker lint-frontend ## Executa lint e checagem de tipos
 
@@ -82,7 +85,8 @@ lint-frontend: ## Valida frontend com ESLint, TypeScript e build
 	npm --prefix frontend run build
 
 e2e: ## Executa o fluxo vertical com Playwright no profile test
-	./scripts/run-e2e.sh
+	APP_ENV=test AI_EXTERNAL_ENABLED=false OPENROUTER_API_KEY= HERMES_BASE_URL= \
+		./scripts/run-e2e.sh
 
 validate: ## Valida Compose, scripts, JSON, Python e whitespace
 	./scripts/validate.sh

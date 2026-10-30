@@ -9,6 +9,7 @@ cd "$ROOT_DIR"
 command -v docker >/dev/null || { echo "Docker não encontrado." >&2; exit 1; }
 command -v curl >/dev/null || { echo "curl não encontrado." >&2; exit 1; }
 docker compose version >/dev/null
+test_compose=(docker compose --env-file .env.test.example)
 
 if [[ ! -f .env ]]; then
   (umask 077 && cp .env.example .env)
@@ -48,9 +49,9 @@ trap restore_local_runtime EXIT
 runtime_overridden=1
 
 S3_PUBLIC_ENDPOINT_URL=http://minio:9000 \
-  docker compose up --build -d postgres minio minio-init backend worker frontend
+  "${test_compose[@]}" up --build -d postgres minio minio-init backend worker frontend
 ./scripts/wait-for-url.sh "http://localhost:$backend_port/api/v1/health/ready" 90
 ./scripts/wait-for-url.sh "http://localhost:$frontend_port/api/health" 90
 ./scripts/wait-for-service-health.sh worker 90
 S3_PUBLIC_ENDPOINT_URL=http://minio:9000 \
-  docker compose --profile test run --rm --build e2e
+  "${test_compose[@]}" --profile test run --rm --build e2e

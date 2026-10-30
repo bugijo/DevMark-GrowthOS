@@ -34,6 +34,8 @@ Continuam fora da versão 1.0:
 - estratégia mensal versionada, revisão interna, decisão do cliente e histórico;
 - planos e calendário editorial consultável por mês ou semana;
 - provider de texto mock determinístico, sem chave ou API paga;
+- Growth Agent com OpenRouter opcional, Ollama local opcional e fallback mock, sempre sujeito a
+  revisão humana e sem publicação automática;
 - prompt visual mock determinístico a partir do Brand Kit e preset;
 - conteúdo ligado a estratégia, plano, pauta, preset, catálogos e mídia;
 - histórico imutável de versões textuais e visuais;
@@ -168,6 +170,30 @@ git check-ignore .env
 Não coloque credenciais reais no arquivo. `git check-ignore .env` deve imprimir
 `.env`. Em filesystems que não preservam `chmod`, registre o aviso no relatório
 e não utilize dados reais.
+
+#### OpenRouter em filesystem que não protege o `.env`
+
+Se `make doctor` identificar `fuseblk`, NTFS, FAT ou permissões amplas que o
+`chmod` não consegue corrigir, não grave a chave no `.env`. Neste computador,
+guarde-a na home Linux e exporte-a somente no terminal que inicia os serviços:
+
+```bash
+secret_dir="${XDG_CONFIG_HOME:-$HOME/.config}/devmark-growthos"
+install -d -m 700 "$secret_dir"
+install -m 600 /dev/null "$secret_dir/openrouter_api_key"
+nano "$secret_dir/openrouter_api_key"
+export OPENROUTER_API_KEY="$(<"$secret_dir/openrouter_api_key")"
+docker compose up -d --force-recreate backend worker frontend
+unset OPENROUTER_API_KEY
+```
+
+O arquivo deve conter somente a chave. Processos Python executados diretamente
+no host também aceitam `OPENROUTER_API_KEY_FILE=/caminho/privado`, validando
+arquivo regular, proprietário, tamanho e modo `600`/`400`. Para Docker, exporte
+a variável no processo ou monte um Docker secret e configure o caminho interno
+em `OPENROUTER_API_KEY_FILE_CONTAINER`. Nunca configure valor direto e arquivo
+ao mesmo tempo. Homologação e produção devem usar secret manager ou mecanismo
+equivalente.
 
 ### 4. Diagnosticar e instalar
 
@@ -371,10 +397,10 @@ qualquer gate ainda bloqueado.
 
 | Área | Resultado |
 |---|---:|
-| Backend | 209 testes aprovados |
+| Backend | 214 testes aprovados |
 | Worker | 41 testes aprovados |
 | Frontend | 52 testes aprovados |
-| E2E | 9 cenários aprovados |
+| E2E | 10 cenários aprovados |
 
 Ruff, mypy, ESLint, checagem TypeScript, builds Docker/Next.js e auditorias de
 dependências executadas passaram. As migrations foram validadas de `base` até
@@ -383,8 +409,9 @@ Fase 2 em `0008`.
 
 ## Providers e segurança
 
-O ambiente local força texto/imagem em modo mock, Hermes desligado e e-mail no
-Mailpit local. Nenhuma publicação, mensagem ou gasto externo é realizado.
+O ambiente local mantém IA externa desligada e e-mail no Mailpit. Se Ollama não estiver disponível,
+o Growth Agent informa o fallback e usa o mock. Nenhuma publicação, mensagem ou gasto externo é
+realizado. Consulte [camada de IA](docs/14-camada-ia.md) para contrato, configuração e riscos.
 
 - autorização e isolamento são validados no backend;
 - senhas usam biblioteca mantida e não são armazenadas em claro;

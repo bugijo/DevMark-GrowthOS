@@ -27,6 +27,78 @@ def test_secure_production_configuration_accepts_mock_provider() -> None:
     assert settings.session_cookie_secure is True
 
 
+def test_test_environment_ignores_external_ai_credentials() -> None:
+    settings = Settings(
+        _env_file=None,
+        app_env="test",
+        auth_secret_key=SAFE_PRODUCTION_SECRET,
+        ai_external_enabled=True,
+        openrouter_api_key="must-not-be-used",
+        hermes_base_url="http://127.0.0.1:11434",
+    )
+
+    assert settings.external_ai_allowed is False
+    assert settings.ai_external_enabled is False
+    assert settings.openrouter_api_key is None
+    assert settings.hermes_base_url == ""
+
+
+def test_external_key_can_be_loaded_from_private_file(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delenv("PYTEST_CURRENT_TEST")
+    secret_file = tmp_path / "openrouter"
+    secret_file.write_text("test-secret-from-private-file", encoding="utf-8")
+    secret_file.chmod(0o600)
+
+    settings = Settings(
+        _env_file=None,
+        app_env="development",
+        auth_secret_key=SAFE_PRODUCTION_SECRET,
+        openrouter_api_key_file=str(secret_file),
+    )
+
+    assert settings.openrouter_api_key == "test-secret-from-private-file"
+
+
+def test_external_key_file_rejects_permissions_for_group_or_others(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delenv("PYTEST_CURRENT_TEST")
+    secret_file = tmp_path / "openrouter"
+    secret_file.write_text("must-not-appear-in-error", encoding="utf-8")
+    secret_file.chmod(0o644)
+
+    with pytest.raises(UnsafeConfigurationError) as error:
+        Settings(
+            _env_file=None,
+            app_env="development",
+            auth_secret_key=SAFE_PRODUCTION_SECRET,
+            openrouter_api_key_file=str(secret_file),
+        )
+
+    assert "modo 600 ou 400" in str(error.value)
+    assert "must-not-appear-in-error" not in str(error.value)
+
+
+def test_external_key_rejects_ambiguous_direct_and_file_sources(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delenv("PYTEST_CURRENT_TEST")
+    secret_file = tmp_path / "openrouter"
+    secret_file.write_text("file-secret", encoding="utf-8")
+    secret_file.chmod(0o600)
+
+    with pytest.raises(UnsafeConfigurationError, match="nunca ambos"):
+        Settings(
+            _env_file=None,
+            app_env="development",
+            auth_secret_key=SAFE_PRODUCTION_SECRET,
+            openrouter_api_key="direct-secret",
+            openrouter_api_key_file=str(secret_file),
+        )
+
+
 def test_production_rejects_wildcard_cors_origin() -> None:
     with pytest.raises(UnsafeConfigurationError, match="ALLOWED_ORIGINS"):
         production_settings(allowed_origins="*")

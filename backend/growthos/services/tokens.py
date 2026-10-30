@@ -21,6 +21,7 @@ _MAX_CANDIDATE_LENGTH = 512
 class TokenPurpose(StrEnum):
     ORGANIZATION_INVITE = "organization_invite"
     PASSWORD_RESET = "password_reset"
+    INTEGRATION_READ = "integration_read"
 
 
 @dataclass(frozen=True, slots=True)
